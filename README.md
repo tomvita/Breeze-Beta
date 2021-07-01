@@ -16,7 +16,7 @@ I have three objectives:
 4. Consistant and easy to use UI.
 
 # How to install
-Copy the contents of Breeze.zip to the root of you SD card.
+Copy the contents of Breeze.zip to the root of your SD card.
 
 # Acknowledgement
 The UI framework is derived from daybreak.
