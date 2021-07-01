@@ -15,7 +15,7 @@ I have three objectives:
 3. Auto update of app and database. 
 4. Consistant and easy to use UI.
 
-#How to install
+# How to install
 Copy the contents of Breeze.zip to the root of you SD card.
 
 # Acknowledgement
