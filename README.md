@@ -11,7 +11,7 @@ I have three objectives:
 
 # Features 
 1. Manage cheat codes for atmosphere cheat VM. Toggling code on/off, easy adding/removing of conditional key, loading cheats from cheat database, picking cheats from multiple cheat file, editing cheats in app.
-2. Search memory, edit memory, freeze memory, search for pointer chain to locate dynamic memory location. Creat memory and pointer chain bookmark. Generate cheat code from bookmark. Generate bookmark from cheat code.
+2. (Not yet implemented) Search memory, edit memory, freeze memory, search for pointer chain to locate dynamic memory location. Creat memory and pointer chain bookmark. Generate cheat code from bookmark. Generate bookmark from cheat code.
 3. Auto update of app and database. 
 4. Consistant and easy to use UI.
 
