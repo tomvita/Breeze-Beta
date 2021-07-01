@@ -15,6 +15,9 @@ I have three objectives:
 3. Auto update of app and database. 
 4. Consistant and easy to use UI.
 
+#How to install
+Copy the contents of Breeze.zip to the root of you SD card.
+
 # Acknowledgement
 The UI framework is derived from daybreak.
 The knowledge on game hacking is gain from making edizon se and many thanks to Werwolv for showing the way both in the work he did and the advise he gave. 
