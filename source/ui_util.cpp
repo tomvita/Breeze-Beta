@@ -17,7 +17,7 @@
 #include <cstdio>
 #include <math.h>
 
-namespace dbk {
+namespace air {
 
     namespace {
 
@@ -57,7 +57,7 @@ namespace dbk {
 
     void DrawWindow(NVGcontext *vg, const char *title, float x, float y, float w, float h) {
         /* Draw the window background. */
-        const NVGpaint window_bg_paint = nvgLinearGradient(vg, x + w / 2.0f, y, x + w / 2.0f, y + h + h / 4.0f, nvgRGB(255, 255, 255), nvgRGB(188, 214, 234));
+        const NVGpaint window_bg_paint = nvgLinearGradient(vg, x + w / 2.0f, y, x + w / 2.0f, y + h + h / 4.0f, nvgRGBA(255, 255, 255, 150), nvgRGBA(188, 214, 234, 255));
         nvgBeginPath(vg);
         nvgRoundedRect(vg, x, y, w, h, WindowCornerRadius);
         nvgFillPaint(vg, window_bg_paint);

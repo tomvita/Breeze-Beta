@@ -19,8 +19,8 @@
 #include <nanovg_dk.h>
 #include <nanovg/framework/CApplication.h>
 #include "ui.hpp"
-#include "ams_su.h"
-
+// #include "ams_su.h"
+#include "dmntcht.h"
 extern "C" {
 
     void userAppInit(void) {
@@ -50,6 +50,10 @@ extern "C" {
             fatalThrow(rc);
         }
 
+        if (R_FAILED(rc = dmntchtInitialize())) {
+            fatalThrow(rc);
+        }
+
     }
 
     void userAppExit(void) {
@@ -59,7 +63,8 @@ extern "C" {
         plExit();
         spsmExit();
         romfsExit();
-        amssuExit();
+        // amssuExit();
+        dmntchtExit();
     }
 
 }
@@ -71,7 +76,7 @@ namespace {
 
 }
 
-class Daybreak : public CApplication {
+class Breeze : public CApplication {
     private:
         static constexpr unsigned NumFramebuffers = 2;
         static constexpr unsigned StaticCmdSize = 0x1000;
@@ -97,7 +102,7 @@ class Daybreak : public CApplication {
         NVGcontext *m_vg;
         int m_standard_font;
     public:
-        Daybreak() {
+        Breeze() {
             Result rc = 0;
 
             /* Create the deko3d device. */
@@ -124,14 +129,34 @@ class Daybreak : public CApplication {
 
 
             PlFontData font;
+            /* Import standard font. */            
             if (R_FAILED(rc = plGetSharedFontByType(&font, PlSharedFontType_Standard))) {
                 fatalThrow(rc);
             }
-
-            m_standard_font = nvgCreateFontMem(m_vg, "switch-standard", static_cast<u8 *>(font.address), font.size, 0);
+            nvgCreateFontMem(m_vg, "switch-standard", static_cast<u8 *>(font.address), font.size, 0);
+            /* Import extended font. (special characters) */
+            if (R_FAILED(rc = plGetSharedFontByType(&font, PlSharedFontType_NintendoExt))) {
+                fatalThrow(rc);
+            }
+            nvgCreateFontMem(m_vg, "switch-ext",      static_cast<u8 *>(font.address), font.size, 0);
+            /* Import extended font. (Chinese characters) */
+            if (R_FAILED(rc = plGetSharedFontByType(&font, PlSharedFontType_ChineseSimplified))) {
+                fatalThrow(rc);
+            }
+            nvgCreateFontMem(m_vg, "switch-chinese",      static_cast<u8 *>(font.address), font.size, 0);
+            /* Import extended font. (Korean characters) */
+            if (R_FAILED(rc = plGetSharedFontByType(&font, PlSharedFontType_KO))) {
+                fatalThrow(rc);
+            }
+            nvgCreateFontMem(m_vg, "switch-KO",      static_cast<u8 *>(font.address), font.size, 0);
+            /* Have extended font fallback onto standard font when characters are missing. */
+            m_standard_font = nvgAddFallbackFont(m_vg, "switch-standard", "switch-KO" );
+            m_standard_font = nvgAddFallbackFont(m_vg, "switch-standard", "switch-chinese" );
+            m_standard_font = nvgAddFallbackFont(m_vg, "switch-standard", "switch-ext" );
+            socketInitializeDefault();
         }
 
-        ~Daybreak() {
+        ~Breeze() {
             /* Destroy the framebuffer resources. This should be done first. */
             this->DestroyFramebufferResources();
 
@@ -140,6 +165,8 @@ class Daybreak : public CApplication {
 
             /* Destroy the renderer. */
             m_renderer.reset();
+
+            socketExit();
         }
     private:
         void CreateFramebufferResources() {
@@ -244,7 +271,7 @@ class Daybreak : public CApplication {
             m_queue.submitCommands(m_render_cmdlist);
 
             nvgBeginFrame(m_vg, FramebufferWidth, FramebufferHeight, 1.0f);
-            dbk::RenderMenu(m_vg, ns);
+            air::RenderMenu(m_vg, ns);
             nvgEndFrame(m_vg);
 
             /* Now that we are done rendering, present it to the screen. */
@@ -253,17 +280,17 @@ class Daybreak : public CApplication {
 
     public:
         bool onFrame(u64 ns) override {
-            dbk::UpdateMenu(ns);
+            air::UpdateMenu(ns);
             this->Render(ns);
-            return !dbk::IsExitRequested();
+            return !air::IsExitRequested();
         }
 };
 
 int main(int argc, char **argv) {
     /* Initialize the menu. */
-    dbk::InitializeMenu(FramebufferWidth, FramebufferHeight);
+    air::InitializeMenu(FramebufferWidth, FramebufferHeight);
 
-    Daybreak daybreak;
-    daybreak.run();
+    Breeze Breeze;
+    Breeze.run();
     return 0;
 }
