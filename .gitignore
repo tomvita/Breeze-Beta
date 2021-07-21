@@ -16,3 +16,5 @@ source/lz.h
 source/memory_edit.cpp
 source/search.cpp
 source/setting.cpp
+source/newmenu.cpp
+source/copypastemenu.cpp

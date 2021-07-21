@@ -830,44 +830,65 @@ namespace air {
                     m_menu_setting.action(buttonid, m_current_index);}
             return;
         };
-
-        if (k_down & HidNpadButton_Right)
-        {
-            /* Page down. */
-            m_current_index += 10;
-            if (m_current_index >= (m_data_entries.size() - 1)) {
-                m_current_index = m_data_entries.size() - 1;
-            }
-        }
-        else if (k_down & HidNpadButton_Left)
-        {
-            /* Page up. */
-            if (m_current_index < 10) {
-                m_current_index = 0;
+        if (options.use_dpad) {
+            if (k_down & HidNpadButton_Right) {
+                /* Page down. */
+                m_current_index += 10;
+                if (m_current_index >= (m_data_entries.size() - 1)) {
+                    m_current_index = m_data_entries.size() - 1;
+                }
+            } else if (k_down & HidNpadButton_Left) {
+                /* Page up. */
+                if (m_current_index < 10) {
+                    m_current_index = 0;
+                } else
+                    m_current_index -= 10;
+            } else if (k_down & HidNpadButton_Down) {
+                /* Scroll down. */
+                if (m_current_index >= (m_data_entries.size() - 1)) {
+                    m_current_index = 0;
+                } else {
+                    m_current_index++;
+                }
+            } else if (k_down & HidNpadButton_Up) {
+                /* Scroll up. */
+                if (m_current_index == 0) {
+                    m_current_index = m_data_entries.size() - 1;
+                } else {
+                    m_current_index--;
+                }
             } else
-                m_current_index -= 10;
+                this->UpdateButtons();
+        } else {
+            if (k_down & HidNpadButton_StickLRight) {
+                /* Page down. */
+                m_current_index += 10;
+                if (m_current_index >= (m_data_entries.size() - 1)) {
+                    m_current_index = m_data_entries.size() - 1;
+                }
+            } else if (k_down & HidNpadButton_StickLLeft) {
+                /* Page up. */
+                if (m_current_index < 10) {
+                    m_current_index = 0;
+                } else
+                    m_current_index -= 10;
+            } else if (k_down & HidNpadButton_StickLDown) {
+                /* Scroll down. */
+                if (m_current_index >= (m_data_entries.size() - 1)) {
+                    m_current_index = 0;
+                } else {
+                    m_current_index++;
+                }
+            } else if (k_down & HidNpadButton_StickLUp) {
+                /* Scroll up. */
+                if (m_current_index == 0) {
+                    m_current_index = m_data_entries.size() - 1;
+                } else {
+                    m_current_index--;
+                }
+            } else
+                this->UpdateButtons();
         }
-        else if (k_down & HidNpadButton_Down)
-        {
-            /* Scroll down. */
-            if (m_current_index >= (m_data_entries.size() - 1)) {
-                m_current_index = 0;
-            } else {
-                m_current_index++;
-            }
-        }
-        else if (k_down & HidNpadButton_Up)
-        {
-            /* Scroll up. */
-            if (m_current_index == 0) {
-                m_current_index = m_data_entries.size() - 1;
-            } else {
-                m_current_index--;
-            }
-        }
-        else
-            this->UpdateButtons();
-
         /* Take action if a button has been activated. */
         // if (const Button *activated_button = this->GetActivatedButton(); activated_button != nullptr) switch (activated_button->id)
 
@@ -890,8 +911,10 @@ namespace air {
         extension = 2 * (315 + xoffsetL);  // when xoffset is reducced from 320 can extend the windows width by this amount
         const float x = g_screen_width / 2.0f - (WindowWidth + extension) / 2.0f + xoffsetL;
         const float y = g_screen_height / 2.0f - WindowHeight / 2.0f;
-
-        DrawWindow(vg, m_menu_setting.left_panel_title.c_str(), x, y, WindowWidth + extension, WindowHeight); 
+        if (m_menu_setting.show_left_panel_index)
+            DrawWindow(vg, logtext("%s %d/%d", m_menu_setting.left_panel_title.c_str(), m_current_index + 1, m_data_entries.size()).data, x, y, WindowWidth + extension, WindowHeight);
+        else
+            DrawWindow(vg, logtext("%s", m_menu_setting.left_panel_title.c_str()).data, x, y, WindowWidth + extension, WindowHeight);
         if (m_menu_setting.show_leftpanel_status)
             DrawText(vg, x, y + 65, WindowWidth + extension, m_menu_setting.left_panel_status.c_str());
         DrawTextBackground(vg, x + TextBackgroundOffset, y + TitleGap, WindowWidth + extension - TextBackgroundOffset * 2.0f, (FileRowHeight + FileRowGap) * MaxFileRows + FileRowGap);
