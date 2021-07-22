@@ -135,6 +135,7 @@ namespace air {
                 opcode_components.push_back((OpcodeHelpEntry){{"M: Memory region to write to 0 = Main NSO, 1 = Heap, 2 = Alias(not supported by atm)"}, 0, 1});
                 opcode_components.push_back((OpcodeHelpEntry){{"R: Register to use as an offset from memory region base"}, 0, 15});
                 opcode_components.push_back((OpcodeHelpEntry){{""}, 0, 0});
+                opcode_components.push_back((OpcodeHelpEntry){{""}, 0, 0});
                 opcode_components.push_back((OpcodeHelpEntry){{"A: Immediate offset to use from memory region base"}, 0, 15});
                 opcode_components.push_back((OpcodeHelpEntry){{"A: Immediate offset to use from memory region base"}, 0, 15});
                 opcode_size = 3;
@@ -220,9 +221,9 @@ namespace air {
                 snprintf(m_VmOpcode_str, 128, "Endif");
             } break;
             case CheatVmOpcodeType_ControlLoop: {
-                opcode_components.push_back((OpcodeHelpEntry){{"ControlLoop 3X0R0000 (VVVVVVVV)"}, 0, 15});
+                opcode_components.push_back((OpcodeHelpEntry){{"ControlLoop 3XR00000 (VVVVVVVV)"}, 0, 15});
                 opcode_components.push_back((OpcodeHelpEntry){{"0: start 1: Stop "}, 0, 1});
-                opcode_components.push_back((OpcodeHelpEntry){{""}, 0, 0});
+                // opcode_components.push_back((OpcodeHelpEntry){{""}, 0, 0});
                 opcode_components.push_back((OpcodeHelpEntry){{"R: Register to use as counter"}, 0, 15});
                 opcode_size = 1;
                 /* 300R0000 VVVVVVVV */
@@ -404,11 +405,11 @@ namespace air {
                         opcode_components.push_back((OpcodeHelpEntry){{"a: Value used as offset"}, 0, 15});
                         break;
                     case 3:
-                        opcode_components.push_back((OpcodeHelpEntry){{"x: Memory type"}, 0, 15});
+                        opcode_components.push_back((OpcodeHelpEntry){{"x: Memory type 0 = Main NSO, 1 = Heap, 2 = Alias(not supported by atm)"}, 0, 1}); 
                         break;
                     case 4:
                     case 5:
-                        opcode_components.push_back((OpcodeHelpEntry){{"x: Memory type"}, 0, 15});
+                        opcode_components.push_back((OpcodeHelpEntry){{"x: Memory type 0 = Main NSO, 1 = Heap, 2 = Alias(not supported by atm)"}, 0, 1});
                         opcode_components.push_back((OpcodeHelpEntry){{"a: Value used as offset"}, 0, 15});
                         break;
                     default:
@@ -492,6 +493,9 @@ namespace air {
                         break;
                     case 5:
                         opcode_components.push_back((OpcodeHelpEntry){{"BeginRegisterConditionalBlock C0TcS5X0"}, 0, 15});
+                        break;
+                    default:
+                        opcode_components.push_back((OpcodeHelpEntry){{"BeginRegisterConditionalBlock C0TcSX##"}, 0, 15});
                         break;
                 };
                 opcode_components.push_back((OpcodeHelpEntry){{"C0 = opcode 0xC0"}, 0, 3});
@@ -876,12 +880,16 @@ namespace air {
     void AssembleActions::menu_action(u32 buttonid, u32 index) {
         switch (buttonid) {
             case 1000:
+                if (index < opcode_components.size())
+                    opcode_index = index;
                 populate_list(m_offset); // always refresh the list;
                 // char message[100] = "status";
                 // snprintf(message, sizeof(message) - 1, " Index = %ld / %ld", m_offset + index + 1, file->size() / sizeof(from_to));
                 // this->menu->m_menu_setting.left_panel_status = message;
                 return;
             case 1:
+                this->menu_action(2,1);
+                populate_list(m_offset); 
                 CheatVmOpcode VmOpcode;
                 if (!DecodeNextOpcode(&VmOpcode)) {
                     air::ChangeMenu(std::make_shared<MessageMenu>(
@@ -902,7 +910,8 @@ namespace air {
                 return;
             };
             case 11:
-                air::ReturnToPreviousMenu();
+                // air::ReturnToPreviousMenu();
+                air::ChangeMenu(Edit_Cheat_menu());
                 return;
             case 2:
                 switch (opcode.opcode) {
@@ -918,6 +927,11 @@ namespace air {
                     default:
                         break;
                 };
+                for (size_t i = 1; i < opcode_components.size(); i++) {
+                    u8 code = (m_opcodes[0] >> ((7 - i) * 4)) & 0xF;
+                    if (code > opcode_components[i].upperbound)
+                        m_opcodes[0] = (m_opcodes[0] & ~(0xF << ((7 - i) * 4))) + ((opcode_components[i].upperbound << ((7 - i) * 4)));
+                }
                 switch (opcode.opcode) {
                     case 0:
                     case 1:
@@ -927,7 +941,7 @@ namespace air {
                         m_opcodes[0] = 0x20000000;
                         break;
                     case 3:
-                        m_opcodes[0] = m_opcodes[0] & 0xF10F0000;
+                        m_opcodes[0] = m_opcodes[0] & 0xF1F00000;
                         break;
                     case 4:
                         m_opcodes[0] = m_opcodes[0] & 0xF00F0000;
@@ -936,7 +950,7 @@ namespace air {
                         m_opcodes[0] = m_opcodes[0] & 0xFF3F10FF;
                         break;
                     case 6:
-                        m_opcodes[0] = m_opcodes[0] & 0xFF0F1FF0;
+                        m_opcodes[0] = m_opcodes[0] & 0xFF0F11F0;
                         break;
                     case 7:
                         m_opcodes[0] = m_opcodes[0] & 0xFF0FF000;
@@ -944,8 +958,11 @@ namespace air {
                     case 9:
                         m_opcodes[0] = m_opcodes[0] & 0xFFFFF1F0;
                         break;
+                    case 10:
+                        m_opcodes[0] = m_opcodes[0] & 0xFFFF17FF;
+                        break;
                     case 0xC0:
-                        m_opcodes[0] = m_opcodes[0] & 0xFFF7F7FF;
+                        m_opcodes[0] = m_opcodes[0] & 0xFFF7F5FF;
                         break;
                     case 0xC1:
                         m_opcodes[0] = m_opcodes[0] & 0xFF0F0F30;
@@ -959,9 +976,15 @@ namespace air {
                     case 0xFF0:
                     case 0xFF1:
                     default:
-                        m_opcodes[0] = m_opcodes[0] & 0x7FFFFFFF;
+                        if ((((m_opcodes[0] >> 28) & 0xF)) == 0xC)
+                            m_opcodes[0] = m_opcodes[0] & 0xF3FFFFFF;
+                        else if ((((m_opcodes[0] >> 28) & 0xF)) == 0xF)
+                            m_opcodes[0] = (m_opcodes[0] | 0x0F000000) & 0xFF1FFFFF;
+                        else
+                            m_opcodes[0] = (m_opcodes[0] | 0xF0000000) & 0xCFFFFFFF;
                         break;
                 };
+
                 if (index < opcode_components.size())
                     opcode_index = index;
                 else
@@ -985,6 +1008,8 @@ namespace air {
                 u8 code = (m_opcodes[0] >> ((7 - opcode_index) * 4)) & 0xF;
                 if (code < opcode_components[opcode_index].upperbound)
                     m_opcodes[0] += (1 << ((7 - opcode_index) * 4));
+                else
+                    m_opcodes[0] = (m_opcodes[0] & ~(0xF << ((7 - opcode_index) * 4))) + ((opcode_components[opcode_index].upperbound << ((7 - opcode_index) * 4)));
                 return;
             }
             default:
