@@ -221,17 +221,17 @@ namespace air {
                 snprintf(m_VmOpcode_str, 128, "Endif");
             } break;
             case CheatVmOpcodeType_ControlLoop: {
-                opcode_components.push_back((OpcodeHelpEntry){{"ControlLoop 3XR00000 (VVVVVVVV)"}, 0, 15});
+                opcode_components.push_back((OpcodeHelpEntry){{"ControlLoop 3XRR0000 (VVVVVVVV)"}, 0, 15}); // RR for backward compatibility with older version of cheatVM 
                 opcode_components.push_back((OpcodeHelpEntry){{"0: start 1: Stop "}, 0, 1});
-                // opcode_components.push_back((OpcodeHelpEntry){{""}, 0, 0});
+                opcode_components.push_back((OpcodeHelpEntry){{""}, 0, 15});
                 opcode_components.push_back((OpcodeHelpEntry){{"R: Register to use as counter"}, 0, 15});
                 opcode_size = 1;
                 /* 300R0000 VVVVVVVV */
                 /* 310R0000 */
                 /* Parse register, whether loop start or loop end. */
                 opcode.ctrl_loop.start_loop = ((first_dword >> 24) & 0xF) == 0;
-                opcode.ctrl_loop.reg_index = ((first_dword >> 20) & 0xF);
-
+                opcode.ctrl_loop.reg_index = ((first_dword >> 16) & 0xF);
+                m_opcodes[0] = (m_opcodes[0] & ~(0xF << ((7 - 2) * 4))) + ((opcode.ctrl_loop.reg_index << ((7 - 2) * 4))); // RR for backward compatibility with older version of cheatVM 
                 /* Read number of iters if loop start. */
                 if (opcode.ctrl_loop.start_loop) {
                     opcode.ctrl_loop.num_iters = GetNextDword();
@@ -301,10 +301,10 @@ namespace air {
                 opcode.str_static.offset_reg_index = ((first_dword >> 4) & 0xF);
                 opcode.str_static.value = (((u64)GetNextDword()) << 32ul) | ((u64)GetNextDword());
                 if (opcode.str_static.add_offset_reg)
-                    snprintf(m_VmOpcode_str, 128, "[R%d+R%d]=%016lX W=%d", opcode.str_static.reg_index,
+                    snprintf(m_VmOpcode_str, 128, "[R%d+R%d]=0x%016lX W=%d", opcode.str_static.reg_index,
                              opcode.str_static.offset_reg_index, opcode.str_static.value, opcode.str_static.bit_width);
                 else
-                    snprintf(m_VmOpcode_str, 128, "[R%d]=%016lX W=%d", opcode.str_static.reg_index,
+                    snprintf(m_VmOpcode_str, 128, "[R%d]=0x%016lX W=%d", opcode.str_static.reg_index,
                              opcode.str_static.value, opcode.str_static.bit_width);
                 if (opcode.str_static.increment_reg == 1)
                     strcat(m_VmOpcode_str,logtext(" R%d+=%d",opcode.str_static.reg_index,opcode.str_static.bit_width).data);
@@ -322,7 +322,7 @@ namespace air {
                 opcode.perform_math_static.reg_index = ((first_dword >> 16) & 0xF);
                 opcode.perform_math_static.math_type = (RegisterArithmeticType)((first_dword >> 12) & 0xF);
                 opcode.perform_math_static.value = GetNextDword();
-                snprintf(m_VmOpcode_str, 128, "R%d%s0x%08X", opcode.perform_math_static.reg_index, math_str[opcode.perform_math_static.math_type], opcode.perform_math_static.value);
+                snprintf(m_VmOpcode_str, 128, "R%d=R%d%s0x%08X", opcode.perform_math_static.reg_index, opcode.perform_math_static.reg_index, math_str[opcode.perform_math_static.math_type], opcode.perform_math_static.value);
             } break;
             case CheatVmOpcodeType_BeginKeypressConditionalBlock: {
                 opcode_components.push_back((OpcodeHelpEntry){{"BeginKeypressConditionalBlock 8kkkkkkk"}, 0, 15});
@@ -696,6 +696,54 @@ namespace air {
                 snprintf(m_VmOpcode_str, 128, "ResumeProcess");
             } break;
             case CheatVmOpcodeType_DebugLog: {
+                opcode_size = 1;
+                switch (opcode.debug_log.val_type) {
+                    case DebugLogValueType_RegisterValue:
+                        opcode_components.push_back((OpcodeHelpEntry){{"DebugLog FFFTI4X0"}, 0, 15});
+                        break;
+                    case DebugLogValueType_MemoryRelAddr:
+                        opcode_components.push_back((OpcodeHelpEntry){{"DebugLog FFFTI0Ma aaaaaaaa"}, 0, 15});
+                        opcode_size = 2;
+                        break;
+                    case DebugLogValueType_MemoryOfsReg:
+                        opcode_components.push_back((OpcodeHelpEntry){{"DebugLog FFFTI1Mr"}, 0, 15});
+                        break;
+                    case DebugLogValueType_RegisterRelAddr:
+                        opcode_components.push_back((OpcodeHelpEntry){{"DebugLog FFFTI2Ra aaaaaaaa"}, 0, 15});
+                        opcode_size = 2;
+                        break;
+                    case DebugLogValueType_RegisterOfsReg:
+                        opcode_components.push_back((OpcodeHelpEntry){{"DebugLog FFFTI3Rr"}, 0, 15});
+                        break;
+                };
+                opcode_components.push_back((OpcodeHelpEntry){{"F"}, 15, 15});
+                opcode_components.push_back((OpcodeHelpEntry){{"F"}, 15, 15});
+                opcode_components.push_back((OpcodeHelpEntry){{"T: bit width"}, 0, 8});
+                opcode_components.push_back((OpcodeHelpEntry){{"I: log id"}, 0, 15});
+                opcode_components.push_back((OpcodeHelpEntry){{"value operand type"}, 0, 4});
+                switch (opcode.debug_log.val_type) {
+                    case DebugLogValueType_RegisterValue:
+                        opcode_components.push_back((OpcodeHelpEntry){{"X: value register"}, 0, 15});
+                        opcode_components.push_back((OpcodeHelpEntry){{"0"}, 0, 0});
+                        break;
+                    case DebugLogValueType_MemoryRelAddr:
+                        opcode_components.push_back((OpcodeHelpEntry){{"M = memory type"}, 0, 3});
+                        opcode_components.push_back((OpcodeHelpEntry){{"a = relative address"}, 0, 15});
+                        break;
+                    case DebugLogValueType_MemoryOfsReg:
+                        opcode_components.push_back((OpcodeHelpEntry){{"M = memory type"}, 0, 3});
+                        opcode_components.push_back((OpcodeHelpEntry){{"r: offset register"}, 0, 15});
+                        break;
+                    case DebugLogValueType_RegisterRelAddr:
+                        opcode_components.push_back((OpcodeHelpEntry){{"R = address register"}, 0, 15});
+                        opcode_components.push_back((OpcodeHelpEntry){{"a = relative address"}, 0, 15});
+                        break;
+                    case DebugLogValueType_RegisterOfsReg:
+                        opcode_components.push_back((OpcodeHelpEntry){{"R = address register"}, 0, 15});
+                        opcode_components.push_back((OpcodeHelpEntry){{"r: offset register"}, 0, 15});
+                        break;
+                };
+
                 /* FFFTIX## */
                 /* FFFTI0Ma aaaaaaaa */
                 /* FFFTI1Mr */
@@ -719,25 +767,30 @@ namespace air {
                 switch (opcode.debug_log.val_type) {
                     case DebugLogValueType_RegisterValue:
                         opcode.debug_log.val_reg_index = ((first_dword >> 4) & 0xF);
+                        snprintf(m_VmOpcode_str, 128, "Write debug_log %d W= %d R%d", opcode.debug_log.log_id, opcode.debug_log.bit_width, opcode.debug_log.val_reg_index);
                         break;
                     case DebugLogValueType_MemoryRelAddr:
                         opcode.debug_log.mem_type = (MemoryAccessType)((first_dword >> 4) & 0xF);
                         opcode.debug_log.rel_address = (((u64)(first_dword & 0xF) << 32ul) | ((u64)GetNextDword()));
+                        snprintf(m_VmOpcode_str, 128, "Write debug_log %d W= %d [%s+0x%09lX]", opcode.debug_log.log_id, opcode.debug_log.bit_width, (opcode.debug_log.mem_type == 0) ? "Main" : ((opcode.debug_log.mem_type == 1) ? "Heap" : ((opcode.debug_log.mem_type == 2) ? "Alias" : "Alrs")) ,opcode.debug_log.rel_address );
                         break;
                     case DebugLogValueType_MemoryOfsReg:
                         opcode.debug_log.mem_type = (MemoryAccessType)((first_dword >> 4) & 0xF);
                         opcode.debug_log.ofs_reg_index = (first_dword & 0xF);
+                        snprintf(m_VmOpcode_str, 128, "Write debug_log %d W= %d [%s+R%d]", opcode.debug_log.log_id, opcode.debug_log.bit_width, (opcode.debug_log.mem_type == 0) ? "Main" : ((opcode.debug_log.mem_type == 1) ? "Heap" : ((opcode.debug_log.mem_type == 2) ? "Alias" : "Alrs")) ,opcode.debug_log.ofs_reg_index );
                         break;
                     case DebugLogValueType_RegisterRelAddr:
                         opcode.debug_log.addr_reg_index = ((first_dword >> 4) & 0xF);
                         opcode.debug_log.rel_address = (((u64)(first_dword & 0xF) << 32ul) | ((u64)GetNextDword()));
+                        snprintf(m_VmOpcode_str, 128, "Write debug_log %d W= %d [R%d+0x%09lX]", opcode.debug_log.log_id, opcode.debug_log.bit_width,  opcode.debug_log.addr_reg_index, opcode.debug_log.rel_address);
                         break;
                     case DebugLogValueType_RegisterOfsReg:
                         opcode.debug_log.addr_reg_index = ((first_dword >> 4) & 0xF);
                         opcode.debug_log.ofs_reg_index = (first_dword & 0xF);
+                        snprintf(m_VmOpcode_str, 128, "Write debug_log %d W= %d [R%d+R%d]", opcode.debug_log.log_id, opcode.debug_log.bit_width,  opcode.debug_log.addr_reg_index, opcode.debug_log.ofs_reg_index);
                         break;
                 }
-                snprintf(m_VmOpcode_str, 128, "DebugLog");
+                // snprintf(m_VmOpcode_str, 128, "DebugLog");
             } break;
             case CheatVmOpcodeType_ExtendedWidth:
             case CheatVmOpcodeType_DoubleExtendedWidth:
@@ -941,7 +994,7 @@ namespace air {
                         m_opcodes[0] = 0x20000000;
                         break;
                     case 3:
-                        m_opcodes[0] = m_opcodes[0] & 0xF1F00000;
+                        m_opcodes[0] = m_opcodes[0] & 0xF1FF0000;
                         break;
                     case 4:
                         m_opcodes[0] = m_opcodes[0] & 0xF00F0000;
@@ -975,6 +1028,8 @@ namespace air {
                         break;
                     case 0xFF0:
                     case 0xFF1:
+                    case 0xFFF:
+                        break;
                     default:
                         if ((((m_opcodes[0] >> 28) & 0xF)) == 0xC)
                             m_opcodes[0] = m_opcodes[0] & 0xF3FFFFFF;
