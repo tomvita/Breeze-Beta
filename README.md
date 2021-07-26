@@ -18,6 +18,9 @@ I have three objectives:
 # How to install
 Copy the contents of Breeze.zip to the root of your SD card.
 
+# How to use
+https://github.com/tomvita/Breeze-Beta/wiki
+
 # Acknowledgement
 The UI framework is derived from daybreak.
 The knowledge on game hacking is gain from making edizon se and many thanks to Werwolv for showing the way both in the work he did and the advise he gave. 
