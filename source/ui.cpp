@@ -3017,7 +3017,7 @@ namespace air {
         const u32 version_major = (version >> 56) & 0xff;
 
         /* Validate the exosphere version. */
-        const bool ams_supports_sysupdate_api = version_major >= 0 && version_minor >= 14 && version_micro >= 0;
+        const bool ams_supports_sysupdate_api = version_major > 0 || version_minor >= 14;
         if (!ams_supports_sysupdate_api) {
             ChangeMenu(std::make_shared<ErrorMenu>("Outdated Atmosphere version", "Breeze requires Atmosphere 0.14.0 or later.", rc));
             return;
