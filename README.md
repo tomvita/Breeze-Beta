@@ -15,6 +15,14 @@ I have three objectives:
 3. Auto update of app and database. 
 4. Consistant and easy to use UI.
 
+# Search concepts
+1. Memory locations use for storing data of interest can remain static for a window of time. The objective of search is to locate these location while it is still valid.
+2. Game state where such memory locations remain static can vary between games. For most game many location of interest stay between loading screen. Some location only stay for a certain mode, for example in a specific screen and is lost upon exiting the screen. It is for the user to guess the condition (where memory address of the data of interest stay static) and hope that the search converge within the window of opportunity.
+3. The data type is the format how data is stored in memory. Commonly use data types are u32, f32, f64, u16, u8, obfuscate type, packed integer (in my opinion try your search in this order). 
+4. What you see is what you search(first). Normally you will start with a known(you think you know the data format and value) search. Guess the data type and make search for the number that you see on screen. 
+5. Fast unknown(fuzzy) search. Sometimes the value is not directly represented. For example a heart may be not 1 in data representation but is 4 or 5 or 10 ... or you may see a bar on screen. Guess the datatype and try range search first, for example you see three heart, search for number between 3 and 300(make the range too big it will take longer time to converge, make the range too small and you risk excluding the data and the whole search in vain), play until you loose heart, search for less (current value < previous value), continue to search for less or more(in case you have potion to recover heart) until you have a smaller list of candidates.
+6. Full unknown search. When 4 and 5 above fail to give you the results that you seek first examine you assumption on point 2 above and decide if you want to repeat 4 and 5. When you are sure you want to do full unknow search then continue as full unknown search is time consuming. First do a dump on memory. See that the item you want to search has changed, now you have another decision to make, if you think you know that the number is increasing or decreasing do "increasing" or "decreasing" search, if you have no idea do "different" search. 
+
 # How to install
 Copy the contents of Breeze.zip to the root of your SD card.
 
