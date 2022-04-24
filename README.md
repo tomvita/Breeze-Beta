@@ -36,6 +36,7 @@ I have three objectives:
 4. There is two way to start a search. "memory dump"(then "dump compare" followed by as many "continue search" as desired) or "start search"(follow by as many "continue search" as desired). 
 5. "dump compare" and "continue search" can only be follow up action upon a prior search file. "dump compare" requires a prior memory dump file and "continue search" requires a prior address data pair file. 
 6. This system allows as many undo and as many search missions as your storage can support and you can continue or start any search any time within the windows of time where the memory state is valid. Name the file according to your preference to help you identify them. You can delete any file to free space. 
+7. All search can be paused with the "Pause Search" command. The search will resume with any search command("memory dump", "dump compare", "start search", "continue search"). To issue a new search command use "End Search" to end the current search. When "End Search" is issued the file is closed and can be use for subsequent search even if the search wasn't 100% complete.  
 
 # How to install
 Copy the contents of Breeze.zip to the root of your SD card.
