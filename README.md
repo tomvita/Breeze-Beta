@@ -29,6 +29,14 @@ I have three objectives:
 3. The most valuable memory address is of course the one that store the effective value but sometimes the game don't fetch this and update the display regularly and instead only update the display when the game code make the change to the value. So you may miss it and think that the address isn't the right one, instead you may think that the display value is the one, only to be disappointed later when you found out that you have been fooled. Display value and those other value that only change in tandem are useful in code tracing that leads to effective value.
 4. ASLR cause memory address of a Switch game to be always different when you start a game. What is call "static" address are those that are static relative to the start of game code(main) or relative to the start of dynamic storage(heap). For static address once you have found it you are done as main and heap are both easy to locate and will be automatically supplied by (probably)all hacking tools. Unfortunately not all memory of interest are "static", for these either a game code hack(often referred to as ASM hack) is needed or a pointer chain is needed(to find this chain is often referred to as pointer search). 
 
+# Breeze search manager
+1. There are search commands: "memory dump", "dump compare", "start search", "continue search".
+2. Each search command produce a file with the extension of ".dat" in "sdmc:\switch\Breeze\". These files are valid only while in the window of opportunity to find the target(Please read search concept above). While in the current game session Breeze can't tell if you are still in the window of opportunity, it's a matter for you to decide if you want to keep any of the file produced. If you enter search manager in a different gaming session Breeze will delete the useless files(before you do this the files will be taking up space and you may want to delete them manually, some of these file can be very large in size). 
+3. There are two type of search file in Breeze, memory dump and address data pair of candidates found. "memory dump" is the only command that produces memory dump, the rest of the commands produce address data pair.
+4. There is two way to start a search. "memory dump"(then "dump compare" followed by as many "continue search" as desired) or "start search"(follow by as many "continue search" as desired). 
+5. "dump compare" and "continue search" can only be follow up action upon a prior search file. "dump compare" requires a prior memory dump file and "continue search" requires a prior address data pair file. 
+6. This system allows as many undo and as many search missions as your storage can support and you can continue or start any search any time within the windows of time where the memory state is valid. Name the file according to your preference to help you identify them. You can delete any file to free space. 
+
 # How to install
 Copy the contents of Breeze.zip to the root of your SD card.
 
