@@ -11,9 +11,10 @@ I have three objectives:
 
 # Features 
 1. Manage cheat codes for atmosphere cheat VM. Toggling code on/off, easy adding/removing of conditional key, loading cheats from cheat database, picking cheats from multiple cheat file, editing cheats in app.
-2. Search memory, edit memory, freeze memory, search for pointer chain to locate dynamic memory location. Creat memory and pointer chain bookmark. Generate cheat code from bookmark. Generate bookmark from cheat code.
-3. Auto update of app and database. 
-4. Consistant and easy to use UI.
+2. Search memory, edit memory, freeze memory.
+3. (TBD) Search for pointer chain to locate dynamic memory location. Creat memory and pointer chain bookmark. Generate cheat code from bookmark. Generate bookmark from cheat code.
+4. Auto update of app and database. 
+5. Consistant and easy to use UI.
 
 # Search concepts
 1. Memory locations use for storing data of interest can remain static for a window of time. The objective of search is to locate these location while it is still valid.
