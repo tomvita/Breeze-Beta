@@ -59,7 +59,7 @@ I have three objectives:
   
 # Breeze result files
 1. The search result is stored as 64bit address data pair. 
-2. First search will scan the whole memory range specified (currently that is all the memory that the game have RW access).
+2. First search will scan the whole memory range specified (currently that is all the memory that the game have read and write access).
 3. Subsequent search (search that make use of the resulten file) only look at the address in the prior file used and depending on the search mode it may or may not make use of the stored data in the prior search result file.
 4. Up to three files can be involved in a search. 
 5. Using the search manager interface you specify a prior file (A file) to be used for the address range and optionally a B file used for data.
