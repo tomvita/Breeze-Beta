@@ -67,6 +67,7 @@ I have three objectives:
 6. "++", "--", "DIFF", "SAME", "++Val", "--Val" compares current value in RAM at the address stored in A file to the value stored in A file.
 7. "DIFFB", "SAMEB", "B++", "B--" compares current value in RAM at the address stored in A file to the value stored in B file at the same address.
 8. "NotAB" looks for value at the address stored in A file that has value that is different from both the value stored in A file and the value stored in B file.
+9. The whole process continues until the number stored in the result files becomes small enough for hacking to start.
 
 # How to install
 Copy the contents of Breeze.zip to the root of your SD card.
