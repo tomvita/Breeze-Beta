@@ -39,16 +39,6 @@ I have three objectives:
 6. This system allows as many undo and as many search missions as your storage can support and you can continue or start any search any time within the windows of time where the memory state is valid. Name the file according to your preference to help you identify them. You can delete any file to free space. 
 7. All search can be paused with the "Pause Search" command. The search will resume with any search command ("memory dump", "dump compare", "start search", "continue search"). To issue a new search command use "End Search" to end the current search. When "End Search" is issued the file is closed and can be use for follow on search even if the search wasn't 100% complete, you may choose to do this if you have the gut feeling that the target is already in the found candidates list. 
 
-# Breeze result files
-1. The search result is stored as 64bit address data pair. 
-2. First search will scan the whole memory range specified (currently that is all the memory that the game have RW access).
-3. Subsequent search (search that make use of the resulten file) only look at the address in the prior file used and depending on the search mode it may or may not make use of the stored data in the prior search result file.
-4. Up to three files can be involved in a search. 
-5. Using the search manager interface you specify a prior file (A file) to be used for the address range and optionally a B file used for data.
-6. "++", "--", "DIFF", "SAME", "++Val", "--Val" compares current value in RAM at the address stored in A file to the value stored in A file.
-7. "DIFFB", "SAMEB", "B++", "B--" compares current value in RAM at the address stored in A file to the value stored in B file at the same address.
-8. "NotAB" looks for value at the address stored in A file that has value that is different from both the value stored in A file and the value stored in B file.
-
 # Breeze data type
 1. "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "flt", "dbl", "pointer"
 
@@ -67,6 +57,16 @@ I have three objectives:
 5. f32 [A..B] 0.1 .. 1000 means you are looking for a value between 0.1 and 1000 inclusive of 0.1 and 1000 in the floating point format.
 6. f32 <A..B> 0.1 .. 1000 means you are looking for a value between 0.1 and 1000 excluding 0.1 and 1000 in floating point format.
   
+# Breeze result files
+1. The search result is stored as 64bit address data pair. 
+2. First search will scan the whole memory range specified (currently that is all the memory that the game have RW access).
+3. Subsequent search (search that make use of the resulten file) only look at the address in the prior file used and depending on the search mode it may or may not make use of the stored data in the prior search result file.
+4. Up to three files can be involved in a search. 
+5. Using the search manager interface you specify a prior file (A file) to be used for the address range and optionally a B file used for data.
+6. "++", "--", "DIFF", "SAME", "++Val", "--Val" compares current value in RAM at the address stored in A file to the value stored in A file.
+7. "DIFFB", "SAMEB", "B++", "B--" compares current value in RAM at the address stored in A file to the value stored in B file at the same address.
+8. "NotAB" looks for value at the address stored in A file that has value that is different from both the value stored in A file and the value stored in B file.
+
 # How to install
 Copy the contents of Breeze.zip to the root of your SD card.
 
