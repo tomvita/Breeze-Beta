@@ -55,9 +55,10 @@ I have three objectives:
 1. The search condition is display in this format: DataType SearchMode Value A .. Value B
 2. Value A and Value B is displayed in the data type chosen of if hex mode is enabled in hex.
 3. u32 == 123 means you are searching for the value 123 encoded in unsign 32 interger format.
-4. f32 == 123 means you are searching for the value 123 in floating point format. 
-5. f32 [A..B] 0.1 .. 1000 means you are looking for a value between 0.1 and 1000 inclusive of 0.1 and 1000 in the floating point format.
-6. f32 <A..B> 0.1 .. 1000 means you are looking for a value between 0.1 and 1000 excluding 0.1 and 1000 in floating point format.
+4. flt == 123 means you are searching for the value 123 in floating point format. 
+5. flt [A..B] 0.1 .. 1000 means you are looking for a value between 0.1 and 1000 inclusive of 0.1 and 1000 in the floating point format.
+6. flt <A..B> 0.1 .. 1000 means you are looking for a value between 0.1 and 1000 excluding 0.1 and 1000 in floating point format.
+7. flt ++Val 2.0 means you are looking for a value that has increased by 2.0 from the prior search.
   
 # Breeze result files
 1. The search result is stored as 64bit address data pair. 
