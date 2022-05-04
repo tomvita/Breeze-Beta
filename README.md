@@ -39,6 +39,20 @@ I have three objectives:
 6. This system allows as many undo and as many search missions as your storage can support and you can continue or start any search any time within the windows of time where the memory state is valid. Name the file according to your preference to help you identify them. You can delete any file to free space. 
 7. All search can be paused with the "Pause Search" command. The search will resume with any search command ("memory dump", "dump compare", "start search", "continue search"). To issue a new search command use "End Search" to end the current search. When "End Search" is issued the file is closed and can be use for follow on search even if the search wasn't 100% complete, you may choose to do this if you have the gut feeling that the target is already in the found candidates list. 
 
+# Breeze data type
+1. "u8", "s8", "u16", "s16", "u32", "s32", "u64", "s64", "flt", "dbl", "pointer"
+
+# Breeze search mode
+1. "==", "!=", ">", "<", ">=", "<=", "[A..B]", "<A..B>", "++", "--", "DIFF", "SAME", "[A,B]", "[A,,B]", "STRING", "++Val", "--Val", "NONE", "DIFFB", "SAMEB", "B++", "B--", "NotAB"
+
+# Breeze serach condition display
+1. The search condition is display in this format: DataType SearchMode Value A .. Value B
+2. Value A and Value B is displayed in the data type chosen of if hex mode is enabled in hex.
+3. u32 == 123 means you are searching for the value 123 encoded in unsign 32 interger format.
+4. f32 == 123 means you are searching for the value 123 in floating point format. 
+5. f32 [A..B] 0.1 .. 1000 means you are looking for a value between 0.1 and 1000 inclusive of 0.1 and 1000 in the floating point format.
+6. f32 <A..B> 0.1 .. 1000 means you are looking for a value between 0.1 and 1000 excluding 0.1 and 1000 in floating point format.
+  
 # How to install
 Copy the contents of Breeze.zip to the root of your SD card.
 
