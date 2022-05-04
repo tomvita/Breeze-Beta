@@ -46,7 +46,7 @@ I have three objectives:
 1. "==", "!=", ">", "<", ">=", "<=", "[A..B]", "<A..B>", "++", "--", "DIFF", "SAME", "[A,B]", "[A,,B]", "STRING", "++Val", "--Val", "DIFFB", "SAMEB", "B++", "B--", "NotAB"
 2. Search mode that is comparing current value to a known value. "==", "!=", ">", "<", ">=", "<="
 3. Search mode that is looking for current value that falls within a range. "[A..B]", "<A..B>"
-4. Search mode that looks for a sting of either null terminated text or a string of hex bytes. "STRING"
+4. Search mode that looks for a string of either null terminated text or a string of hex bytes. "STRING"
 5. Search mode that is comparing current value to a unknown value. "++", "--", "DIFF", "SAME", "++Val", "--Val", "DIFFB", "SAMEB", "B++", "B--"
 6. The whole purpose of search is to have a small list of address of which some of them can cause the desired effect when hacked. 
 
