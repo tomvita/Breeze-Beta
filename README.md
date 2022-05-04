@@ -48,7 +48,8 @@ I have three objectives:
 3. Search mode that is looking for current value that falls within a range. "[A..B]", "<A..B>"
 4. Search mode that looks for a string of either null terminated text or a string of hex bytes. "STRING"
 5. Search mode that is comparing current value to a unknown value. "++", "--", "DIFF", "SAME", "++Val", "--Val", "DIFFB", "SAMEB", "B++", "B--"
-6. The whole purpose of search is to have a small list of address of which some of them can cause the desired effect when hacked. 
+6. Two value search mode looks for two value to be present. "[A,B]" looks for A follow immediately by B, "[A,,B]" looks for A then B that is near (right now within 3 spaces from A in front or hehind). 
+7. The whole purpose of search is to have a small list of address of which some of them can cause the desired effect when hacked. 
 
 # Breeze serach condition display
 1. The search condition is display in this format: DataType SearchMode Value A .. Value B
