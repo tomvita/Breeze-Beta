@@ -1261,6 +1261,9 @@ namespace air {
             g_exit_requested = true;
         }
         // run_once_per_launch();
+        std::shared_ptr<Newmenu> action = std::make_shared<Newmenu>();
+        action->menu->m_menu_setting.action2 = action;
+        air::ChangeMenu(action->menu);
         /* Take action if a button has been activated. */
         if (const Button *activated_button = this->GetActivatedButton(); activated_button != nullptr) {
             switch (activated_button->id) {
