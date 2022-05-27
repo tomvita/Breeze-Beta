@@ -26,9 +26,9 @@
 
 namespace air {
     extern gFileEntry g_FileEntry;
-    extern bool m_HasCheatProcess;
-    extern Options options;
-    extern NsApplicationControlData m_appControlData;
+     bool m_HasCheatProcess;
+     Options options;
+     NsApplicationControlData m_appControlData;
     u8 m_screenshot_buffer[0x384000] = {0};
     bool m_capturescreen = true;
     bool m_refresh_backgroud = false;
@@ -1260,7 +1260,7 @@ namespace air {
         if (k_down & HidNpadButton_B) {
             g_exit_requested = true;
         }
-        run_once_per_launch();
+        // run_once_per_launch();
         /* Take action if a button has been activated. */
         if (const Button *activated_button = this->GetActivatedButton(); activated_button != nullptr) {
             switch (activated_button->id) {
