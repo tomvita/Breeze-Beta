@@ -52,7 +52,7 @@ namespace air {
 
     class Menu {
         protected:
-            static constexpr size_t MaxButtons = 32;
+            static constexpr size_t MaxButtons = 64;
             static constexpr size_t LogBufferSize = 0x2000;
         protected:
             std::array<std::optional<Button>, MaxButtons> m_buttons;
@@ -62,11 +62,11 @@ namespace air {
             char m_log_buffer[LogBufferSize];
         protected:
             void AddButton(u32 id, const char *text, float x, float y, float w, float h);
+            void ResetButtons();
             void SetButtonSelected(u32 id, bool selected);
             void DeselectAllButtons();
 
             Button *GetButton(u32 id);
-            Button *GetSelectedButton();
             Button *GetClosestButtonToSelection(Direction direction);
             Button *GetTouchedButton();
             Button *GetActivatedButton();
@@ -75,10 +75,11 @@ namespace air {
             void DrawButtons(NVGcontext *vg, u64 ns);
 
         public:
+            Button *GetSelectedButton();
             void LogText(const char *format, ...);
             void SetButtonEnabled(u32 id, bool enabled);
             bool ButtonEnabled(u32 id);
-            void SetButtonLabel(u32 id, char *text);
+            virtual void SetButtonLabel(u32 id, char *text);
             Menu(std::shared_ptr<Menu> prev_menu) : m_buttons({}), m_prev_menu(prev_menu), m_log_buffer{} { /* ... */ }
             std::shared_ptr<Menu> GetPrevMenu();
             virtual void Update(u64 ns) = 0;

@@ -29,6 +29,10 @@ namespace air {
     extern bool m_HasCheatProcess;
     extern Options options;
     extern NsApplicationControlData m_appControlData;
+    u8 m_screenshot_buffer[0x384000] = {0};
+    bool m_capturescreen = true;
+    bool m_refresh_backgroud = false;
+    int m_icon = -1;
     namespace // to move to action.cpp 
     {
         // bool m_usealias = false;
@@ -54,8 +58,6 @@ namespace air {
         // u32 m_combo = 2;
 
         
-        int m_icon = -1;
-        u8 m_screenshot_buffer[0x384000] = {0};
         // std::string m_selections_title;
 
         // u32 m_selections_Selected_ButtonId = 0;
@@ -165,7 +167,9 @@ namespace air {
             fsDirClose(&dir);
             return rc;
         }
-
+        u32 EncodeVersion(u32 major, u32 minor, u32 micro, u32 relstep = 0) {
+            return ((major & 0xFF) << 24) | ((minor & 0xFF) << 16) | ((micro & 0xFF) << 8) | ((relstep & 0xFF) << 8);
+        }
     } 
         void ChangeMenu(std::shared_ptr<Menu> menu) {
             g_current_menu = menu;
@@ -196,6 +200,12 @@ namespace air {
 
         strncpy(button.text, text, sizeof(button.text)-1);
         m_buttons[id] = button;
+    }
+
+    void Menu::ResetButtons() {
+        for (auto &button : m_buttons) {
+            button.reset();
+        }
     }
 
     void Menu::SetButtonSelected(u32 id, bool selected) {
@@ -536,6 +546,49 @@ namespace air {
             this->SetButtonSelected(ExitButtonId, true);
         }
     }
+    WaitforkeyMenu2::WaitforkeyMenu2(std::shared_ptr<Menu> prev_menu, const char *text, u32 keycount, BreezeActions * action, u32 id, const char *subtext, Result rc) : AlertMenu(prev_menu, text, subtext, rc) {
+        const float window_height = WindowHeight + (R_FAILED(m_rc) ? SubTextHeight : 0.0f);
+        const float x = g_screen_width / 2.0f - WindowWidth / 2.0f;
+        const float y = g_screen_height / 2.0f - window_height / 2.0f;
+        const float button_y = y + TitleGap + SubTextHeight + VerticalGap * 2.0f + (R_FAILED(m_rc) ? SubTextHeight : 0.0f);
+        const float button_width = WindowWidth - HorizontalInset * 2.0f;
+        m_keycount = keycount;
+        m_id = id;
+        m_action = action;
+        /* Add buttons. */
+        this->AddButton(ExitButtonId, "Abort", x + HorizontalInset, button_y, button_width, ButtonHeight);
+        this->SetButtonSelected(30, true);
+    }
+
+    void WaitforkeyMenu2::Update(u64 ns) {
+        u64 k_down = padGetButtonsDown(&g_pad);
+
+        /* Go back if B is pressed. */
+        if (k_down) {
+            m_action->menu_action(m_id, k_down);
+            m_keycount--;
+            if (m_keycount == 0){
+                ReturnToPreviousMenu();
+            };
+            return;
+        }
+
+        /* Take action if a button has been activated. */
+        if (const Button *activated_button = this->GetActivatedButton(); activated_button != nullptr) {
+            switch (activated_button->id) {
+                case ExitButtonId:
+                    ReturnToPreviousMenu();
+                    break;
+            }
+        }
+
+        this->UpdateButtons();
+
+        /* Fallback on selecting the exfat button. */
+        if (const Button *selected_button = this->GetSelectedButton(); k_down && selected_button == nullptr) {
+            this->SetButtonSelected(ExitButtonId, true);
+        }
+    }
 
     WaitforcompletionMenu::WaitforcompletionMenu(std::shared_ptr<Menu> prev_menu, const char *text, void (*action)(u32, u32), u32 id, const char *subtext, Result rc) : AlertMenu(prev_menu, text, subtext, rc) {
         // const float window_height = WindowHeight + (R_FAILED(m_rc) ? SubTextHeight : 0.0f);
@@ -639,7 +692,16 @@ namespace air {
     //     DrawWindow(vg, "SE tools", g_screen_width / 2.0f -xoffset - WindowWidth / 2.0f, g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f, WindowWidth, TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N);
     //     this->DrawButtons(vg, ns);
     // }
- //BM1-1 AirMenu    
+ //BM1-1 AirMenu
+    std::string button_short_cut_str(int buttoncode) {
+        std::string namestr = "";
+        for (u32 i = 0; i < buttonCodes.size(); i++) {
+            if ((buttoncode & buttonCodes[i]) == (buttonCodes[i] & 0x7FFFFFFF))
+                namestr = namestr + buttonNames[i];
+        }
+        return namestr;
+    }
+    #define MAX_BUTTON_ROWS 9
     AirMenu::AirMenu(std::shared_ptr<Menu> prev_menu, Air_menu_setting menu_setting) : Menu(prev_menu), m_current_index(0), m_scroll_offset(0), m_touch_start_scroll_offset(0), m_touch_finalize_selection(false) {
         m_menu_setting = menu_setting;
         xoffsetL = m_menu_setting.xoffsetL;
@@ -648,21 +710,59 @@ namespace air {
 
         // N = (menu_setting.actions.size() + (menu_setting.num_button_column == 2)) / menu_setting.num_button_column;
         N = menu_setting.actions.size() / menu_setting.num_button_column + (menu_setting.actions.size() % menu_setting.num_button_column > 0);
+        if (N > MAX_BUTTON_ROWS) N = MAX_BUTTON_ROWS;
         const float x = g_screen_width / 2.0f - (WindowWidth + extension) / 2.0f + xoffsetR;
         const float y = g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f;
         const float button_width = (WindowWidth + extension - HorizontalInset * (menu_setting.num_button_column+1)) / menu_setting.num_button_column;
         char boxstr[100];
-        for (u64 i = 0; i < menu_setting.actions.size(); i++)
-        {
-            if (menu_setting.actions[i].ButtonId < 24)
-                snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", buttonNames[menu_setting.actions[i].ButtonId].c_str(), menu_setting.actions[i].label.c_str());
-            else
-                snprintf(boxstr, sizeof(boxstr) - 1, "%s", menu_setting.actions[i].label.c_str());
+        u64 max_buttons = m_menu_setting.num_button_column * MAX_BUTTON_ROWS;
+        if (max_buttons > m_menu_setting.actions.size()) max_buttons = m_menu_setting.actions.size();
+        for (u64 i = 0; i < max_buttons; i++) {
+            // if (menu_setting.actions[i].ButtonId < 24)
+                snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", button_short_cut_str(menu_setting.actions[i].keycode).c_str(), menu_setting.actions[i].label.c_str()); //programmable shortcut change
+            // else
+            //     snprintf(boxstr, sizeof(boxstr) - 1, "%s", menu_setting.actions[i].label.c_str());
             this->AddButton(menu_setting.actions[i].ButtonId, boxstr, x + HorizontalInset + (button_width + HorizontalInset) * (i % menu_setting.num_button_column), y + TitleGap + (ButtonHeight + VerticalGap) * (i / menu_setting.num_button_column), button_width, ButtonHeight);
             if (!menu_setting.actions[i].enable) SetButtonEnabled(menu_setting.actions[i].ButtonId, false);
         }
         this->SetButtonSelected(menu_setting.button_selected, true);
 
+    }
+    void AirMenu::reload() {
+        this->ResetButtons();
+        xoffsetL = m_menu_setting.xoffsetL;
+        xoffsetR = m_menu_setting.xoffsetR;
+        float extension = 2 * (315 - xoffsetR);  // when xoffset is reducced from 320 can extend the windows width by this amount
+
+        // N = (menu_setting.actions.size() + (menu_setting.num_button_column == 2)) / menu_setting.num_button_column;
+        N = m_menu_setting.actions.size() / m_menu_setting.num_button_column + (m_menu_setting.actions.size() % m_menu_setting.num_button_column > 0);
+        if (N > MAX_BUTTON_ROWS) N = MAX_BUTTON_ROWS;
+        const float x = g_screen_width / 2.0f - (WindowWidth + extension) / 2.0f + xoffsetR;
+        const float y = g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f;
+        const float button_width = (WindowWidth + extension - HorizontalInset * (m_menu_setting.num_button_column+1)) / m_menu_setting.num_button_column;
+        char boxstr[100];
+        u64 max_buttons = m_menu_setting.num_button_column * MAX_BUTTON_ROWS;
+        if (max_buttons > m_menu_setting.actions.size()) max_buttons = m_menu_setting.actions.size();
+        for (u64 i = 0; i < max_buttons; i++) {
+            // if (menu_setting.actions[i].ButtonId < 24)
+                snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", button_short_cut_str(m_menu_setting.actions[i].keycode).c_str(), m_menu_setting.actions[i].label.c_str()); //programmable shortcut change
+            // else
+            //     snprintf(boxstr, sizeof(boxstr) - 1, "%s", menu_setting.actions[i].label.c_str());
+            this->AddButton(m_menu_setting.actions[i].ButtonId, boxstr, x + HorizontalInset + (button_width + HorizontalInset) * (i % m_menu_setting.num_button_column), y + TitleGap + (ButtonHeight + VerticalGap) * (i / m_menu_setting.num_button_column), button_width, ButtonHeight);
+            if (!m_menu_setting.actions[i].enable) SetButtonEnabled(m_menu_setting.actions[i].ButtonId, false);
+        }
+        this->SetButtonSelected(m_menu_setting.button_selected, true);
+    };
+
+    void AirMenu::SetButtonLabel(u32 id, char *text) {
+        for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
+            if (m_menu_setting.actions[i].ButtonId == id) {
+                char boxstr[100];
+                snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", button_short_cut_str(m_menu_setting.actions[i].keycode).c_str(), text);  
+                Menu::SetButtonLabel(id, boxstr);
+                break;
+            }
+        };
     }
 
     bool AirMenu::IsSelectionVisible() {
@@ -781,9 +881,29 @@ namespace air {
     void AirMenu::FinalizeSelection(){
         // action(m_menu_setting, HidNpadButton_A, this->GetActivatedButton(), m_current_index);
     };
-
+#define BC_add(i,x,y) x+=i; if(x>y-1) x=y-1
+#define BC_sub(i,x) if (i > x) x = 0; else x -=i
     void AirMenu::Update(u64 ns) {
+        auto h_inc = [&]() {
+            if (options.use_row_jump) {
+                /* Page down. */
+                BC_add(10, m_current_index, m_data_entries.size());
+            } else {
+                /* Move Right. */
+                BC_add(1, m_current_column_index, m_current_column_size);
+            }
+        };
+        auto h_dec = [&]() {
+            if (options.use_row_jump) {
+                /* Page up. */
+                BC_sub(10, m_current_index);
+            } else {
+                /* Move Left. */
+                BC_sub(1, m_current_column_index);
+            }
+        };
         u64 k_down = padGetButtonsDown(&g_pad);
+        u64 k_held = padGetButtons(&g_pad);
         // if (m_menu_setting.action2!=nullptr){m_menu_setting.action2->menu_action(1000, m_current_index);} 
         if (m_menu_setting._action!=nullptr){ m_menu_setting._action->menu_action(1000, m_current_index);}; //else {m_menu_setting.action(buttonid, m_current_index);}
         // allow update to data and status
@@ -811,9 +931,9 @@ namespace air {
             if (k_down == HidNpadButton_A) {
                 buttonid = 0;
                 match = true;
-            } else
+            } else if (k_down != 0)
                 for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
-                    if (k_down & m_menu_setting.actions[i].keycode) {  //&& menu.actions[i].enable
+                    if (k_held == m_menu_setting.actions[i].keycode) {  //&& menu.actions[i].enable
                         buttonid = m_menu_setting.actions[i].ButtonId;
                         match = true;
                     }
@@ -830,19 +950,14 @@ namespace air {
                     m_menu_setting.action(buttonid, m_current_index);}
             return;
         };
-        if (options.use_dpad) {
+        if (m_data_entries.size() == 0 || (!(k_held & HidNpadButton_ZL) && options.use_ZL)) {
+            // if (m_data_entries.size() == 0) m_current_index = 0;
+            this->UpdateButtons();
+        } else if (options.use_dpad) {
             if (k_down & HidNpadButton_Right) {
-                /* Page down. */
-                m_current_index += 10;
-                if (m_current_index >= (m_data_entries.size() - 1)) {
-                    m_current_index = m_data_entries.size() - 1;
-                }
+                h_inc();
             } else if (k_down & HidNpadButton_Left) {
-                /* Page up. */
-                if (m_current_index < 10) {
-                    m_current_index = 0;
-                } else
-                    m_current_index -= 10;
+                h_dec();
             } else if (k_down & HidNpadButton_Down) {
                 /* Scroll down. */
                 if (m_current_index >= (m_data_entries.size() - 1)) {
@@ -861,17 +976,19 @@ namespace air {
                 this->UpdateButtons();
         } else {
             if (k_down & HidNpadButton_StickLRight) {
-                /* Page down. */
-                m_current_index += 10;
-                if (m_current_index >= (m_data_entries.size() - 1)) {
-                    m_current_index = m_data_entries.size() - 1;
-                }
+                h_inc();
+                // /* Page down. */
+                // m_current_index += 10;
+                // if (m_current_index >= (m_data_entries.size() - 1)) {
+                //     m_current_index = m_data_entries.size() - 1;
+                // }
             } else if (k_down & HidNpadButton_StickLLeft) {
-                /* Page up. */
-                if (m_current_index < 10) {
-                    m_current_index = 0;
-                } else
-                    m_current_index -= 10;
+                h_dec();
+                // /* Page up. */
+                // if (m_current_index < 10) {
+                //     m_current_index = 0;
+                // } else
+                //     m_current_index -= 10;
             } else if (k_down & HidNpadButton_StickLDown) {
                 /* Scroll down. */
                 if (m_current_index >= (m_data_entries.size() - 1)) {
@@ -906,6 +1023,8 @@ namespace air {
 
         float extension = 2 * (315 - xoffsetR);
         DrawWindow(vg, m_menu_setting.right_panel_title.c_str(), g_screen_width / 2.0f + xoffsetR - (WindowWidth + extension) / 2.0f, g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f, WindowWidth + extension, TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N);
+        if (m_menu_setting.show_rightpanel_status)
+            DrawText(vg, g_screen_width / 2.0f + xoffsetR - (WindowWidth + extension) / 2.0f, 65 + g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f, WindowWidth + extension, m_menu_setting.right_panel_status.c_str());
         this->DrawButtons(vg, ns);
 
         extension = 2 * (315 + xoffsetL);  // when xoffset is reducced from 320 can extend the windows width by this amount
@@ -942,10 +1061,11 @@ namespace air {
         const float button_width = (m_menu_setting.WindowWidth - HorizontalInset * (menu_setting.num_button_column+1)) / menu_setting.num_button_column;
         char boxstr[100];
         for (u64 i = 0; i < menu_setting.actions.size(); i++) {
-            if (menu_setting.actions[i].ButtonId < 24)
-                snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", buttonNames[menu_setting.actions[i].ButtonId].c_str(), menu_setting.actions[i].label.c_str());
-            else
-                snprintf(boxstr, sizeof(boxstr) - 1, "%s", menu_setting.actions[i].label.c_str());
+            // if (menu_setting.actions[i].ButtonId < 24)
+            snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", button_short_cut_str(menu_setting.actions[i].keycode).c_str(), menu_setting.actions[i].label.c_str()); //programmable shortcut change
+            // snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", buttonNames[menu_setting.actions[i].ButtonId].c_str(), menu_setting.actions[i].label.c_str());
+            // else
+            //     snprintf(boxstr, sizeof(boxstr) - 1, "%s", menu_setting.actions[i].label.c_str());
             this->AddButton(menu_setting.actions[i].ButtonId, boxstr, x + HorizontalInset + (button_width + HorizontalInset) * (i % menu_setting.num_button_column), y + TitleGap + (ButtonHeight + VerticalGap) * (i / menu_setting.num_button_column), button_width, ButtonHeight);
             if (!menu_setting.actions[i].enable) SetButtonEnabled(menu_setting.actions[i].ButtonId, false);
         }
@@ -954,7 +1074,7 @@ namespace air {
 
     void BoxMenu::Update(u64 ns) {
         u64 k_down = padGetButtonsDown(&g_pad);
-
+        u64 k_held = padGetButtons(&g_pad);
         /* Take action if a button has been activated. */
 
         // if (action(m_menu_setting, k_down, this->GetActivatedButton(), 0)) {
@@ -968,11 +1088,12 @@ namespace air {
             if (k_down == HidNpadButton_A) {
                 buttonid = 0;
                 match = true;
-            } else
+            } else if (k_down != 0)
                 for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
-                    if (k_down & m_menu_setting.actions[i].keycode) { //&& menu.actions[i].enable
+                    if (k_held  == m_menu_setting.actions[i].keycode) { //&& menu.actions[i].enable
                         buttonid = m_menu_setting.actions[i].ButtonId;
                         match = true;
+                        break;
                     }
                 }
             if (match == true)
@@ -2474,7 +2595,7 @@ namespace air {
         char boxstr[100];
         for (u64 i = 0; i < menu_setting.actions.size(); i++) {
             if (menu_setting.actions[i].ButtonId < 24)
-                snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", buttonNames[menu_setting.actions[i].ButtonId].c_str(), menu_setting.actions[i].label.c_str());
+                snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", buttonNames2[menu_setting.actions[i].ButtonId].c_str(), menu_setting.actions[i].label.c_str());
             else
                 snprintf(boxstr, sizeof(boxstr) - 1, "%s", menu_setting.actions[i].label.c_str());
             this->AddButton(menu_setting.actions[i].ButtonId, boxstr, x + HorizontalInset + (button_width + HorizontalInset) * (i % menu_setting.num_button_column), y + WindowHeight - BottomInset - ButtonHeight + (ButtonHeight + VerticalGap) * (i / menu_setting.num_button_column), button_width, ButtonHeight);
@@ -3017,7 +3138,8 @@ namespace air {
         const u32 version_major = (version >> 56) & 0xff;
 
         /* Validate the exosphere version. */
-        const bool ams_supports_sysupdate_api = version_major >= 0 && version_minor >= 14 && version_micro >= 0;
+        // const bool ams_supports_sysupdate_api = version_major >= 0 && version_minor >= 14 && version_micro >= 0;
+        const bool ams_supports_sysupdate_api = EncodeVersion(version_major, version_minor, version_micro) >= EncodeVersion(0, 14, 0);
         if (!ams_supports_sysupdate_api) {
             ChangeMenu(std::make_shared<ErrorMenu>("Outdated Atmosphere version", "Breeze requires Atmosphere 0.14.0 or later.", rc));
             return;
@@ -3048,13 +3170,14 @@ namespace air {
 
         if (m_HasCheatProcess && !options.use_starfield)
         {
-            if (m_icon == -1)
+            if (m_icon == -1 || m_refresh_backgroud)
             {
                 // Get from app screen
-
+                if (m_refresh_backgroud) nvgDeleteImage(vg, m_icon);
+                m_refresh_backgroud = false;
                 bool flag = false;
                 Result rc = appletUpdateLastForegroundCaptureImage();
-                if (rc == 0)
+                if (rc == 0 && m_capturescreen)
                     rc = appletGetLastApplicationCaptureImageEx(m_screenshot_buffer, 0x384000, &flag);
                 if (rc == 0)
                 {
@@ -3120,6 +3243,7 @@ namespace air {
         swkbdConfigSetInitialText(&kbd, initialText);
         swkbdConfigSetHeaderText(&kbd, headerText);
         swkbdConfigSetSubText(&kbd, subHeaderText);
+        swkbdConfigSetGuideText(&kbd, subHeaderText);
 
         kbd.arg.arg.arg.leftButtonText = '.';
         kbd.arg.arg.arg.rightButtonText = '-';

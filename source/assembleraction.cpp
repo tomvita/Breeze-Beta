@@ -5,6 +5,8 @@
 
 namespace air {
     extern char m_VmOpcode_str[128] ;
+    extern u32 m_VmOpcode_str_indent;
+    extern bool m_VmOpcode_str_indent_on;
     extern std::vector<u32> m_opcodes;
     extern std::vector<u32> m_clipboard;
     struct opcodeinfo_t {
@@ -60,6 +62,7 @@ namespace air {
     CheatVmOpcode opcode = {};
     bool DecodeNextOpcode(CheatVmOpcode *out) {
         bool valid = true;
+        u32 indent = 0;
         u64 instruction_ptr = 0;
         constexpr static size_t NumRegisters = 0x10;
         /* If we've ever seen a decode failure, return false. */
@@ -176,6 +179,7 @@ namespace air {
                 }
             } break;
             case CheatVmOpcodeType_BeginConditionalBlock: {
+                indent = 1;
                 opcode_components.push_back((OpcodeHelpEntry){{"BeginConditionalBlock 1TMC00AA AAAAAAAA YYYYYYYY (YYYYYYYY)"}, 0, 15});
                 opcode_components.push_back((OpcodeHelpEntry){{"T: Width of memory write (1, 2, 4, or 8 bytes)"}, 1, 8});
                 opcode_components.push_back((OpcodeHelpEntry){{"M: Memory region to write to 0 = Main NSO, 1 = Heap, 2 = Alias(not supported by atm)"}, 0, 1});
@@ -214,11 +218,19 @@ namespace air {
                 }
             } break;
             case CheatVmOpcodeType_EndConditionalBlock: {
-                opcode_components.push_back((OpcodeHelpEntry){{"EndConditionalBlock 20000000"}, 0, 15});
+                if (m_VmOpcode_str_indent > 0)
+                    m_VmOpcode_str_indent -= 1;
+                opcode_components.push_back((OpcodeHelpEntry){{"EndConditionalBlock 2X000000"}, 0, 15});
+                opcode_components.push_back((OpcodeHelpEntry){{"X: End type (0 = End, 1 = Else)"}, 0, 1});
+                if (((first_dword >> 24) & 0xF) == 0) {
+                    snprintf(m_VmOpcode_str, 128, "Endif");
+                } else {
+                    indent = 1;
+                    snprintf(m_VmOpcode_str, 128, "Else");
+                };
                 opcode_size = 1;
                 /* 20000000 */
                 /* There's actually nothing left to process here! */
-                snprintf(m_VmOpcode_str, 128, "Endif");
             } break;
             case CheatVmOpcodeType_ControlLoop: {
                 opcode_components.push_back((OpcodeHelpEntry){{"ControlLoop 3XRR0000 (VVVVVVVV)"}, 0, 15}); // RR for backward compatibility with older version of cheatVM 
@@ -237,8 +249,10 @@ namespace air {
                     opcode.ctrl_loop.num_iters = GetNextDword();
                     snprintf(m_VmOpcode_str, 128, "Loop Start R%d=%d", opcode.ctrl_loop.reg_index, opcode.ctrl_loop.num_iters);
                     opcode_size = 2;
+                    indent = 1;
                 } else {
                     snprintf(m_VmOpcode_str, 128, "Loop stop");
+                    indent = -1;
                 }
             } break;
             case CheatVmOpcodeType_LoadRegisterStatic: {
@@ -322,7 +336,7 @@ namespace air {
                 opcode.perform_math_static.reg_index = ((first_dword >> 16) & 0xF);
                 opcode.perform_math_static.math_type = (RegisterArithmeticType)((first_dword >> 12) & 0xF);
                 opcode.perform_math_static.value = GetNextDword();
-                snprintf(m_VmOpcode_str, 128, "R%d=R%d%s0x%08X", opcode.perform_math_static.reg_index, opcode.perform_math_static.reg_index, math_str[opcode.perform_math_static.math_type], opcode.perform_math_static.value);
+                snprintf(m_VmOpcode_str, 128, "R%d=R%d%s0x%08X W=%d", opcode.perform_math_static.reg_index, opcode.perform_math_static.reg_index, math_str[opcode.perform_math_static.math_type], opcode.perform_math_static.value, opcode.perform_math_static.bit_width);
             } break;
             case CheatVmOpcodeType_BeginKeypressConditionalBlock: {
                 opcode_components.push_back((OpcodeHelpEntry){{"BeginKeypressConditionalBlock 8kkkkkkk"}, 0, 15});
@@ -335,6 +349,7 @@ namespace air {
                     if ((first_dword & buttonCodes[i]) == buttonCodes[i])
                         strcat(m_VmOpcode_str, buttonNames[i].c_str());
                 }
+                indent = 1;
             } break;
             case CheatVmOpcodeType_PerformArithmeticRegister: {
                 opcode_components.push_back((OpcodeHelpEntry){{"PerformArithmeticRegister 9TCRSIs0 (VVVVVVVV (VVVVVVVV))"}, 0, 15});
@@ -357,17 +372,17 @@ namespace air {
                     opcode.perform_math_reg.value = GetNextVmInt(opcode.perform_math_reg.bit_width);
                     switch (opcode.perform_math_reg.bit_width) {
                         case 8:
-                            snprintf(m_VmOpcode_str, 128, "R%d=R%d%s0x%016lX", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, math_str[opcode.perform_math_reg.math_type], opcode.perform_math_reg.value.bit64);
+                            snprintf(m_VmOpcode_str, 128, "R%d=R%d%s0x%016lX W=%d", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, math_str[opcode.perform_math_reg.math_type], opcode.perform_math_reg.value.bit64, opcode.perform_math_reg.bit_width);
                             opcode_size = 3;
                             break;
                         case 4:
-                            snprintf(m_VmOpcode_str, 128, "R%d=R%d%s0x%08X", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, math_str[opcode.perform_math_reg.math_type], opcode.perform_math_reg.value.bit32);
+                            snprintf(m_VmOpcode_str, 128, "R%d=R%d%s0x%08X W=%d", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, math_str[opcode.perform_math_reg.math_type], opcode.perform_math_reg.value.bit32, opcode.perform_math_reg.bit_width);
                             break;
                         case 2:
-                            snprintf(m_VmOpcode_str, 128, "R%d=R%d%s0x%04X", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, math_str[opcode.perform_math_reg.math_type], opcode.perform_math_reg.value.bit16);
+                            snprintf(m_VmOpcode_str, 128, "R%d=R%d%s0x%04X W=%d", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, math_str[opcode.perform_math_reg.math_type], opcode.perform_math_reg.value.bit16, opcode.perform_math_reg.bit_width);
                             break;
                         case 1:
-                            snprintf(m_VmOpcode_str, 128, "R%d=R%d%s0x%02X", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, math_str[opcode.perform_math_reg.math_type], opcode.perform_math_reg.value.bit8);
+                            snprintf(m_VmOpcode_str, 128, "R%d=R%d%s0x%02X W=%d", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, math_str[opcode.perform_math_reg.math_type], opcode.perform_math_reg.value.bit8, opcode.perform_math_reg.bit_width);
                             break;
                     };
                 } else {
@@ -375,13 +390,13 @@ namespace air {
                     switch (opcode.perform_math_reg.math_type) {
                         case 0 ... 6:
                         case 8:
-                            snprintf(m_VmOpcode_str, 128, "R%d=R%d%sR%d", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, math_str[opcode.perform_math_reg.math_type], opcode.perform_math_reg.src_reg_2_index);
+                            snprintf(m_VmOpcode_str, 128, "R%d=R%d%sR%d W=%d", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, math_str[opcode.perform_math_reg.math_type], opcode.perform_math_reg.src_reg_2_index, opcode.perform_math_reg.bit_width);
                             break;
                         case 7:
-                            snprintf(m_VmOpcode_str, 128, "R%d=!R%d", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index);
+                            snprintf(m_VmOpcode_str, 128, "R%d=!R%d W=%d", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, opcode.perform_math_reg.bit_width);
                             break;
                         case 9:
-                            snprintf(m_VmOpcode_str, 128, "R%d=R%d", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index);
+                            snprintf(m_VmOpcode_str, 128, "R%d=R%d W=%d", opcode.perform_math_reg.dst_reg_index, opcode.perform_math_reg.src_reg_1_index, opcode.perform_math_reg.bit_width);
                             break;
                     }
                 }
@@ -475,6 +490,7 @@ namespace air {
                     strcat(m_VmOpcode_str,logtext(" R%d+=%d",opcode.str_register.addr_reg_index,opcode.str_register.bit_width).data);
             } break;
             case CheatVmOpcodeType_BeginRegisterConditionalBlock: {
+                indent = 1;
                 switch (opcode.begin_reg_cond.comp_type) {
                     case 0:
                         opcode_components.push_back((OpcodeHelpEntry){{"BeginRegisterConditionalBlock C0TcS0Ma aaaaaaaa"}, 0, 15});
@@ -803,6 +819,15 @@ namespace air {
             *out = opcode;
         }
         /* End decoding. */
+        if (m_VmOpcode_str_indent_on) {
+            std::string tmpstr = "";
+            for (u32 i = 0; i < m_VmOpcode_str_indent; i++) {
+                tmpstr = tmpstr + ".";
+            };
+            tmpstr = tmpstr + m_VmOpcode_str;
+            strncpy(m_VmOpcode_str, tmpstr.c_str(), sizeof m_VmOpcode_str - 1);
+            m_VmOpcode_str_indent += indent;
+        };
         return valid;
     }
 
@@ -894,6 +919,7 @@ namespace air {
     // };
     AssembleActions::AssembleActions(DataEntry *current_entry): BreezeActions() {
         this->entry = current_entry;
+        m_VmOpcode_str_indent_on = false;
         this->menu = std::make_shared<AirMenu>(get_current_menu(), this->init_menu());
         populate_list(m_offset);
     };
@@ -966,7 +992,7 @@ namespace air {
                 // air::ReturnToPreviousMenu();
                 air::ChangeMenu(Edit_Cheat_menu());
                 return;
-            case 2:
+            case 2: // save
                 switch (opcode.opcode) {
                     case 0:
                     case 1:
@@ -991,7 +1017,7 @@ namespace air {
                         m_opcodes[0] = m_opcodes[0] & 0xFFFF00FF;
                         break;
                     case 2:
-                        m_opcodes[0] = 0x20000000;
+                        m_opcodes[0] = m_opcodes[0] & 0x21000000;
                         break;
                     case 3:
                         m_opcodes[0] = m_opcodes[0] & 0xF1FF0000;

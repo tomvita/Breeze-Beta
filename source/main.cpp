@@ -51,7 +51,7 @@ extern "C" {
         }
 
         if (R_FAILED(rc = dmntchtInitialize())) {
-            fatalThrow(rc);
+            // fatalThrow(rc);
         }
 
     }
