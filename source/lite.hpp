@@ -1,0 +1,5 @@
+#define APPVERSION "beta35"
+#define WITHZIP
+#define WITHZIP2
+#define WITHSYSMODULE
+#define WITHDOWNLOAD
