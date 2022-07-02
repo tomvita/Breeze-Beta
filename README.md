@@ -77,6 +77,10 @@ Copy the contents of Breeze.zip to the root of your SD card.
 # How to use
 https://github.com/tomvita/Breeze-Beta/wiki
 
+# Cheat code database
+https://github.com/tomvita/NXCheatCode 
+The latest release can be fetch in app. For people who's Switch is not connected to the internet the file can be fetched and place in "/switch/breeze/cheats/titles.zip"
+
 # Acknowledgement
 The UI framework is derived from daybreak.
 The knowledge on game hacking is gain from making edizon se and many thanks to Werwolv for showing the way both in the work he did and the advise he gave. 
