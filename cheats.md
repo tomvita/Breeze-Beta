@@ -1,41 +1,20 @@
-# Cheats
-Atmosphère supports Action-Replay style cheat codes, with cheats loaded off of the SD card.
 
-## Cheat Loading Process
-By default, Atmosphère will do the following when deciding whether to attach to a new application process:
-
-+ Retrieve information about the new application process from `pm` and `loader`.
-+ Check whether a user-defined key combination is held, and stop if not.
-  + This defaults to "L is not held", but can be configured with override keys.
-  + The ini key to configure this is `cheat_enable_key`.
-+ Check whether the process is a real application, and stop if not.
-  + This guards against applying cheat codes to the Homebrew Loader.
-+ Attempt to load cheats from `/atmosphere/contents/<program_id>/cheats/<build_id>.txt`, where `build_id` is the hexadecimal representation of the first 8 bytes of the application's main executable's build id.
-  + If no cheats are found, then the cheat manager will stop.
-+ Open a kernel debug session for the new application process.
-+ Signal to a system event that a new cheat process has been attached to.
-
-This behavior ensures that cheat codes are only loaded when the user would want them to.
-
-In cases where `dmnt` has not activated the cheat manager, but the user wants to make it do so anyway, the cheat manager's service API provides a `ForceOpenCheatProcess` command that homebrew can use. This command will cause the cheat manager to try to force itself to attach to the process.
-
-In cases where `dmnt` has activated the cheat manager, but the user wants to use an alternate debugger, the cheat manager's service API provides a `ForceCloseCheatProcess` command that homebrew can use. This command will cause the cheat manager to detach itself from the process.
-
-By default, all cheat codes listed in the loaded .txt file will be toggled on. This is configurable by the user by editing the `atmosphere!dmnt_cheats_enabled_by_default` [system setting](configurations.md).
-
-Users may use homebrew programs to toggle cheats on and off at runtime via the cheat manager's service API.
 
 ## Cheat Code Compatibility
-Atmosphère manages cheat code through the execution of a small, custom virtual machine. Care has been taken to ensure that Atmosphère's cheat code format is fully backwards compatible with the pre-existing cheat code format, though new features have been added and bugs in the pre-existing cheat code applier have been fixed. Here is a short summary of the changes from the pre-existing format:
+These are not available in official dmnt, do not use these code to ensure wide compatibility. Using these extension will make cheat not compatible with system that did not have my dmnt fork installed.
 
-+ A number of bugs were fixed in the processing of conditional instructions.
-  + The pre-existing implementation was fundamentally broken, and checked for the wrong value when detecting the end of a conditional block.
-  + The pre-existing implementation also did not properly decode instructions, and instead linearly scanned for the terminator value. This caused problems if an instruction happened to encode a terminator inside its immediate values.
-  + The pre-existing implementation did not bounds check, and thus certain conditional cheat codes could cause it to read out-of-bounds memory, and potentially crash due to a data abort.
-+ Support was added for nesting conditional blocks.
-+ An instruction was added to perform much more complex arbitrary arithmetic on two registers.
-+ An instruction was added to allow writing the contents of register to a memory address specified by another register.
-+ The pre-existing implementation did not correctly synchronize with the application process, and thus would cause heavy lag under certain circumstances (especially around loading screens). This has been fixed in Atmosphère's implementation.
+### Type 0 extension 
++ M: Memory region to write to (4 = non). 
+On official release this will default to Main NSO
+
+### Type 5 extension
+On official release `5T0R2SAA AAAAAAAA` and `5TMR3SAA AAAAAAAA` will be same as `5T0R10AA AAAAAAAA`
+
+### Type 8 extension
+setting bit mask 0x08000000 will have no effect. Cheat code will be active when button is held on official release
+
+### Type A extension
+Floating point maths are not supported on official release.
 
 ## Cheat Code Format
 The following provides documentation of the instruction format for the virtual machine used to manage cheat codes.
