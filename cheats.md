@@ -13,7 +13,7 @@ On official release `5T0R2SAA AAAAAAAA` and `5TMR3SAA AAAAAAAA` will be same as 
 ### Type 8 extension
 setting bit mask 0x08000000 will have no effect. Cheat code will be active when button is held on official release
 
-### Type A extension
+### Type 9 extension
 Floating point maths are not supported on official release.
 
 ## Cheat Code Format
