@@ -14,7 +14,7 @@ On official release `5T0R2SAA AAAAAAAA` and `5TMR3SAA AAAAAAAA` will be same as 
 setting bit mask 0x08000000 will have no effect. Cheat code will be active when button is held on official release
 
 ### Type 9 extension
-Floating point maths are not supported on official release.
+Floating point maths are not supported on official release, result will be 0.
 
 ## Cheat Code Format
 The following provides documentation of the instruction format for the virtual machine used to manage cheat codes.
