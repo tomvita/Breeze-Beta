@@ -11,7 +11,7 @@ I have three objectives:
 
 # Features 
 1. Manage cheat codes for atmosphere cheat VM. Toggling code on/off, easy adding/removing of conditional key, loading cheats from cheat database, picking cheats from multiple cheat file, editing cheats in app.
-2. (Private beta, request to join at my discord) Search memory, edit memory, freeze memory, create bookmark with static offset from main and heap.
+2. Search memory, edit memory, freeze memory, create bookmark with static offset from main and heap.
 3. (TBD) Search for pointer chain to locate dynamic memory location. Creat memory and pointer chain bookmark. Generate cheat code from bookmark. Generate bookmark from cheat code.
 4. Auto update of app and database. 
 5. Consistant and easy to use UI.
@@ -76,6 +76,10 @@ Copy the contents of Breeze.zip to the root of your SD card.
 
 # How to use
 https://github.com/tomvita/Breeze-Beta/wiki
+
+# Cheat code database
+https://github.com/tomvita/NXCheatCode 
+The latest release can be fetch in app. For people who's Switch is not connected to the internet the file can be fetched and place in "/switch/breeze/cheats/titles.zip"
 
 # Acknowledgement
 The UI framework is derived from daybreak.
