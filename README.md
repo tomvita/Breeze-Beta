@@ -11,10 +11,13 @@ I have three objectives:
 
 # Features 
 1. Manage cheat codes for atmosphere cheat VM. Toggling code on/off, easy adding/removing of conditional key, loading cheats from cheat database, picking cheats from multiple cheat files, editing cheats in the app.
-2. Search memory, edit memory, freeze memory, and create bookmark with static offset from main and heap.
-3. (TBD) Search for pointer chain to locate dynamic memory location. Creat memory and pointer chain bookmark. Generate cheat code from the bookmark. Generate bookmark from cheat code.
-4. Auto update of app and database. 
-5. Consistent and easy-to-use UI.
+2. Cheat code editor with disassembler and assistant to assemble cheat code. Assistant to create loop code starting with code with a single starget.
+3. ARM64 instruction assembly and disassembly. 
+4. Search memory, edit memory, freeze memory, and create bookmark with static offset from main and heap.
+5. Set memory break point to catch instruction that access the memory. Set instruction watch to see what memory the instruction access. 
+6. ASM composer to create ASM cheat.
+7. Auto update of app and database. 
+8. Consistent and easy-to-use UI.
 
 # Search concepts
 1. Memory locations used for storing data of interest can remain static for a window of time. The objective of the search is to locate these locations while it is still valid.
