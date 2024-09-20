@@ -1,6 +1,6 @@
 # Breeze
 A Nintendo Switch game cheating tool designed to work with Atmosphere's cheatVM.
- 
+
 This will start as a rewrite of the features I put into EdiZon SE. As I added features to EdiZon SE the code has become increasing hard to maintain and the UI is probably confusing for many users.
 
 I have three objectives: 
