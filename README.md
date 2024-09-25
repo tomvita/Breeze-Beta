@@ -84,7 +84,7 @@ https://github.com/tomvita/Breeze-Beta/wiki
 https://github.com/tomvita/NXCheatCode 
 The latest release can be fetched in the app. For people whose Switch is not connected to the internet the file can be fetched and placed in "/switch/breeze/cheats/titles.zip"
 # latest pre-release
-Beta94b
+Beta94c
 # Acknowledgement
 The UI framework is derived from daybreak.
 The knowledge on game hacking is gained from making edizon se and many thanks to Werwolv for showing the way both in the work he did and the advice he gave. 
