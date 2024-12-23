@@ -4,10 +4,13 @@ A Nintendo Switch game cheating tool designed to work seamlessly with Atmosphere
 
 This project started as a rewrite of the features implemented in EdiZon SE. Over time, the code for EdiZon SE became increasingly difficult to maintain, and its UI posed challenges for many users.  
 
+Over time, numerous features were added, along with significant optimizations, making Breeze much faster and far more powerful than EdiZone SE
+
 ## Objectives  
 1. **Improve the User Interface**: Ensure more users can access and enjoy the tool’s features.  
 2. **Streamline Codebase**: Make the code easier to develop and extend.  
-3. **Leverage Experience**: Apply lessons learned from SE tools to create a robust foundation for future development.  
+3. **Leverage Experience**: Apply lessons learned from SE tools to create a robust foundation for future development.
+4. **All in one tool**: Every task involved in cheat creations can be perform with Breeze alone on Switch.   
 
 ---
 
