@@ -18,6 +18,7 @@
 #include "dmntcht.h"
 #include <string>
 namespace air {
+Result dmntchtWriteCheatProcessMemory2(u64 address, const void *buffer, size_t size); 
 
     static const std::vector<u32> buttonCodes = {0x80000040,
                                                  0x80000080,
@@ -44,8 +45,10 @@ namespace air {
                                                  0x80400000,
                                                  0x80800000};
 
-    static const std::vector<std::string> buttonNames = {"\uE0A4 ", "\uE0A5 ", "\uE0A6 ", "\uE0A7 ", "\uE0A0 ", "\uE0A1 ", "\uE0A2 ", "\uE0A3 ", "\uE0C4 ", "\uE0C5 ", "\uE0B3 ", "\uE0B4 ", "\uE0B1 ", "\uE0AF ", "\uE0B2 ", "\uE0B0 ", "\uE091 ", "\uE092 ", "\uE090 ", "\uE093 ", "\uE145 ", "\uE143 ", "\uE146 ", "\uE144 "};
-    static const std::vector<std::string> buttonNames2 = {"\uE0A0 ", "\uE0A1 ", "\uE0A2 ", "\uE0A3 ", "\uE0C4 ", "\uE0C5 ", "\uE0A4 ", "\uE0A5 ", "\uE0A6 ", "\uE0A7 ", "\uE0B3 ", "\uE0B4 ", "\uE0B1 ", "\uE0AF ", "\uE0B2 ", "\uE0B0 ", "\uE091 ", "\uE092 ", "\uE090 ", "\uE093 ", "\uE145 ", "\uE143 ", "\uE146 ", "\uE144 "};
+    static const std::vector<std::string> buttonNamesa = {"\uE0A4", "\uE0A5", "\uE0A6", "\uE0A7", "\uE0A0", "\uE0A1", "\uE0A2", "\uE0A3", "\uE0C4", "\uE0C5", "\uE0B3", "\uE0B4", "\uE0B1", "\uE0AF", "\uE0B2", "\uE0B0", "\uE091", "\uE092", "\uE090", "\uE093", "\uE145", "\uE143", "\uE146", "\uE144"};
+    static const std::vector<std::string> buttonNames = {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""};
+    static const std::vector<std::string> buttonNames2a = {"\uE0A0", "\uE0A1", "\uE0A2", "\uE0A3", "\uE0C4", "\uE0C5", "\uE0A4", "\uE0A5", "\uE0A6", "\uE0A7", "\uE0B3", "\uE0B4", "\uE0B1", "\uE0AF", "\uE0B2", "\uE0B0", "\uE091", "\uE092", "\uE090", "\uE093", "\uE145", "\uE143", "\uE146", "\uE144"};
+    static const std::vector<std::string> buttonNames2 = {"", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", "", ""};
     struct gFileEntry {
         char name[128];
         char dir[128];
@@ -55,26 +58,55 @@ namespace air {
 
     enum class Menu_id
     {
+        Gameinfo,
         Main,
+        clipboard,
+        Search_setup_menu2,
+        Search_setup_menu,
+        AdvanceSearch,
+        Cheat_menu2,
+        Edit_Cheat_menu,
         Cheat,
+        Cheatcache,
+        AsmComposer,
+        ASM_Explorer,
+        AssembleActions,
+        Bookmark,
+        CandidateActions,
+        CopyPasteMenu,
+        Download,
+        EzSearchSetup,
+        gen2menu,
+        Help_screen,
+        JumpBack,
+        MemoryEdit,
+        Newmenu,
+        SearchPtrTask,
+        Search_stack_menu,
         Search,
         SearchManager,
-        Setting,
-        EditCheat,
-        MemoryExplorer,
+        SegmentMap,
         Sysmodule,
-        pointersearcher,
-        bookmark,
-        candidate,
-        Download,
-        Gameinfo,
+        Setting,
+
+        lastmenu,
+        Cheat_S,
+
+        // Gen2menu,
+        // EditCheat,
+        // MemoryExplorer,
+        // pointersearcher,
+        // bookmark,
+        // candidate,
     };
+#define NUM_MENU (u8)Menu_id::lastmenu 
     struct ButtonEntry
     {
         std::string label = "";
         u32 ButtonId = 1;
         HidNpadButton keycode = HidNpadButton_Verification;
         bool enable = true;
+        HidNpadButton keycode2 = HidNpadButton_Verification;
     };
     struct DataEntry
     {
@@ -196,13 +228,16 @@ namespace air {
         float m_scroll_offset;
         float m_touch_start_scroll_offset;
         bool m_touch_finalize_selection;
-        bool IsSelectionVisible();
         bool IsEntryTouched(u32 i);
         void UpdateTouches();
         void FinalizeSelection();
     public:
+        bool IsSelectionVisible();
         void ScrollToSelection();
-        Air_menu_setting m_menu_setting;
+        bool draw_right_panel = true;
+        bool draw_left_panel_on_right = false;
+        Air_menu_setting m_menu_setting, menu_save;
+        u32 menu_id = 0;
         float xoffsetL = -315.0f;
         float xoffsetR = 315.0f;
         std::vector <DataEntry> m_data_entries;
@@ -211,6 +246,7 @@ namespace air {
         virtual void Update(u64 ns) override;
         virtual void Draw(NVGcontext *vg, u64 ns) override;
         virtual void SetButtonLabel(u32 id, char *text) override;
+        virtual void SetButtonEnabled(u32 id, bool enabled) override;
     };
 
     class BoxMenu : public Menu {
@@ -224,6 +260,7 @@ namespace air {
         BoxMenu(std::shared_ptr<Menu> prev_menu, Air_menu_setting menu_setting);
         virtual void Update(u64 ns) override;
         virtual void Draw(NVGcontext *vg, u64 ns) override;
+        virtual void reload();
     };
     void request_exit();
     bool requestKeyboardInput(const char *headerText, const char *subHeaderText, const char *initialText, SwkbdType type, char *out_text, size_t maxLength);

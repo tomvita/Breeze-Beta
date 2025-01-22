@@ -23,7 +23,7 @@
 #include "action.hpp"
 #include "ui_util.hpp"
 #include "assert.hpp"
-
+void circle_to_square(float* x, float* y);
 namespace air {
     extern gFileEntry g_FileEntry;
      bool m_HasCheatProcess;
@@ -32,7 +32,9 @@ namespace air {
     u8 m_screenshot_buffer[0x384000] = {0};
     bool m_capturescreen = true;
     bool m_refresh_backgroud = false;
+    bool m_look_at_background = false;
     int m_icon = -1;
+    bool m_exit_system = false;
     namespace // to move to action.cpp 
     {
         // bool m_usealias = false;
@@ -66,6 +68,9 @@ namespace air {
     }
     namespace {
 
+        HidNpadButton keycode;
+        u32 keycount = 0;
+
         static constexpr u32 ExosphereApiVersionConfigItem = 65000;
         static constexpr u32 ExosphereHasRcmBugPatch       = 65004;
         static constexpr u32 ExosphereEmummcType           = 65007;
@@ -78,7 +83,7 @@ namespace air {
         static constexpr float TextHorizontalInset   = 8.0f;
         static constexpr float TextVerticalInset     = 8.0f;
 
-        static constexpr float ButtonHeight          = 60.0f;
+        static constexpr float ButtonHeight          = 54.0f;
         static constexpr float ButtonHorizontalGap   = 10.0f;
 
         static constexpr float VerticalGap           = 10.0f;
@@ -170,7 +175,7 @@ namespace air {
         u32 EncodeVersion(u32 major, u32 minor, u32 micro, u32 relstep = 0) {
             return ((major & 0xFF) << 24) | ((minor & 0xFF) << 16) | ((micro & 0xFF) << 8) | ((relstep & 0xFF) << 8);
         }
-    } 
+    }  // namespace
         void ChangeMenu(std::shared_ptr<Menu> menu) {
             g_current_menu = menu;
         }
@@ -214,6 +219,8 @@ namespace air {
 
         if (button) {
             button->selected = selected;
+        } else {
+            m_buttons[1]->selected = true;
         }
     }
 
@@ -244,8 +251,13 @@ namespace air {
 
     bool Menu::ButtonEnabled(u32 id) {
         DBK_ABORT_UNLESS(id < MaxButtons);
-        auto &button = m_buttons[id];
-        return button->enabled;
+        if (m_buttons[id])
+        {
+            auto &button = m_buttons[id];
+            return button->enabled;
+        }
+        else
+            return false;
     }
 
     Button *Menu::GetButton(u32 id) {
@@ -265,8 +277,9 @@ namespace air {
 
     Button *Menu::GetClosestButtonToSelection(Direction direction) {
         const Button *selected_button = this->GetSelectedButton();
-
-        if (selected_button == nullptr || direction == Direction::Invalid) {
+        bool return_first_button = false;
+        if (selected_button == nullptr) return_first_button = true;
+        if (direction == Direction::Invalid) {
             return nullptr;
         }
 
@@ -278,7 +291,10 @@ namespace air {
             if (!button || !button->enabled) {
                 continue;
             }
-
+            if (return_first_button) {
+                closest_button = &(*button);
+                return closest_button;
+            }
             /* Skip buttons that are in the wrong direction. */
             if ((direction == Direction::Down && button->y <= selected_button->y)  ||
                 (direction == Direction::Up && button->y >= selected_button->y)    ||
@@ -324,6 +340,44 @@ namespace air {
         return nullptr;
     }
 
+    Button *Menu::GetPointedButton() {
+        auto k_stick = padGetStickPos(&g_pad, 0);
+        // if (!(padGetButtons(&g_pad) & options.radial_toggle_keycode))
+        //     return nullptr;
+        float x, y, x_max, x_min, y_max, y_min;
+        bool first = true;
+        for (auto &button : m_buttons) {
+            if (button && button->enabled) {
+                if (first) {
+                    x_max = button->x + button->w;
+                    x_min = button->x;
+                    y_max = button->y + button->h;
+                    y_min = button->y;
+                    first = false;
+                }
+                if (button->x + button->w > x_max) x_max = button->x + button->w;
+                if (button->x < x_min) x_min = button->x;
+                if (button->y + button->h > y_max) y_max = button->y + button->h;
+                if (button->y < y_min) y_min = button->y;
+            }
+        }
+        auto x_range = (x_max - x_min)/2;
+        auto y_range = (y_max - y_min)/2;
+        x = k_stick.x / 32767.0f;
+        y = k_stick.y / 32767.0f;
+        circle_to_square(&x, &y);
+        // x = x / sqrt(1.1 - y * y);
+        // y = y / sqrt(1.1 - x * x);
+        x = (x_max + x_min) / 2 + x * x_range;
+        y = (y_max + y_min) / 2 - y * y_range;
+        for (auto &button : m_buttons) {
+            if (button && button->enabled && button->IsPositionInBounds(x, y)) {
+                return &(*button);
+            }
+        }
+        return nullptr;
+    }
+
     Button *Menu::GetActivatedButton() {
         Button *selected_button = this->GetSelectedButton();
 
@@ -364,6 +418,12 @@ namespace air {
         if (const Button *touched_button = this->GetTouchedButton(); touched_button != nullptr) {
             this->DeselectAllButtons();
             this->SetButtonSelected(touched_button->id, true);
+        }
+
+        /* Select the stick pointed button. */
+        if (const Button *Pointed_button = this->GetPointedButton(); Pointed_button != nullptr) {
+            this->DeselectAllButtons();
+            this->SetButtonSelected(Pointed_button->id, true);
         }
     }
 
@@ -412,6 +472,7 @@ namespace air {
     }
 
     void AlertMenu::Draw(NVGcontext *vg, u64 ns) {
+        if (m_look_at_background) return;
         const float window_height = WindowHeight + (R_FAILED(m_rc) ? SubTextHeight : 0.0f);
         const float x = g_screen_width / 2.0f - WindowWidth / 2.0f;
         const float y = g_screen_height / 2.0f - window_height / 2.0f;
@@ -482,6 +543,7 @@ namespace air {
 
         /* Go back if B is pressed. */
         if (k_down & HidNpadButton_B) {
+            m_look_at_background = false;
             ReturnToPreviousMenu();
             return;
         }
@@ -490,7 +552,11 @@ namespace air {
         if (const Button *activated_button = this->GetActivatedButton(); activated_button != nullptr) {
             switch (activated_button->id) {
                 case ExitButtonId:
-                    ReturnToPreviousMenu();
+                    if (m_exit_system)
+                        request_exit();
+                    else
+                        m_look_at_background = false;
+                        ReturnToPreviousMenu();
                     break;
             }
         }
@@ -697,7 +763,7 @@ namespace air {
         std::string namestr = "";
         for (u32 i = 0; i < buttonCodes.size(); i++) {
             if ((buttoncode & buttonCodes[i]) == (buttonCodes[i] & 0x7FFFFFFF))
-                namestr = namestr + buttonNames[i];
+                namestr = namestr + " " + buttonNames[i];
         }
         return namestr;
     }
@@ -717,9 +783,12 @@ namespace air {
         char boxstr[100];
         u64 max_buttons = m_menu_setting.num_button_column * MAX_BUTTON_ROWS;
         if (max_buttons > m_menu_setting.actions.size()) max_buttons = m_menu_setting.actions.size();
+        for (u64 i = 0; i < m_menu_setting.actions.size(); i++) {
+            m_menu_setting.actions[i].keycode2 = options.custom_keycodes[(u8)m_menu_setting.menuid][i];
+        }
         for (u64 i = 0; i < max_buttons; i++) {
             // if (menu_setting.actions[i].ButtonId < 24)
-                snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", button_short_cut_str(menu_setting.actions[i].keycode).c_str(), menu_setting.actions[i].label.c_str()); //programmable shortcut change
+            snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", menu_setting.actions[i].label.c_str(), button_short_cut_str(((options.custom_shortcuts) ? m_menu_setting.actions[i].keycode2 : m_menu_setting.actions[i].keycode)).c_str());  // programmable shortcut change
             // else
             //     snprintf(boxstr, sizeof(boxstr) - 1, "%s", menu_setting.actions[i].label.c_str());
             this->AddButton(menu_setting.actions[i].ButtonId, boxstr, x + HorizontalInset + (button_width + HorizontalInset) * (i % menu_setting.num_button_column), y + TitleGap + (ButtonHeight + VerticalGap) * (i / menu_setting.num_button_column), button_width, ButtonHeight);
@@ -744,8 +813,9 @@ namespace air {
         u64 max_buttons = m_menu_setting.num_button_column * MAX_BUTTON_ROWS;
         if (max_buttons > m_menu_setting.actions.size()) max_buttons = m_menu_setting.actions.size();
         for (u64 i = 0; i < max_buttons; i++) {
+            m_menu_setting.actions[i].keycode2 = options.custom_keycodes[(u8)m_menu_setting.menuid][i];
             // if (menu_setting.actions[i].ButtonId < 24)
-                snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", button_short_cut_str(m_menu_setting.actions[i].keycode).c_str(), m_menu_setting.actions[i].label.c_str()); //programmable shortcut change
+            snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", m_menu_setting.actions[i].label.c_str(), button_short_cut_str(((options.custom_shortcuts) ? m_menu_setting.actions[i].keycode2 : m_menu_setting.actions[i].keycode)).c_str());  // programmable shortcut change
             // else
             //     snprintf(boxstr, sizeof(boxstr) - 1, "%s", menu_setting.actions[i].label.c_str());
             this->AddButton(m_menu_setting.actions[i].ButtonId, boxstr, x + HorizontalInset + (button_width + HorizontalInset) * (i % m_menu_setting.num_button_column), y + TitleGap + (ButtonHeight + VerticalGap) * (i / m_menu_setting.num_button_column), button_width, ButtonHeight);
@@ -758,8 +828,19 @@ namespace air {
         for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
             if (m_menu_setting.actions[i].ButtonId == id) {
                 char boxstr[100];
-                snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", button_short_cut_str(m_menu_setting.actions[i].keycode).c_str(), text);  
+                m_menu_setting.actions[i].keycode2 = options.custom_keycodes[(u8)m_menu_setting.menuid][i];
+                snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", text, button_short_cut_str(((options.custom_shortcuts)? m_menu_setting.actions[i].keycode2 : m_menu_setting.actions[i].keycode)).c_str());  
                 Menu::SetButtonLabel(id, boxstr);
+                break;
+            }
+        };
+    }
+
+    void AirMenu::SetButtonEnabled(u32 id, bool enabled) {
+        Menu::SetButtonEnabled(id, enabled);
+        for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
+            if (m_menu_setting.actions[i].ButtonId == id) {
+                m_menu_setting.actions[i].enable = enabled;
                 break;
             }
         };
@@ -904,8 +985,13 @@ namespace air {
         };
         u64 k_down = padGetButtonsDown(&g_pad);
         u64 k_held = padGetButtons(&g_pad);
-        // if (m_menu_setting.action2!=nullptr){m_menu_setting.action2->menu_action(1000, m_current_index);} 
-        if (m_menu_setting._action!=nullptr){ m_menu_setting._action->menu_action(1000, m_current_index);}; //else {m_menu_setting.action(buttonid, m_current_index);}
+        k_down = k_down & ~(u64)options.radial_toggle_keycode;
+        k_held = k_held & ~(u64)options.radial_toggle_keycode;
+        // if (m_menu_setting.action2!=nullptr){m_menu_setting.action2->menu_action(1000, m_current_index);}
+        if (m_menu_setting._action != nullptr) {
+            m_menu_setting._action->menu_action(1000, m_current_index);
+        } else if (m_menu_setting.show_rightpanel_status)
+            m_menu_setting.action(1000, m_current_index);
         // allow update to data and status
 
         /* Go back if B is pressed. */
@@ -925,23 +1011,75 @@ namespace air {
         //     return;
         // }
         const Button *activated_button = this->GetActivatedButton();
+
         u32 buttonid;
         if (activated_button == nullptr) {
             bool match = false;
+            size_t save_i;
             if (k_down == HidNpadButton_A) {
                 buttonid = 0;
                 match = true;
-            } else if (k_down != 0)
-                for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
-                    if (k_held == m_menu_setting.actions[i].keycode) {  //&& menu.actions[i].enable
-                        buttonid = m_menu_setting.actions[i].ButtonId;
-                        match = true;
+            } else if (k_down != 0) {
+                if (k_held == options.erase_keycode && options.custom_shortcuts) {
+                    keycode = (HidNpadButton)0;
+                    goto set_custom_keycode; 
+                } else if (k_held == options.alpha_toggle_keycode) {
+                    options.alpha_toggle = !options.alpha_toggle; 
+                } else if (k_held == options.help_toggle_keycode) {
+                    options.help_toggle = !options.help_toggle;
+                } else if (k_held == options.programe_keycode && options.custom_shortcuts) {
+                    keycount = options.m_combo;
+                    keycode = (HidNpadButton)0;
+                    // air::ChangeMenu(std::make_shared<WaitforkeyMenu>(get_current_menu(), logtext("Waiting for %d key press", options.m_combo).data, options.m_combo, Setting_menu_action, 291));
+                    // ReturnToPreviousMenu();
+                    return;
+                } else if (keycount > 0) {                        /* Programe New keycode*/
+                    keycode = (HidNpadButton)(keycode | k_down);  // eat the next key
+                    keycount--;
+                    if (keycount == 0) {
+                    set_custom_keycode:
+                        buttonid = GetSelectedButton()->id;
+                        for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
+                            if (buttonid == m_menu_setting.actions[i].ButtonId) {  //&& menu.actions[i].enable
+                                m_menu_setting.actions[i].keycode2 = keycode;
+                                options.custom_keycodes[(u8)m_menu_setting.menuid][i] = keycode;
+                                // save_options();
+                                SetButtonLabel(m_menu_setting.actions[i].ButtonId, logtext(m_menu_setting.actions[i].label.c_str()).data);
+                                // update button; check to see if need to reload menu
+                            }
+                        }
+                    }
+                    return;
+                } else
+                    for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
+                        if (k_held == ((options.custom_shortcuts) ? m_menu_setting.actions[i].keycode2 : m_menu_setting.actions[i].keycode)) {  //&& menu.actions[i].enable
+                            buttonid = m_menu_setting.actions[i].ButtonId;
+                            match = true;
+                            save_i = i;
+                            // last button priority and only displayed one take action
+                        }
+                    }
+            }
+            if (match == true) {
+                if ((options.visible_only) ? this->ButtonEnabled(buttonid) : m_menu_setting.actions[save_i].enable) {
+                    DeselectAllButtons();
+                    SetButtonSelected(buttonid, true);
+                    if (options.log_button_press) {
+                        Button *selected_button = this->GetSelectedButton();
+                        FILE *fp = fopen(ButtonList_FILE, "a");
+                        if (fp != NULL) {
+                            fwrite(selected_button->text, strlen(selected_button->text), 1, fp);
+                            const char lf = 13;
+                            fwrite(&lf, 1, 1, fp);
+                        };
+                        fclose(fp);
+                    }
+                    if (m_menu_setting._action != nullptr) {
+                        m_menu_setting._action->menu_action(buttonid, m_current_index);
+                    } else {
+                        m_menu_setting.action(buttonid, m_current_index);
                     }
                 }
-            if (match == true) {
-                if (this->ButtonEnabled(buttonid))
-                {if (m_menu_setting._action!=nullptr){ m_menu_setting._action->menu_action(buttonid, m_current_index);} else {
-                    m_menu_setting.action(buttonid, m_current_index);}}
                 return;
             }
         } else {
@@ -1022,13 +1160,14 @@ namespace air {
     void AirMenu::Draw(NVGcontext *vg, u64 ns) {
 
         float extension = 2 * (315 - xoffsetR);
-        DrawWindow(vg, m_menu_setting.right_panel_title.c_str(), g_screen_width / 2.0f + xoffsetR - (WindowWidth + extension) / 2.0f, g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f, WindowWidth + extension, TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N);
-        if (m_menu_setting.show_rightpanel_status)
-            DrawText(vg, g_screen_width / 2.0f + xoffsetR - (WindowWidth + extension) / 2.0f, 65 + g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f, WindowWidth + extension, m_menu_setting.right_panel_status.c_str());
-        this->DrawButtons(vg, ns);
-
+        if (draw_right_panel) {
+            DrawWindow(vg, m_menu_setting.right_panel_title.c_str(), g_screen_width / 2.0f + xoffsetR - (WindowWidth + extension) / 2.0f, g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f, WindowWidth + extension, TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N);
+            if (m_menu_setting.show_rightpanel_status)
+                DrawText(vg, g_screen_width / 2.0f + xoffsetR - (WindowWidth + extension) / 2.0f, 65 + g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f, WindowWidth + extension, m_menu_setting.right_panel_status.c_str());
+            this->DrawButtons(vg, ns);
+        }
         extension = 2 * (315 + xoffsetL);  // when xoffset is reducced from 320 can extend the windows width by this amount
-        const float x = g_screen_width / 2.0f - (WindowWidth + extension) / 2.0f + xoffsetL;
+        const float x = g_screen_width / 2.0f - (WindowWidth + extension) / 2.0f + ((draw_right_panel) ? xoffsetL : ((draw_left_panel_on_right) ? (-xoffsetL) : xoffsetL));
         const float y = g_screen_height / 2.0f - WindowHeight / 2.0f;
         if (m_menu_setting.show_left_panel_index)
             DrawWindow(vg, logtext("%s %d/%d", m_menu_setting.left_panel_title.c_str(), m_current_index + 1, m_data_entries.size()).data, x, y, WindowWidth + extension, WindowHeight);
@@ -1062,7 +1201,8 @@ namespace air {
         char boxstr[100];
         for (u64 i = 0; i < menu_setting.actions.size(); i++) {
             // if (menu_setting.actions[i].ButtonId < 24)
-            snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", button_short_cut_str(menu_setting.actions[i].keycode).c_str(), menu_setting.actions[i].label.c_str()); //programmable shortcut change
+            m_menu_setting.actions[i].keycode2 = options.custom_keycodes[(u8)m_menu_setting.menuid][i];
+            snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", menu_setting.actions[i].label.c_str(), button_short_cut_str(((options.custom_shortcuts) ? m_menu_setting.actions[i].keycode2 : m_menu_setting.actions[i].keycode)).c_str()); //programmable shortcut change
             // snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", buttonNames[menu_setting.actions[i].ButtonId].c_str(), menu_setting.actions[i].label.c_str());
             // else
             //     snprintf(boxstr, sizeof(boxstr) - 1, "%s", menu_setting.actions[i].label.c_str());
@@ -1071,10 +1211,31 @@ namespace air {
         }
         this->SetButtonSelected(menu_setting.button_selected, true);
     }
+    void BoxMenu::reload() {
+        this->ResetButtons();
+        N = m_menu_setting.actions.size() / m_menu_setting.num_button_column + (m_menu_setting.actions.size() % m_menu_setting.num_button_column > 0);
+        const float x = g_screen_width / 2.0f - m_menu_setting.WindowWidth / 2.0f;
+        const float y = g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f;
+        const float button_width = (m_menu_setting.WindowWidth - HorizontalInset * (m_menu_setting.num_button_column + 1)) / m_menu_setting.num_button_column;
+        char boxstr[100];
+        for (u64 i = 0; i < m_menu_setting.actions.size(); i++) {
+            // if (m_menu_setting.actions[i].ButtonId < 24)
+            m_menu_setting.actions[i].keycode2 = options.custom_keycodes[(u8)m_menu_setting.menuid][i];
+            snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", m_menu_setting.actions[i].label.c_str(), button_short_cut_str(((options.custom_shortcuts) ? m_menu_setting.actions[i].keycode2 : m_menu_setting.actions[i].keycode)).c_str());  // programmable shortcut change
+            // snprintf(boxstr, sizeof(boxstr) - 1, "%s%s", buttonNames[m_menu_setting.actions[i].ButtonId].c_str(), m_menu_setting.actions[i].label.c_str());
+            // else
+            //     snprintf(boxstr, sizeof(boxstr) - 1, "%s", m_menu_setting.actions[i].label.c_str());
+            this->AddButton(m_menu_setting.actions[i].ButtonId, boxstr, x + HorizontalInset + (button_width + HorizontalInset) * (i % m_menu_setting.num_button_column), y + TitleGap + (ButtonHeight + VerticalGap) * (i / m_menu_setting.num_button_column), button_width, ButtonHeight);
+            if (!m_menu_setting.actions[i].enable) SetButtonEnabled(m_menu_setting.actions[i].ButtonId, false);
+        }
+        this->SetButtonSelected(m_menu_setting.button_selected, true);
+    }
 
     void BoxMenu::Update(u64 ns) {
         u64 k_down = padGetButtonsDown(&g_pad);
         u64 k_held = padGetButtons(&g_pad);
+        k_down = k_down & ~(u64)options.radial_toggle_keycode;
+        k_held = k_held & ~(u64)options.radial_toggle_keycode;
         /* Take action if a button has been activated. */
 
         // if (action(m_menu_setting, k_down, this->GetActivatedButton(), 0)) {
@@ -1088,14 +1249,48 @@ namespace air {
             if (k_down == HidNpadButton_A) {
                 buttonid = 0;
                 match = true;
-            } else if (k_down != 0)
-                for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
-                    if (k_held  == m_menu_setting.actions[i].keycode) { //&& menu.actions[i].enable
-                        buttonid = m_menu_setting.actions[i].ButtonId;
-                        match = true;
-                        break;
+            } else if (k_down != 0) {
+                if (k_held == options.erase_keycode && options.custom_shortcuts) {
+                    keycode = (HidNpadButton)0;
+                    goto set_custom_keycode2;
+                } else if (k_held == options.alpha_toggle_keycode) {
+                    options.alpha_toggle = !options.alpha_toggle;
+                } else if (k_held == options.programe_keycode && options.custom_shortcuts) {
+                    keycount = options.m_combo;
+                    keycode = (HidNpadButton)0;
+                    // air::ChangeMenu(std::make_shared<WaitforkeyMenu>(get_current_menu(), logtext("Waiting for %d key press", options.m_combo).data, options.m_combo, Setting_menu_action, 291));
+                    // ReturnToPreviousMenu();
+                    return;
+                } else if (keycount > 0) {                        /* Programe New keycode*/
+                    keycode = (HidNpadButton)(keycode | k_down);  // eat the next key
+                    keycount--;
+                    if (keycount == 0) {
+                    set_custom_keycode2:
+                    buttonid = GetSelectedButton()->id;
+                    for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
+                            if (buttonid == m_menu_setting.actions[i].ButtonId) {  //&& menu.actions[i].enable
+                                m_menu_setting.actions[i].keycode2 = keycode;
+                                options.custom_keycodes[(u8)m_menu_setting.menuid][i] = keycode;
+                                save_options();
+                                SetButtonLabel(m_menu_setting.actions[i].ButtonId, logtext("%s%s", button_short_cut_str(((options.custom_shortcuts) ? m_menu_setting.actions[i].keycode2 : m_menu_setting.actions[i].keycode)).c_str(), m_menu_setting.actions[i].label.c_str()).data);
+                                // update button; check to see if need to reload menu
+                            }
                     }
-                }
+                    }
+                    return;
+                } else
+                    for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
+                    if (k_held == ((options.custom_shortcuts) ? m_menu_setting.actions[i].keycode2 : m_menu_setting.actions[i].keycode)) {  //&& menu.actions[i].enable
+                        if (this->ButtonEnabled(m_menu_setting.actions[i].ButtonId)) {
+                            buttonid = m_menu_setting.actions[i].ButtonId;
+                            match = true;
+                            DeselectAllButtons();
+                            SetButtonSelected(buttonid, true);
+                            break;
+                        }
+                    }
+                    }
+            }
             if (match == true)
             {
                 if (this->ButtonEnabled(buttonid))
@@ -1110,6 +1305,9 @@ namespace air {
 
         this->UpdateButtons();
 
+        if (m_menu_setting.action != nullptr) {
+            m_menu_setting.action(1000, 0);
+        };
         /* Fallback on selecting the install button. */
         if (const Button *selected_button = this->GetSelectedButton(); k_down && selected_button == nullptr) {
             this->SetButtonSelected(m_menu_setting.button_selected, true);
@@ -1119,6 +1317,9 @@ namespace air {
     void BoxMenu::Draw(NVGcontext *vg, u64 ns) {
         DrawWindow(vg, m_menu_setting.right_panel_title.c_str(), g_screen_width / 2.0f - m_menu_setting.WindowWidth / 2.0f, g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f, 
         m_menu_setting.WindowWidth, TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N);
+        if (m_menu_setting.show_rightpanel_status)
+            DrawText(vg, g_screen_width / 2.0f - m_menu_setting.WindowWidth / 2.0f, 65 + g_screen_height / 2.0f - (TitleGap + 20.0f + (ButtonHeight + VerticalGap) * N) / 2.0f,
+                     m_menu_setting.WindowWidth, m_menu_setting.right_panel_status.c_str());
         this->DrawButtons(vg, ns);
     }
     // void init_cheat_system1()
@@ -2332,12 +2533,12 @@ namespace air {
 //         nvgRestore(vg);
 //     }
 
-    FileMenu::FileMenu(std::shared_ptr<Menu> prev_menu, const char *root, u32 id, void (*action)(u32, u32)) : Menu(prev_menu), m_current_index(0), m_scroll_offset(0), m_touch_start_scroll_offset(0), m_touch_finalize_selection(false) {
+    FileMenu::FileMenu(std::shared_ptr<Menu> prev_menu, const char *root, u32 id, void (*action)(u32, u32), char ext[6]) : Menu(prev_menu), m_current_index(0), m_scroll_offset(0), m_touch_start_scroll_offset(0), m_touch_finalize_selection(false) {
         Result rc = 0;
         m_id = id;
         m_action = action;
         strncpy(m_root, root, sizeof(m_root)-1);
-
+        strncpy(m_ext, ext, sizeof(m_ext)-1);
         if (R_FAILED(rc = this->PopulateFileEntries())) {
             fatalThrow(rc);
         }
@@ -2357,7 +2558,10 @@ namespace air {
                 FileEntry file_entry = {};
                 strncpy(file_entry.name, ent->d_name, sizeof(file_entry.name));
                 file_entry.d_type = ent->d_type;
-                m_file_entries.push_back(file_entry);
+                std::string str = file_entry.name;
+                unsigned last = str.find(m_ext,str.size()-strlen(m_ext));
+                if (ent->d_type == DT_DIR || last < str.size())
+                    m_file_entries.push_back(file_entry);
             }
         }
 
@@ -2534,6 +2738,10 @@ namespace air {
 
         /* Finalize selection on pressing A. */
         if (k_down & HidNpadButton_A) {
+            if (m_file_entries.size() == 0) {
+                ReturnToPreviousMenu();
+                return;
+            }
             this->FinalizeSelection();
         }
 
@@ -2621,7 +2829,7 @@ namespace air {
                 match = true;
             } else
                 for (size_t i = 0; i < m_menu_setting.actions.size(); i++) {
-                    if (k_down & m_menu_setting.actions[i].keycode) { //&& menu.actions[i].enable
+                    if (k_down & ((options.custom_shortcuts)? m_menu_setting.actions[i].keycode2 : m_menu_setting.actions[i].keycode)) { //&& menu.actions[i].enable
                         buttonid = m_menu_setting.actions[i].ButtonId;
                         match = true;
                     }
@@ -3112,12 +3320,14 @@ namespace air {
     //     }
     // }
 
+#include "led.hpp"
     void InitializeMenu(u32 screen_width, u32 screen_height) {
         Result rc = 0;
 
         /* Configure and initialize the gamepad. */
-        padConfigureInput(1, HidNpadStyleSet_NpadStandard);
-        padInitializeDefault(&g_pad);
+        padConfigureInput(2, HidNpadStyleSet_NpadStandard);
+        padInitializeAny(&g_pad);
+        hidsysInitialize();
 
         /* Initialize the touch screen. */
         hidInitializeTouchScreen();

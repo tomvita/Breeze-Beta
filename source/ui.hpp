@@ -52,7 +52,7 @@ namespace air {
 
     class Menu {
         protected:
-            static constexpr size_t MaxButtons = 64;
+            static constexpr size_t MaxButtons = 100;
             static constexpr size_t LogBufferSize = 0x2000;
         protected:
             std::array<std::optional<Button>, MaxButtons> m_buttons;
@@ -69,6 +69,7 @@ namespace air {
             Button *GetButton(u32 id);
             Button *GetClosestButtonToSelection(Direction direction);
             Button *GetTouchedButton();
+            Button *GetPointedButton();
             Button *GetActivatedButton();
 
             void UpdateButtons();
@@ -77,7 +78,7 @@ namespace air {
         public:
             Button *GetSelectedButton();
             void LogText(const char *format, ...);
-            void SetButtonEnabled(u32 id, bool enabled);
+            virtual void SetButtonEnabled(u32 id, bool enabled);
             bool ButtonEnabled(u32 id);
             virtual void SetButtonLabel(u32 id, char *text);
             Menu(std::shared_ptr<Menu> prev_menu) : m_buttons({}), m_prev_menu(prev_menu), m_log_buffer{} { /* ... */ }
@@ -152,6 +153,7 @@ namespace air {
                 unsigned char d_type;
             };
             u32 m_id;
+            char m_ext[6];
             void (*m_action)(u32, u32);
 
            private:
@@ -180,7 +182,7 @@ namespace air {
             void UpdateTouches();
             void FinalizeSelection();
         public:
-            FileMenu(std::shared_ptr<Menu> prev_menu, const char *root, u32 id = 0, void (*action)(u32, u32) = nullptr);
+            FileMenu(std::shared_ptr<Menu> prev_menu, const char *root, u32 id = 0, void (*action)(u32, u32) = nullptr, char ext[6] = ".txt");
 
             virtual void Update(u64 ns) override;
             virtual void Draw(NVGcontext *vg, u64 ns) override;
