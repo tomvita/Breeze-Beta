@@ -1,20 +1,41 @@
+# Cheats
+Atmosphère supports Action-Replay style cheat codes, with cheats loaded off of the SD card.
 
+## Cheat Loading Process
+By default, Atmosphère will do the following when deciding whether to attach to a new application process:
+
++ Retrieve information about the new application process from `pm` and `loader`.
++ Check whether a user-defined key combination is held, and stop if not.
+  + This defaults to "L is not held", but can be configured with override keys.
+  + The ini key to configure this is `cheat_enable_key`.
++ Check whether the process is a real application, and stop if not.
+  + This guards against applying cheat codes to the Homebrew Loader.
++ Attempt to load cheats from `/atmosphere/contents/<program_id>/cheats/<build_id>.txt`, where `build_id` is the hexadecimal representation of the first 8 bytes of the application's main executable's build id.
+  + If no cheats are found, then the cheat manager will stop.
++ Open a kernel debug session for the new application process.
++ Signal to a system event that a new cheat process has been attached to.
+
+This behavior ensures that cheat codes are only loaded when the user would want them to.
+
+In cases where `dmnt` has not activated the cheat manager, but the user wants to make it do so anyway, the cheat manager's service API provides a `ForceOpenCheatProcess` command that homebrew can use. This command will cause the cheat manager to try to force itself to attach to the process.
+
+In cases where `dmnt` has activated the cheat manager, but the user wants to use an alternate debugger, the cheat manager's service API provides a `ForceCloseCheatProcess` command that homebrew can use. This command will cause the cheat manager to detach itself from the process.
+
+By default, all cheat codes listed in the loaded .txt file will be toggled on. This is configurable by the user by editing the `atmosphere!dmnt_cheats_enabled_by_default` [system setting](configurations.md).
+
+Users may use homebrew programs to toggle cheats on and off at runtime via the cheat manager's service API.
 
 ## Cheat Code Compatibility
-These are not available in official dmnt, do not use these code to ensure wide compatibility. Using these extension will make cheat not compatible with system that did not have my dmnt fork installed.
+Atmosphère manages cheat code through the execution of a small, custom virtual machine. Care has been taken to ensure that Atmosphère's cheat code format is fully backwards compatible with the pre-existing cheat code format, though new features have been added and bugs in the pre-existing cheat code applier have been fixed. Here is a short summary of the changes from the pre-existing format:
 
-### Type 0 extension 
-+ M: Memory region to write to (4 = non). 
-On official release this will default to Main NSO
-
-### Type 5 extension
-On official release `5T0R2SAA AAAAAAAA` and `5TMR3SAA AAAAAAAA` will be same as `5T0R10AA AAAAAAAA`
-
-### Type 8 extension
-setting bit mask 0x08000000 will have no effect. Cheat code will be active when button is held on official release
-
-### Type 9 extension
-Floating point maths are not supported on official release, result will be 0.
++ A number of bugs were fixed in the processing of conditional instructions.
+  + The pre-existing implementation was fundamentally broken, and checked for the wrong value when detecting the end of a conditional block.
+  + The pre-existing implementation also did not properly decode instructions, and instead linearly scanned for the terminator value. This caused problems if an instruction happened to encode a terminator inside its immediate values.
+  + The pre-existing implementation did not bounds check, and thus certain conditional cheat codes could cause it to read out-of-bounds memory, and potentially crash due to a data abort.
++ Support was added for nesting conditional blocks.
++ An instruction was added to perform much more complex arbitrary arithmetic on two registers.
++ An instruction was added to allow writing the contents of register to a memory address specified by another register.
++ The pre-existing implementation did not correctly synchronize with the application process, and thus would cause heavy lag under certain circumstances (especially around loading screens). This has been fixed in Atmosphère's implementation.
 
 ## Cheat Code Format
 The following provides documentation of the instruction format for the virtual machine used to manage cheat codes.
@@ -28,7 +49,7 @@ Code type 0x0 allows writing a static value to a memory address.
 `0TMR00AA AAAAAAAA VVVVVVVV (VVVVVVVV)`
 
 + T: Width of memory write (1, 2, 4, or 8 bytes).
-+ M: Memory region to write to (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr, 4 = non).
++ M: Memory region to write to (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr, 4 = non-relative).
 + R: Register to use as an offset from memory region base.
 + A: Immediate offset to use from memory region base.
 + V: Value to write.
@@ -41,11 +62,13 @@ Code type 0x1 performs a comparison of the contents of memory to a static value.
 If the condition is not met, all instructions until the appropriate End or Else conditional block terminator are skipped.
 
 #### Encoding
-`1TMC00AA AAAAAAAA VVVVVVVV (VVVVVVVV)`
+`1TMCXrAA AAAAAAAA VVVVVVVV (VVVVVVVV)`
 
-+ T: Width of memory write (1, 2, 4, or 8 bytes).
-+ M: Memory region to write to (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr).
++ T: Width of memory read (1, 2, 4, or 8 bytes).
++ M: Memory region to read from (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr, 4 = non-relative).
 + C: Condition to use, see below.
++ X: Operand Type, see below.
++ r: Offset Register (operand types 1).
 + A: Immediate offset to use from memory region base.
 + V: Value to compare to.
 
@@ -57,6 +80,9 @@ If the condition is not met, all instructions until the appropriate End or Else 
 + 5: ==
 + 6: !=
 
+#### Operand Type
++ 0: Memory Base + Relative Offset
++ 1: Memory Base + Offset Register + Relative Offset
 ---
 
 ### Code Type 0x2: End Conditional Block
@@ -105,7 +131,7 @@ Code type 0x5 allows loading a value from memory into a register, either using a
 `5TMR00AA AAAAAAAA`
 
 + T: Width of memory read (1, 2, 4, or 8 bytes).
-+ M: Memory region to write to (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr).
++ M: Memory region to write to (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr, 4 = non-relative).
 + R: Register to load value into.
 + A: Immediate offset to use from memory region base.
 
@@ -128,7 +154,7 @@ Code type 0x5 allows loading a value from memory into a register, either using a
 `5TMR3SAA AAAAAAAA`
 
 + T: Width of memory read (1, 2, 4, or 8 bytes).
-+ M: Memory region to write to (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr).
++ M: Memory region to write to (0 = Main NSO, 1 = Heap, 2 = Alias, 3 = Aslr, 4 = non-relative).
 + R: Register to load value into.
 + S: Register to use as offset register.
 + A: Immediate offset to use from memory region base.
@@ -210,7 +236,6 @@ Note: This is the direct output of `hidKeysDown()`.
 + 0800000: Right Stick Down
 + 1000000: SL
 + 2000000: SR
-+ 8000000: when this is set button only activate code once per keydown, need to be release before the code will run again
 
 ---
 
@@ -246,11 +271,10 @@ Code type 0x9 allows performing arithmetic on registers.
 + 7: Logical Not (discards right-hand operand)
 + 8: Logical Xor
 + 9: None/Move (discards right-hand operand)
-+ 10: Float Addition, Width force to 4 bytes
-+ 11: Float Multiplication, Width force to 4 bytes
-+ 12: Double Addition, Width force to 8 bytes
-+ 13: Double Multiplication, Width force to 8 bytes
-
++ 10: Float Addition, T==4 single T==8 double
++ 11: Float Subtraction, T==4 single T==8 double
++ 12: Float Multiplication, T==4 single T==8 double
++ 13: Float Division, T==4 single T==8 double
 ---
 
 ### Code Type 0xA: Store Register to Memory Address
@@ -379,6 +403,61 @@ Code type 0xC3 reads or writes a static register with a given register.
 + x: Register index.
 
 ---
+
+### Code Type 0xC4: Begin Extended Keypress Conditional Block
+Code type 0xC4 enters or skips a conditional block based on whether a key combination is pressed.
+
+#### Encoding
+`C4r00000 kkkkkkkk kkkkkkkk`
+
++ r: Auto-repeat, see below.
++ kkkkkkkkkk: Keypad mask to check against output of `hidKeysDown()`.
+
+Note that for multiple button combinations, the bitmasks should be OR'd together.
+
+#### Auto-repeat
+
++ 0: The conditional block executes only once when the keypad mask matches. The mask must stop matching to reset for the next trigger.
++ 1: The conditional block executes as long as the keypad mask matches.
+
+#### Keypad Values
+Note: This is the direct output of `hidKeysDown()`.
+
++ 000000001: A
++ 000000002: B
++ 000000004: X
++ 000000008: Y
++ 000000010: Left Stick Pressed
++ 000000020: Right Stick Pressed
++ 000000040: L
++ 000000080: R
++ 000000100: ZL
++ 000000200: ZR
++ 000000400: Plus
++ 000000800: Minus
++ 000001000: Left
++ 000002000: Up
++ 000004000: Right
++ 000008000: Down
++ 000010000: Left Stick Left
++ 000020000: Left Stick Up
++ 000040000: Left Stick Right
++ 000080000: Left Stick Down
++ 000100000: Right Stick Left
++ 000200000: Right Stick Up
++ 000400000: Right Stick Right
++ 000800000: Right Stick Down
++ 001000000: SL Left Joy-Con
++ 002000000: SR Left Joy-Con
++ 004000000: SL Right Joy-Con
++ 008000000: SR Right Joy-Con
++ 010000000: Top button on Poké Ball Plus (Palma) controller
++ 020000000: Verification
++ 040000000: B button on Left NES/HVC controller in Handheld mode
++ 080000000: Left C button in N64 controller
++ 100000000: Up C button in N64 controller
++ 200000000: Right C button in N64 controller
++ 400000000: Down C button in N64 controller
 
 ### Code Type 0xF0: Double Extended-Width Instruction
 Code Type 0xF0 signals to the VM to treat the upper three nybbles of the first dword as instruction type, instead of just the upper nybble.
