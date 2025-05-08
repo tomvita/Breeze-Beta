@@ -9,6 +9,7 @@ enum class actions_id_t {
     ExpandScreen,
     ButtonDemo,
     Jump,
+    ToggleWifi,
 };
 
 #define ID (u32) actions_id_t::
@@ -27,6 +28,7 @@ namespace air {
         // actions_id_t actions_id = actions_id_t::Select;
         // u32 actions_id;
         menu.actions = {
+            {"Toggle wifi", ID ToggleWifi, HidNpadButton_R},
             {"Select", ID Select, HidNpadButton_X},
             {"loop this menu", ID LoopMenu, HidNpadButton_Y},
             {"Write info to file", ID WriteInfo, HidNpadButton_Plus},
@@ -61,9 +63,20 @@ namespace air {
         switch (buttonid) {
             case 1000:{
                 populate_list(m_offset); // always refresh the list;
-                char message[100]="test status";
-                // snprintf(message, sizeof(message) - 1, " Index = %ld / %ld", m_offset + index + 1, file->size() / sizeof(from_to));
-                this->menu->m_menu_setting.left_panel_status = message;
+                // Result nifmSetWirelessCommunicationEnabled(bool enable);
+                // Result nifmIsWirelessCommunicationEnabled(bool* out);
+                bool is_enabled = false;
+                auto rc = nifmIsWirelessCommunicationEnabled(&is_enabled);
+                if (rc!= 0) {
+                    char message[100]="rc != 0";
+                    this->menu->m_menu_setting.left_panel_status = message;
+                } else if (is_enabled) {
+                    char message[100]="Wireless communication is enabled";
+                    this->menu->m_menu_setting.left_panel_status = message;
+                } else {
+                    char message[100]="Wireless communication is disabled";
+                    this->menu->m_menu_setting.left_panel_status = message;
+                };
                 return;
             };
             case 0:
@@ -73,10 +86,22 @@ namespace air {
                 return;
             case ID Back:
                 this->menu = nullptr;
-                air::ReturnToPreviousMenu();
+                // air::ReturnToPreviousMenu();
+                request_exit();
                 return;
             case ID Select: // selection action
                 return;
+            case ID ToggleWifi: {
+                bool is_enabled = false;
+                auto rc = nifmIsWirelessCommunicationEnabled(&is_enabled);
+                if (rc != 0) {
+                    char message[100]="rc != 0";
+                    this->menu->m_menu_setting.left_panel_status = message;
+                } else {
+                    nifmSetWirelessCommunicationEnabled(!is_enabled);
+                };
+                return;
+            };
             case ID LoopMenu: {
                 std::shared_ptr<Newmenu> action = std::make_shared<Newmenu>();
                 action->menu->m_menu_setting.action2 = action;

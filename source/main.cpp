@@ -53,6 +53,9 @@ extern "C" {
         if (R_FAILED(rc = dmntchtInitialize())) {
             // fatalThrow(rc);
         }
+        if (R_FAILED(rc = nifmInitialize(NifmServiceType_Admin))) {
+            // fatalThrow(rc);
+        }
 
     }
 
@@ -65,6 +68,7 @@ extern "C" {
         romfsExit();
         // amssuExit();
         dmntchtExit();
+        nifmExit();
     }
 
 }
