@@ -160,20 +160,22 @@ Breeze supports multiple methods to load cheats:
 
 ### Search Modes
 
-| Mode      | Description                     |
-|-----------|---------------------------------|
-| `==`      | Equal to value                 |
-| `!=`      | Not equal to value             |
-| `>`       | Greater than value             |
-| `<`       | Less than value                |
-| `>=`      | Greater or equal to value      |
-| `<=`      | Less or equal to value         |
-| `[A..B]`  | Inclusive range                |
-| `<A..B>`  | Exclusive range                |
-| `++`      | Value increased                |
-| `--`      | Value decreased                |
-| `DIFF`    | Value changed                  |
-| `SAME`    | Value unchanged                |
+| Mode      | Description                      |
+|-----------|----------------------------------|
+| `==`      | Equal to value                   |
+| `*=`      | Equal to value in u32, f32, f64  |
+| `**=`     | Same as '*=' but allow +-1 exclusive |
+| `!=`      | Not equal to value               |
+| `>`       | Greater than value               |
+| `<`       | Less than value                  |
+| `>=`      | Greater or equal to value        |
+| `<=`      | Less or equal to value           |
+| `[A..B]`  | Inclusive range                  |
+| `<A..B>`  | Exclusive range                  |
+| `++`      | Value increased                  |
+| `--`      | Value decreased                  |
+| `DIFF`    | Value changed                    |
+| `SAME`    | Value unchanged                  |
 
 ---
 
