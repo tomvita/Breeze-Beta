@@ -77,9 +77,9 @@ Breeze runs as a homebrew application (applet), not an overlay. You can launch i
 -   **Standard Launch**:
     -   Navigate to the homebrew menu and select Breeze.
 -   **Quick Launch Shortcut**:
-    1.  In Breeze, go to **Settings > Profile Shortcut** and enable the shortcut.
-    2.  Once enabled, you can launch Breeze form you game by pressing in sequence **Home, Up, A**.
-    3.  To return to your game, press in sequence **Home, Home**.
+    -   In Breeze, go to **Settings > Profile Shortcut** and enable the shortcut. Once enabled, you can launch Breeze form you game by pressing in sequence **Home, Up, A**.
+
+To return to your game, press in sequence **Home, Home**.
 
 ---
 
@@ -111,8 +111,7 @@ Breeze supports multiple methods to load cheats:
 
 1. **Cheat Database**:
    - Automatically loads cheats from a list of URLs and the local database if no cheats are found in the Atmosphere path.
-   - To update the local database, go to **Download > Check for Cheat Database Update > Install Cheat Database Update**.
-   - Alternatively, you can download `titles.zip` from the [NXCheatCode repository](https://github.com/tomvita/NXCheatCode/releases/latest) and place it in `sdmc:/switch/breeze/cheats/`. This file contains a collection of cheat files for various games.
+   - To get updated local database, go to **Download > Check for Cheat Database Update > Install Cheat Database Update**. Alternatively, you can download `titles.zip` from the [NXCheatCode repository](https://github.com/tomvita/NXCheatCode/releases/latest) and place it in `sdmc:/switch/breeze/cheats/`.
 
 2. **Manual Cheat Files**:
    - Atmosphere Path: `sdmc:/atmosphere/contents/(titleid)/cheats/(buildid).txt` (auto-loaded by CheatVM).
