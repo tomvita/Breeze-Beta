@@ -292,18 +292,6 @@ CheatVM runs at a fixed frequency, performing:
 | **VisibleOnly**             | Restrict shortcut keys to visible buttons (1) or allow all (0).    |
 | **Install Gen2 Fork**       | Install Gen2 fork (requires Atmosphere 1.4+ and system settings).  |
 
-### System Settings for Gen2
-
-Add to `atmosphere/config/system_settings.ini`:
-
-```
-[atmosphere]
-enable_standalone_gdbstub = u8!0x1
-enable_htc = u8!0x0
-```
-
-Reboot the Switch after editing.
-
 ---
 
 ## Data Types
@@ -321,14 +309,6 @@ Reboot the Switch after editing.
 | `flt`     | Single-precision float (f32)   |
 | `dbl`     | Double-precision float (f64)   |
 | `pointer` | Memory address pointer         |
-
----
-
-## Sysmodule Manager
-
-- **Tesla**: Optional overlay sysmodule; disable if it causes issues (e.g., with Monster Hunter Rise).
-- **sys-ftpd-10k**: FTP sysmodule with enlarged buffer for faster transfers (bundled, off by default).
-- **NoExes**: Enables communication with pointer searcher SE (bundled, off by default).
 
 ---
 
