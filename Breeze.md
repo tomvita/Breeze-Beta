@@ -23,23 +23,34 @@ Breeze offers a comprehensive set of tools for cheat management, memory hacking,
 - **Cheat Code Management**:
   - Toggle cheats on/off.
   - Add/remove conditional key combos.
+  - Cut, paste, dublicate cheats.
+  - Collect cheats in folders.
   - Load cheats from a database or multiple files.
-  - Edit cheats directly in the app.
 
 - **Cheat Code Editor**:
-  - Integrated ARM64 disassembler and assembler assistant.
-  - Create loop codes from a single starting point.
+  - Edit cheats directly in the app.
+  - Show cheat opcode in disassembled mode.
+  - Interative opcode assembly.
+  - Show ASM cheats in ARM assembly instruction.
+  - Directly edit ARM assembly instruction.
+  - Short cuts to facilitae cheat code composition.
 
 - **Memory Tools**:
   - Search, edit, and freeze memory values.
   - Bookmark memory locations with static offsets (main/heap).
+  - Search for pointer chain.
+  - Bookmark memory locations with pointer chain.
+  - Create cheat from bookmark and create bookmark from cheat.
+  - Memory explorer to view memory in supported data types and navigate pointer chain to explore data structure of the game.
 
 - **Advanced Debugging**:
   - Set memory breakpoints to track instructions accessing specific addresses.
   - Monitor instructions for memory access patterns.
+  - Capture caller, register state and memory target information. 
+  - Support parallel use of external debugger such as IDA pro for instruction tracing.
 
 - **ASM Composer**:
-  - Build assembly-based cheats efficiently.
+  - Build ARM assembly-based cheats.
 
 - **Auto-Update**:
   - Automatically update the app and cheat database.
@@ -53,9 +64,6 @@ Breeze offers a comprehensive set of tools for cheat management, memory hacking,
 
 1. Download `Breeze.zip` from the [official repository](https://github.com/tomvita/Breeze-Beta/releases).
 2. Extract and copy the contents to the root of your SD card.
-3. (Optional) For offline cheat database use, place `titles.zip` in `sdmc:/switch/breeze/cheats/`.
-
-For detailed instructions, refer to the [Breeze Wiki](https://github.com/tomvita/Breeze-Beta/wiki).
 
 ---
 
@@ -66,9 +74,6 @@ Breeze runs as an applet, not an overlay, and is launched from the home screen.
 - **Quick Launch**:
   - Enable the profile shortcut in **Settings > Profile Shortcut** to launch Breeze with **Home + Up + A**.
   - Return to the game with **Home + Home**.
-  - Alternatively, use **Settings > Switch to HBM on Breeze Directory** for faster access via hbmenu (requires **Home + Up + A + A**).
-
-- **Note**: Some older Atmosphere versions may not support the profile shortcut. Check compatibility in the Breeze Wiki.
 
 ---
 
@@ -93,9 +98,8 @@ Breeze uses a dual-panel interface for efficient navigation:
 Breeze supports multiple methods to load cheats:
 
 1. **Cheat Database**:
-   - Automatically loads cheats if none are present.
-   - Update via **Download > Check for Cheat Database Update > Install Cheat Database Update**.
-   - Alternatively, download `titles.zip` from [NXCheatCode](https://github.com/tomvita/NXCheatCode/releases/latest) and place it in `sdmc:/switch/breeze/cheats/`.
+   - Automatically loads cheats from list of urls and local database if none are present.
+   - Update local database via **Download > Check for Cheat Database Update > Install Cheat Database Update**. Alternatively, download `titles.zip` from [NXCheatCode](https://github.com/tomvita/NXCheatCode/releases/latest) and place it in `sdmc:/switch/breeze/cheats/`.
 
 2. **Manual Cheat Files**:
    - Atmosphere Path: `sdmc:/atmosphere/contents/(titleid)/cheats/(buildid).txt` (auto-loaded by CheatVM).
@@ -107,18 +111,21 @@ Breeze supports multiple methods to load cheats:
    - Use **More > Choose Individual Cheats from breeze/cheats** to add cheats from other files.
    - Save changes with **Write Cheat to File** or **Write Cheat to atm**.
 
-4. **Customizing Cheats**:
+### Customizing Cheats
    - Edit cheat names or values via **Edit Cheat**.
    - Modify conditional keys with **Add/Remove Conditional Key**.
-   - Convert moon jumps to hovers by duplicating cheats and adjusting values (e.g., reduce `f32` values).
+   - Convert moon jumps to hovers by duplicating cheats and adjusting values (e.g. reduce `f32` values).
+   - Edit cheat value (using button to directly modify value in commonly used format u32, f32, f64 etc).
+   - Edit cheat multiplier.
 
 ### Build ID (BID) Considerations
 
 - **What is BID?**: A hash of the game code ensuring cheat compatibility. Mismatched BIDs may cause instability.
 - **Checking BID**: Use **Game Information** to view the BID of the running game.
 - **Using Mismatched BIDs**:
-  - Risky; may cause crashes or save corruption.
-  - Always back up saves before using cheats with a different BID.
+  - Does not work most of the time.
+  - Risky; may cause crashes or save corruption. Automatic BID check is for your protection.
+  - Always back up saves before using cheats with a different BID. Restore if cheat don't work as damage may be latent.
   - Load mismatched cheats via **More > Any Cheats from breeze/cheats** (no BID check).
 
 ---
