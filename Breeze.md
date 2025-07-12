@@ -183,28 +183,38 @@ Breeze supports multiple methods to load cheats:
 
 ### Workflow
 
-1. Start with **Memory Dump** or **Start Search**.
-2. Play the game to change values, then use **Dump Compare** or **Continue Search**.
-3. Pause searches with **Pause Search** and resume later.
-4. Files (`.dat`) are stored in `sdmc:/switch/Breeze/`.
+1. Start with **Start Search** or **Memory Dump**. 
+2. Play the game to change values, then use  **Continue Search** or **Dump Compare** (only as follow up to memory dump).
+3. Repeat step 2 until the candidates list is short enough to start hacking.
+4. Hack memory to see if desired result can be achieved.
 
 ### File Management
 
-- Files store address-value pairs and screenshots for each game state.
-- Files are valid only within the current memory state.
-- Manually manage files or let Breeze clean up during new sessions.
+- Dump file is a dump of the RW memory accesible to the game and screenshots of the game when the search is performed. Dump file needs to be converted into candidate file for subsequent use.
+- Candidate Files store address-value pairs and screenshots of the game when the search is performed. 
+- Files are valid only within the current game state where target memory remain static.
+- Every itteration of step 1 or 2 produce a file. 
+- Choose a dump file to create a candidate file. This file will have the address-value pair that has the value that is from the dump and will have the screen short that was captured on the dump file. Only the last four search mode listed above is supported on dump file. 
+- Choose a candidate file to create the next candidate file which satisfy the search condition. The file you choose will have the "previous value" and the file produce by the search will have the current value in memory.
+- You can choose to name the output file or have Breeze create the file name to help track you search progress.
 
-### Search Process
+### An illustration of a Search Process not starting from dump
 
-Breeze tracks memory changes across game states using a file-based system:
-
-1. **Dump**: Capture full memory (Game State A) into **File 1**.
+1. **Search**: (Game State A) Candidate meeting search condition goes into into **File 1** (candidate file with State A values).
 2. **Play**: Transition to Game State B.
-3. **Diff**: Compare File 1 (State A) to current memory (State B), saving results in **File 1(00)** (State A values) and **File 1(01)** (State B values).
+3. **Search**: Compare candidate list from **File 1** to current memory (State B). Create **File 1(00)** (candidate file with State B values)
 4. **Play**: Transition to Game State C.
-5. **Diff**: Compare File 1(01) (State B) to current memory (State C), saving results in **File 1(02)** (State C values).
+5. **Search**: Compare **File 1(00)** (State B) to current memory (State C), saving results in **File 1(01)** (State C values).
 
-This process ensures accurate tracking of memory changes across states.
+### An illustration of a Search Process starting from dump
+
+1. **Dump**: Capture full memory (Game State A) into **File 1**(this is a dump file).
+2. **Play**: Transition to Game State B.
+3. **Search**: Compare **File 1** (State A dump) to current memory (State B), saving results in **File 1(00)** (candidate file with State A values)
+4. **Search**: Compare candidate list from **File 1(00)** to current memory (State B). Create **File 1(01)** (candidate file with State B values)
+4. **Play**: Transition to Game State C.
+5. **Search**: Compare File 1(01) (State B) to current memory (State C), saving results in **File 1(02)** (State C values).
+
 
 ---
 
@@ -235,7 +245,7 @@ This process ensures accurate tracking of memory changes across states.
 
 ---
 
-## Advanced Features (Gen2)
+## Advanced Features (Gen2 menu)
 
 ### Memory Breakpoints and Watches
 
@@ -243,15 +253,10 @@ This process ensures accurate tracking of memory changes across states.
 - **Execute Watch**: Capture instructions accessing the target memory (via **Gen2Attach**).
 - **Gen2Detach**: Stop the watch and review results.
 
-### Array of Bytes (AOB) Search
-
-- Used to locate unchanged or slightly modified game code after updates.
-- **Make AOB**: Create a file capturing eight instructions from the original code.
-- **Load AOB**: Search for the pattern in the current game version, adjusting for offsets.
-
 ### X30 Matching
 
 - Use **X30_cmp** in ASM Composer to filter instructions based on the X30 register value, distinguishing between friend and foe data.
+
 
 ---
 
@@ -267,9 +272,10 @@ CheatVM runs at a fixed frequency, performing:
 
 ### Cheat Code Syntax
 
-- `{}`: Master code (always executed).
-- `[]`: Optional code (toggled on/off).
+- `{}`: Master code label (always executed).
+- `[]`: Optional code label (toggled on/off).
 - Opcodes: 8-digit hex values, 1–4 per instruction.
+- Nothing other than white space character or 8-digit hex values are allowed outside of `{}` or `[]`
 
 ---
 
