@@ -23,17 +23,17 @@ Breeze offers a comprehensive set of tools for cheat management, memory hacking,
 - **Cheat Code Management**:
   - Toggle cheats on/off.
   - Add/remove conditional key combos.
-  - Cut, paste, dublicate cheats.
+  - Cut, paste, duplicate cheats.
   - Collect cheats in folders.
   - Load cheats from a database or multiple files.
 
 - **Cheat Code Editor**:
   - Edit cheats directly in the app.
   - Show cheat opcode in disassembled mode.
-  - Interative opcode assembly.
+  - Interactive opcode assembly.
   - Show ASM cheats in ARM assembly instruction.
   - Directly edit ARM assembly instruction.
-  - Short cuts to facilitae cheat code composition.
+  - Shortcuts to facilitate cheat code composition.
 
 - **Memory Tools**:
   - Search, edit, and freeze memory values.
@@ -60,20 +60,26 @@ Breeze offers a comprehensive set of tools for cheat management, memory hacking,
 
 ---
 
-## Installation
+## Getting Started
 
-1. Download `Breeze.zip` from the [official repository](https://github.com/tomvita/Breeze-Beta/releases).
-2. Extract and copy the contents to the root of your SD card.
+Follow these steps to install and launch Breeze on your Nintendo Switch.
 
----
+### Installation
 
-## Launching Breeze
+1.  Download the latest `Breeze.zip` from the [official repository](https://github.com/tomvita/Breeze-Beta/releases).
+2.  Extract the contents of the ZIP file.
+3.  Copy the extracted files to the root of your SD card.
 
-Breeze runs as an applet, not an overlay, and is launched from the home screen.
+### Launching Breeze
 
-- **Quick Launch**:
-  - Enable the profile shortcut in **Settings > Profile Shortcut** to launch Breeze with **Home + Up + A**.
-  - Return to the game with **Home + Home**.
+Breeze runs as a homebrew application (applet), not an overlay. You can launch it directly from the Switch's home screen after you have started the game. (You can't cheat if the game isn't running)
+
+-   **Standard Launch**:
+    -   Navigate to the homebrew menu and select Breeze.
+-   **Quick Launch Shortcut**:
+    1.  In Breeze, go to **Settings > Profile Shortcut** and enable the shortcut.
+    2.  Once enabled, you can launch Breeze form you game by pressing in sequence **Home, Up, A**.
+    3.  To return to your game, press in sequence **Home, Home**.
 
 ---
 
@@ -81,13 +87,19 @@ Breeze runs as an applet, not an overlay, and is launched from the home screen.
 
 Breeze uses a dual-panel interface for efficient navigation:
 
-- **Data Panel** (Left): Displays selectable data (e.g., memory addresses, cheats).
-  - Navigate with L-Stick or D-Pad (configurable in **Settings**).
-  - Up/Down: Move cursor one step; Left/Right: Move 10 steps.
-- **Button Panel** (Right): Contains actionable buttons.
-  - Navigate with the unused L-Stick or D-Pad; press **A** to activate.
-  - Shortcut keys can be assigned to buttons for quick activation.
-- **Touch Support**: Scroll and tap to select data or activate buttons.
+- **Left Panel (Data Panel)**: Displays selectable data such as memory addresses or cheats.
+  - Use the L-Stick or D-Pad to navigate (configurable in **Settings**).
+  - **Up/Down**: Move the cursor one step.
+  - **Left/Right**: Move the cursor 10 steps.
+
+- **Right Panel (Button Panel)**: Contains actionable buttons.
+  - Navigate with the unused L-Stick or D-Pad.
+  - Press **A** to activate a selected button.
+  - Assign custom shortcut keys or use pre-defined shortcut keys (configurable in **Settings**) for quick access to buttons
+
+- **Touch Support**:
+  - Scroll through data by dragging your finger.
+  - Tap to select data or activate buttons.
 
 ---
 
@@ -98,8 +110,9 @@ Breeze uses a dual-panel interface for efficient navigation:
 Breeze supports multiple methods to load cheats:
 
 1. **Cheat Database**:
-   - Automatically loads cheats from list of urls and local database if none are present.
-   - Update local database via **Download > Check for Cheat Database Update > Install Cheat Database Update**. Alternatively, download `titles.zip` from [NXCheatCode](https://github.com/tomvita/NXCheatCode/releases/latest) and place it in `sdmc:/switch/breeze/cheats/`.
+   - Automatically loads cheats from a list of URLs and the local database if no cheats are found in the Atmosphere path.
+   - To update the local database, go to **Download > Check for Cheat Database Update > Install Cheat Database Update**.
+   - Alternatively, you can download `titles.zip` from the [NXCheatCode repository](https://github.com/tomvita/NXCheatCode/releases/latest) and place it in `sdmc:/switch/breeze/cheats/`. This file contains a collection of cheat files for various games.
 
 2. **Manual Cheat Files**:
    - Atmosphere Path: `sdmc:/atmosphere/contents/(titleid)/cheats/(buildid).txt` (auto-loaded by CheatVM).
@@ -125,7 +138,7 @@ Breeze supports multiple methods to load cheats:
 - **Using Mismatched BIDs**:
   - Does not work most of the time.
   - Risky; may cause crashes or save corruption. Automatic BID check is for your protection.
-  - Always back up saves before using cheats with a different BID. Restore if cheat don't work as damage may be latent.
+  - Always back up saves before using cheats with a different BID. Restore if cheats don't work as damage may be latent.
   - Load mismatched cheats via **More > Any Cheats from breeze/cheats** (no BID check).
 
 ---
@@ -318,8 +331,15 @@ Breeze builds on the UI framework from Daybreak and incorporates lessons from Ed
 
 ---
 
+## Disclaimer
+
+Using cheats can be risky and may lead to unexpected behavior, including game crashes or save data corruption. Always back up your save data before using cheats. The developers of Breeze are not responsible for any damage caused by the use of this tool.
+
+---
+
 ## Further Resources
 
 - [Breeze Wiki](https://github.com/tomvita/Breeze-Beta/wiki)
+- [Breeze Repository](https://github.com/tomvita/Breeze-Beta)
 - [NXCheatCode Repository](https://github.com/tomvita/NXCheatCode)
 - [CheatVM Documentation](https://github.com/Atmosphere-NX/Atmosphere/blob/master/docs/features/cheats.md)
