@@ -1,6 +1,35 @@
 # Menu Documentation
 
-This document outlines the button controls for the various menus in the application.
+Welcome to the comprehensive guide for all button functionalities within Breeze. This document is designed to help you understand and master the controls across various menus, from basic navigation to advanced cheat implementation.
+The menus are designed to be intuitive, but the extensive features mean there are many buttons and shortcuts available. This guide breaks down each menu, detailing what every button does, along with its default shortcut.
+Whether you're a new user getting acquainted with the application or an experienced user looking for a specific function, this documentation will serve as your go-to reference for all controls.
+
+## Focus Mode / Normal Mode
+Focus Mode simplifies menu navigation by showing only your favorite or most frequently used buttons, reducing clutter for a faster and more focused experience. You can switch between Focus Mode and Normal Mode using a dedicated extra button or by assigning a shortcut key in the Settings Menu.
+
+## Extra buttons
+
+The buttons listed below are enabled via the "Extra Button" option in the Settings menu and will be available across all menus. You can enable up to four extra buttons, which are activated in the order shown in the table. The first extra button is the most important: if there are more buttons than can fit on a single screen, this button provides access to additional (overflow) buttons, making it the only way to reach otherwise inaccessible controls. 
+
+| Button Name | Default Shortcut | Action |
+|---|---|---|
+| -> Normal mode / Normal[?] / -> Focus mode / Focus[?] | (none) | Switches between Focus mode (showing only your selected buttons) and Normal mode (showing all buttons). The label indicates the mode you will switch to, or, if there are more buttons than fit on one screen, displays as Normal[?] or Focus[?] (e.g., Normal[34]) to show how many buttons are available on the next page(s). In either mode, pressing this button will move to the next page of buttons if necessary. |
+| default shortcuts | (none) | Resets all custom shortcuts for the current menu back to their default values. |
+| Focus menu | (none) | Open the Focus Manager Menu. Let you save/load focus list |
+| Focus edit | (none) | Toggles Focus Edit mode. When enabled, pressing any button will add it to the focus list for the current menu. You can remove a button from the focus list by using the "Focus Mode Erase Key" shortcut defined in settings. |
+
+## Focus Manager Menu
+
+Manage your Focus Mode configurations by saving and loading different sets of focused buttons. This is useful for quickly switching between different workflows or tasks.
+
+| Button Name | Default Shortcut | Action |
+|---|---|---|
+| Load focus | Y | Loads a previously saved focus setup, replacing the current one. |
+| Save focus | X | Saves the current set of focused buttons for all menus to a named profile. |
+| Rename | (none) | Renames the selected focus file. |
+| New focus | + | Creates a new focus file. |
+| Lock focus | (none) | Toggles whether the focus configuration is locked. When unlocked, using any button in Normal mode will add that button to the focus list. |
+| Back | B | Returns to the previous menu. |
 
 ## Main Menu
 
@@ -299,7 +328,7 @@ Directly view and edit memory, and navigate pointer chains.
 | MoveRight | Y + ZL | Move right on the pointer chain (jumpforward). |
 | Edit Memory | X | Edit memory according to the displayed type. |
 | Add Bookmark | + | Add cursor address to bookmark. |
-| Change Type -&gt; | R + ZL | Cycle to the next data type. |
+| Change Type -> | R + ZL | Cycle to the next data type. |
 | Mode Toggle | Left Stick | Toggle between smart, base, and hex display modes. |
 | Expand menu | ZR + ZL | Show more buttons. |
 | Back | B | Go back to the previous menu. |
@@ -331,7 +360,7 @@ Directly view and edit memory, and navigate pointer chains.
 | Dump_Segment | Y + L | Dump current segment to file for search manager use. |
 | Dump_area | X + L | Dump area around current address for search manager use. |
 | Toggle_align | Left Stick + ZR | Toggle between aligned column or simple display line with no alignment. |
-| Change Type &lt;- | L + ZL | Cycle to the previous data type. |
+| Change Type <- | L + ZL | Cycle to the previous data type. |
 | Set tandem | X + ZR | Push current address to tandem list. |
 | Clear tandem | B + ZR | Clear tandem list. |
 | Save tandem list | L + Right Stick Down + ZR | Save tandem list. |
@@ -453,7 +482,7 @@ The settings menu allows users to configure various aspects of Breeze's behavior
 | Shortcut Program Key | (none) | Define the key combo that lets you program a custom shortcut (number of keys in the combo is defined by "Combo keys").
 | Shortcut Erase Key | (none) | Remove a shortcut if you are using Custom Shortcuts.
 | Alpha Toggle Key | (none) | This key allows you to adjust the alpha transparency, revealing more or less of the background.
-| Focus Mode Erase Key | (none) | This key allows you to remove the button in easy mode.
+| Focus Mode Erase Key | (none) | This key allows you to remove the button in focus mode.
 | Focus Mode Toggle Key | (none) | This key allows you to toggle between focus and normal mode.
 | Radial Mode Key | (none) | This key allows you to enter radial mode for the left stick; this key can no longer be used with any shortcut.
 | Theme | (none) | Select the light or dark theme of Breeze.
@@ -472,6 +501,6 @@ The settings menu allows users to configure various aspects of Breeze's behavior
 | Log Button Press | (none) | Toggles whether to log your button presses to a file.
 | Visible Only | (none) | Toggles whether shortcuts can activate buttons that are not visible.
 | Reset Options | (none) | Reset all options to default.
-| Backup Easy Mode and Custom Shortcuts | (none) | Backup easy mode and custom shortcuts to a file. Your current custom keys and easy menu will become the new defaults when you use the reset options button.
+| Backup Focus Mode and Custom Shortcuts | (none) | Backup focus mode and custom shortcuts to a file. Your current custom keys and focus menu will become the new defaults when you use the reset options button.
 | Use Module Name | (none) | Toggles whether to use the module name for cheats.
 | Module Loaded Cheats Only | (none) | Toggles whether to only display cheats for currently loaded modules.
