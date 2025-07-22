@@ -175,7 +175,7 @@ def mem_type_str(mem_type):
     if mem_type == MemoryAccessType.Aslr: return "Aslr"
     return ""
 
-def arm64_disassemble(value, bit_width):
+def arm64_disassemble(value, bit_width, address):
     if not CAPSTONE_AVAILABLE:
         return ""
     
@@ -183,7 +183,7 @@ def arm64_disassemble(value, bit_width):
     code = value.to_bytes(bit_width, byteorder='little')
     
     disassembled = ""
-    for i in md.disasm(code, 0):
+    for i in md.disasm(code, address):
         disassembled += f"{i.mnemonic} {i.op_str}"
     
     return disassembled.strip()
@@ -220,7 +220,7 @@ def decode_next_opcode(opcodes, index):
         value, instruction_ptr = get_next_vm_int(opcodes, instruction_ptr, bit_width)
         out.str = f"[{mem_type_str(mem_type)}+R{offset_register}+0x{rel_address:010X}] = 0x{value.value:X}"
         if bit_width == 4:
-            asm = arm64_disassemble(value.value, 4)
+            asm = arm64_disassemble(value.value, 4, rel_address)
             if asm:
                 out.str += f"  {asm}"
     
@@ -455,24 +455,7 @@ def disassemble_opcodes_from_file(file_path):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
-if __name__ == "__main__":
-    if not CAPSTONE_AVAILABLE:
-        print("Capstone library not found. Please install it with 'pip install capstone'")
-        sys.exit(1)
-        
-    if len(sys.argv) != 2:
-        print("Usage: python disassemble_cheats.py <path_to_opcode_file>")
-        example_file = 'asm.txt'
-        print(f"\nNo file provided. Trying with example file: '{example_file}'")
-        try:
-            with open(example_file, 'r'):
-                disassemble_opcodes_from_file(example_file)
-        except FileNotFoundError:
-            print(f"Example file '{example_file}' not found.")
-    else:
-        disassemble_opcodes_from_file(sys.argv[1])
-        
-def disassemble_opcodes(opcodes_str):
+def disassemble_opcodes_from_string(opcodes_str):
     cheat_opcodes = []
     for line in opcodes_str.splitlines():
         line = line.strip()
@@ -493,23 +476,38 @@ def disassemble_opcodes(opcodes_str):
     if cheat_opcodes:
         disassemble_cheat(cheat_opcodes)
 
-if __name__ == "__main__":
+def main():
+    """Main function to handle command-line arguments or interactive mode."""
     if not CAPSTONE_AVAILABLE:
         print("Capstone library not found. Please install it with 'pip install capstone'")
         sys.exit(1)
 
-    while True:
-        print("Paste your opcodes (type 'done' on a new line to finish):")
-        opcodes_str = ""
+    # If a command-line argument is provided, treat it as a file path
+    if len(sys.argv) > 1:
+        file_path = sys.argv[1]
+        print(f"--- Disassembling from file: {file_path} ---")
+        disassemble_opcodes_from_file(file_path)
+    # Otherwise, enter interactive mode
+    else:
+        print("--- Interactive Mode ---")
         while True:
-            try:
-                line = input()
-                if line.strip().lower() == 'done':
+            print("\nPaste your opcodes (type 'done' on a new line to finish):")
+            opcodes_str = ""
+            while True:
+                try:
+                    line = input()
+                    if line.strip().lower() == 'done':
+                        break
+                    opcodes_str += line + "\n"
+                except EOFError:
                     break
-                opcodes_str += line + "\n"
-            except EOFError:
+            
+            if opcodes_str.strip():
+                disassemble_opcodes_from_string(opcodes_str)
+            
+            choice = input("\nDisassemble more? (yes/no): ")
+            if choice.strip().lower() != 'yes':
                 break
-        disassemble_opcodes(opcodes_str)
-        choice = input("Do you want to exit? (yes/no): ")
-        if choice.strip().lower() == 'yes':
-            break
+
+if __name__ == "__main__":
+    main()
