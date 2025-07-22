@@ -471,3 +471,45 @@ if __name__ == "__main__":
             print(f"Example file '{example_file}' not found.")
     else:
         disassemble_opcodes_from_file(sys.argv[1])
+        
+def disassemble_opcodes(opcodes_str):
+    cheat_opcodes = []
+    for line in opcodes_str.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith('[') and line.endswith(']'):
+            if cheat_opcodes:
+                disassemble_cheat(cheat_opcodes)
+                cheat_opcodes = []
+            print(f"\n{line}")
+        else:
+            parts = line.split()
+            for part in parts:
+                try:
+                    cheat_opcodes.append(int(part, 16))
+                except ValueError:
+                    pass  # Ignore non-hex parts
+    if cheat_opcodes:
+        disassemble_cheat(cheat_opcodes)
+
+if __name__ == "__main__":
+    if not CAPSTONE_AVAILABLE:
+        print("Capstone library not found. Please install it with 'pip install capstone'")
+        sys.exit(1)
+
+    while True:
+        print("Paste your opcodes (type 'done' on a new line to finish):")
+        opcodes_str = ""
+        while True:
+            try:
+                line = input()
+                if line.strip().lower() == 'done':
+                    break
+                opcodes_str += line + "\n"
+            except EOFError:
+                break
+        disassemble_opcodes(opcodes_str)
+        choice = input("Do you want to exit? (yes/no): ")
+        if choice.strip().lower() == 'yes':
+            break
