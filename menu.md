@@ -454,7 +454,7 @@ The settings menu allows users to configure various aspects of Breeze's behavior
 | Shortcut Erase Key | (none) | Remove a shortcut if you are using Custom Shortcuts.
 | Alpha Toggle Key | (none) | This key allows you to adjust the alpha transparency, revealing more or less of the background.
 | Focus Mode Erase Key | (none) | This key allows you to remove the button in easy mode.
-| Focus Mode Toggle Key | (none) | This key allows you to toggle between displaying button help text and status text.
+| Focus Mode Toggle Key | (none) | This key allows you to toggle between focus and normal mode.
 | Radial Mode Key | (none) | This key allows you to enter radial mode for the left stick; this key can no longer be used with any shortcut.
 | Theme | (none) | Select the light or dark theme of Breeze.
 | Use Alt Color | (none) | Toggles whether to use an alternate color for Breeze's font.
