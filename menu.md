@@ -4,6 +4,25 @@ Welcome to the comprehensive guide for all button functionalities within Breeze.
 The menus are designed to be intuitive, but the extensive features mean there are many buttons and shortcuts available. This guide breaks down each menu, detailing what every button does, along with its default shortcut.
 Whether you're a new user getting acquainted with the application or an experienced user looking for a specific function, this documentation will serve as your go-to reference for all controls.
 
+## Table of Contents
+- [Focus Mode / Normal Mode](#focus-mode--normal-mode)
+- [Extra buttons](#extra-buttons)
+- [Focus Manager Menu](#focus-manager-menu)
+- [Main Menu](#main-menu)
+- [Simple Cheat Menu](#simple-cheat-menu)
+- [Advance Cheat Menu](#advance-cheat-menu)
+- [Extended Cheat Menu (More Menu)](#extended-cheat-menu-more-menu)
+- [Edit Cheat Menu](#edit-cheat-menu)
+- [Search Setup Menu](#search-setup-menu)
+- [Search Setup Menu 2](#search-setup-menu-2)
+- [Search Manager Menu](#search-manager-menu)
+- [Bookmark Menu](#bookmark-menu)
+- [Memory Explorer Menu](#memory-explorer-menu)
+- [Jump Back Menu](#jump-back-menu)
+- [Gen2 Menu](#gen2-menu)
+- [Gen2 Extra Menu](#gen2-extra-menu)
+- [Setting Menu](#setting-menu)
+
 ## Focus Mode / Normal Mode
 Focus Mode simplifies menu navigation by showing only your favorite or most frequently used buttons, reducing clutter for a faster and more focused experience. You can switch between Focus Mode and Normal Mode using a dedicated extra button or by assigning a shortcut key in the Settings Menu.
 
@@ -251,6 +270,10 @@ There are two types of files involved:
 
 This design enables accurate, step-by-step refinement while preserving the original state of memory snapshots.
 
+### Search Criteria
+The search functionality relies on up to three user-definable values: `A`, `B`, and `C`. These values serve as the primary criteria for memory searches. You can set and modify these values using dedicated buttons within the Search Manager, such as `Edit A`, `Edit B`, `Inc A`, etc.
+
+The specific search mode you select will determine how these values are used. For example, a simple `==A` search will look for memory addresses containing the value of `A`, while a range search `[A..B]` will find values between `A` and `B`.
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
