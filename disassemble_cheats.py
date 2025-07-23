@@ -162,7 +162,7 @@ def get_next_vm_int(opcodes, instruction_ptr, bit_width):
             return None, instruction_ptr
         val.value = (first_dword << 32) | second_dword
     else:
-        # Invalid bit_width, but we'll assign the dword to avoid crashing.
+        # Invalid bit_width, but I'll assign the dword to avoid crashing.
         val.value = first_dword
         
     return val, instruction_ptr
@@ -182,11 +182,13 @@ def arm64_disassemble(value, bit_width, address):
     md = Cs(CS_ARCH_ARM64, CS_MODE_ARM)
     code = value.to_bytes(bit_width, byteorder='little')
     
-    disassembled = ""
-    for i in md.disasm(code, address):
-        disassembled += f"{i.mnemonic} {i.op_str}"
-    
-    return disassembled.strip()
+    disassembled = []
+    try:
+        for i in md.disasm(code, address):
+            disassembled.append(f"{i.mnemonic} {i.op_str}")
+        return "; ".join(disassembled).strip()
+    except Exception:
+        return "" # Return empty string if Capstone fails
 
 
 def decode_next_opcode(opcodes, index):
@@ -216,30 +218,29 @@ def decode_next_opcode(opcodes, index):
         mem_type = MemoryAccessType((first_dword >> 20) & 0xF)
         offset_register = (first_dword >> 16) & 0xF
         second_dword, instruction_ptr = get_next_dword(opcodes, instruction_ptr)
-        rel_address = ((first_dword & 0xFF) << 32) | second_dword
+        rel_address = ((first_dword & 0xFF) << 32) | second_dword 
+        
         value, instruction_ptr = get_next_vm_int(opcodes, instruction_ptr, bit_width)
         
-        addr_str = f"[{mem_type_str(mem_type)}+R{offset_register}+0x{rel_address:010X}]"
+        out.str = f"[{mem_type_str(mem_type)}+R{offset_register}+0x{rel_address:010X}] = 0x{value.value:X}"
         
-        asm = ""
+        value_for_disasm = value.value
         if bit_width == 8:
-            val64 = value.value
-            val_high = val64 >> 32
-            val_low = val64 & 0xFFFFFFFF
-            
-            asm_low = arm64_disassemble(val_low, 4, rel_address)
-            asm_high = arm64_disassemble(val_high, 4, rel_address + 4)
-            
-            if asm_low and asm_high:
-                asm = f"{asm_low}; {asm_high}"
+            # The 64-bit value is read as (high_dword << 32 | low_dword).
+            # For little-endian disassembly, the byte stream needs to be
+            # ordered by the dwords as they appear in the file (high then low).
+            # value.to_bytes(..., 'little') would produce bytes(low) then bytes(high).
+            # To fix this, swap the dwords before converting to bytes.
+            high_dw = value.value >> 32
+            low_dw = value.value & 0xFFFFFFFF
+            value_for_disasm = (low_dw << 32) | high_dw
 
-        elif bit_width == 4:
-            asm = arm64_disassemble(value.value, 4, rel_address)
-        
-        if asm:
-            out.str = f"{addr_str}={asm}"
+        if CAPSTONE_AVAILABLE and (bit_width == 4 or bit_width == 8):
+            asm = arm64_disassemble(value_for_disasm, bit_width, rel_address)
+            if asm:
+                out.str += f"  {asm}"
         else:
-            out.str = f"{addr_str} = 0x{value.value:X}"
+            out.str += " (Disassembly skipped - Capstone not available or invalid bit_width)"
     
     elif out.opcode == CheatVmOpcodeType.BeginConditionalBlock:
         bit_width = (first_dword >> 24) & 0xF
@@ -504,8 +505,19 @@ def main():
         file_path = sys.argv[1]
         print(f"--- Disassembling from file: {file_path} ---")
         disassemble_opcodes_from_file(file_path)
-    # Otherwise, enter interactive mode
+        input("\nPress Enter to exit...") 
     else:
+    
+     if len(sys.argv) != 2:
+        print("Usage: python disassemble_cheats.py <path_to_opcode_file>")
+        example_file = 'asm.txt'
+        print(f"\nNo file provided. Trying with example file: '{example_file}'")
+        try:
+            with open(example_file, 'r'):
+                disassemble_opcodes_from_file(example_file)
+        except FileNotFoundError:
+            print(f"Example file '{example_file}' not found.")
+            
         print("--- Interactive Mode ---")
         while True:
             print("\nPaste your opcodes (type 'done' on a new line to finish):")
@@ -525,6 +537,8 @@ def main():
             choice = input("\nDisassemble more? (yes/no): ")
             if choice.strip().lower() != 'yes':
                 break
+                
+
 
 if __name__ == "__main__":
     main()
