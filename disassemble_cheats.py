@@ -218,11 +218,28 @@ def decode_next_opcode(opcodes, index):
         second_dword, instruction_ptr = get_next_dword(opcodes, instruction_ptr)
         rel_address = ((first_dword & 0xFF) << 32) | second_dword
         value, instruction_ptr = get_next_vm_int(opcodes, instruction_ptr, bit_width)
-        out.str = f"[{mem_type_str(mem_type)}+R{offset_register}+0x{rel_address:010X}] = 0x{value.value:X}"
-        if bit_width == 4:
+        
+        addr_str = f"[{mem_type_str(mem_type)}+R{offset_register}+0x{rel_address:010X}]"
+        
+        asm = ""
+        if bit_width == 8:
+            val64 = value.value
+            val_high = val64 >> 32
+            val_low = val64 & 0xFFFFFFFF
+            
+            asm_low = arm64_disassemble(val_low, 4, rel_address)
+            asm_high = arm64_disassemble(val_high, 4, rel_address + 4)
+            
+            if asm_low and asm_high:
+                asm = f"{asm_low}; {asm_high}"
+
+        elif bit_width == 4:
             asm = arm64_disassemble(value.value, 4, rel_address)
-            if asm:
-                out.str += f"  {asm}"
+        
+        if asm:
+            out.str = f"{addr_str}={asm}"
+        else:
+            out.str = f"{addr_str} = 0x{value.value:X}"
     
     elif out.opcode == CheatVmOpcodeType.BeginConditionalBlock:
         bit_width = (first_dword >> 24) & 0xF
