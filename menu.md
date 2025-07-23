@@ -229,7 +229,28 @@ Configure advanced memory searches with more data types and conditions.
 
 ## Search Manager Menu
 
-Manage search files, continue searches, and view candidates.
+The **Search Manager** is the core of Breeze’s powerful file-based memory hacking system.  
+Unlike traditional search sessions that are temporary, Breeze saves each step as a distinct file, enabling precise tracking of memory changes over time.
+
+There are two types of files involved:
+
+- **Memory Dump** – a full snapshot of the game’s memory at a specific moment.
+- **Candidate File** – a list of address-value pairs that meet your search criteria.
+
+### Workflow
+
+- A **Start Search** or **Memory Dump** creates the initial file.
+- A **Continue Search** then refines results by comparing current memory with a previous file — but its behavior depends on the **source file**.
+
+#### Continuing from a Candidate File
+- The new file will reflect **current memory values**.
+
+#### Continuing from a Memory Dump
+- The first **Continue Search** creates a **Candidate File** using values from the moment the dump was made.
+- To get a file reflecting **current memory values**, perform a second **Continue Search** on the candidate file just created.
+
+This design enables accurate, step-by-step refinement while preserving the original state of memory snapshots.
+
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
