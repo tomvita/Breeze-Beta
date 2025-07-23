@@ -507,6 +507,17 @@ def main():
         disassemble_opcodes_from_file(file_path)
         input("\nPress Enter to exit...") 
     else:
+    
+     if len(sys.argv) != 2:
+        print("Usage: python disassemble_cheats.py <path_to_opcode_file>")
+        example_file = 'asm.txt'
+        print(f"\nNo file provided. Trying with example file: '{example_file}'")
+        try:
+            with open(example_file, 'r'):
+                disassemble_opcodes_from_file(example_file)
+        except FileNotFoundError:
+            print(f"Example file '{example_file}' not found.")
+            
         print("--- Interactive Mode ---")
         while True:
             print("\nPaste your opcodes (type 'done' on a new line to finish):")
@@ -526,6 +537,8 @@ def main():
             choice = input("\nDisassemble more? (yes/no): ")
             if choice.strip().lower() != 'yes':
                 break
+                
+
 
 if __name__ == "__main__":
     main()
