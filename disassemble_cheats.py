@@ -442,7 +442,7 @@ def disassemble_cheat(opcodes):
 
 def disassemble_opcodes_from_file(file_path):
     try:
-        with open(file_path, 'r') as f:
+        with open(file_path, 'r', encoding='utf-8') as f:
             cheat_opcodes = []
             for line in f:
                 stripped_line = line.strip()
