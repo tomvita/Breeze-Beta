@@ -224,7 +224,7 @@ def main():
     if len(sys.argv) > 1:
         file_path = sys.argv[1]
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path, 'r', encoding='utf-8') as f:
                 input_str = f.read()
             output_str = assemble_from_string(input_str)
             print(output_str)
