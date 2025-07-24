@@ -17,6 +17,7 @@ Whether you're a new user getting acquainted with the application or an experien
 - [Search Setup Menu](#search-setup-menu)
 - [Search Setup Menu 2](#search-setup-menu-2)
 - [Search Manager Menu](#search-manager-menu)
+- [Candidate Menu](#candidate-menu)
 - [Bookmark Menu](#bookmark-menu)
 - [Memory Explorer Menu](#memory-explorer-menu)
 - [Jump Back Menu](#jump-back-menu)
@@ -371,6 +372,36 @@ The specific search mode you select will determine how these values are used. Fo
 | Rebase | L + ZR | Rebase search results from previous game session when posible. |
 | Inc B | Right Stick Up + ZL | Increment value B. |
 | Dec B | Right Stick Down + ZL | Decrement value B. |
+
+## Candidate Menu
+
+The Candidate Menu is where you can view and interact with the results of a memory search. After performing a search in the Search Manager, the addresses that match your criteria are listed here as "candidates." This menu provides a powerful set of tools to inspect, modify, and analyze these candidates, helping you pinpoint the exact memory addresses you need for your cheats.
+
+| Button Name | Default Shortcut | Action |
+|---|---|---|
+| Toggle Freeze Memory | X | Freezes or unfreezes the value at the selected memory address, preventing it from changing. |
+| Edit Memory | Y | Opens an editor to modify the value at the selected memory address. |
+| Add Bookmark | + | Saves the selected memory address to your bookmarks for easy access later. |
+| Mode toggle | Left Stick | Cycles through different display modes for memory values: `smart` (context-aware), `base` (decimal), and `hex` (hexadecimal). |
+| Memory Explorer | Right Stick | Opens the Memory Explorer at the selected address for a more detailed view of the surrounding memory. |
+| Goto Disassembly / Bookmark | L | Depending on the search mode, this button either opens the ASM Explorer to view the disassembly of the code at the address or opens the Bookmark Menu. |
+| Page Up | Right Stick Up | Navigates to the previous page of candidates. |
+| Page Down | Right Stick Down | Navigates to the next page of candidates. |
+| First Page | Right Stick Left | Jumps to the first page of the candidate list. |
+| Last Page | - | Jumps to the last page of the candidate list. |
+| Change Type -> | R | Cycles forward through the available data types (e.g., u8, s16, f32) for interpreting the memory value. |
+| Change Type <- | R + ZL | Cycles backward through the available data types. |
+| Revert | L + ZL | Reverts the value at the selected address to its original value from the search. |
+| Write info to file | (none) | Exports the current list of candidates to a text file for external analysis. |
+| Expand screen | R + ZR | Toggles the width of the left panel to show more or less information. |
+| Back | B | Returns to the previous menu. |
+| Freeze100 | (none) | Freezes the next 100 candidate values starting from the cursor. |
+| Unfreeze100 | (none) | Unfreezes the next 100 candidate values starting from the cursor. |
+| Inc1000 | (none) | Incrementally adds a specified value to the next 1000 candidates. |
+| Set1000 | (none) | Sets the next 1000 candidates to a specified value. |
+| Revert1000 | (none) | Reverts the next 1000 candidates to their original values. |
+| First Target | - + ZL | In pointer search mode, this jumps to the first target in the list. |
+| GotoSource | StickR + ZL | In pointer search mode, this jumps to the source of the pointer. |
 
 ## Bookmark Menu
 
