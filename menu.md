@@ -495,6 +495,13 @@ The Gen2 Menu is a powerful dynamic analysis tool for creating advanced cheats b
 
 You will typically enter this menu from the Memory Explorer when watching a specific memory address, or from the ASM Explorer when analyzing a piece of code. Once configured, you attach Breeze as a debugger, execute the watch to capture data while the game runs, and then detach to examine the results. This cycle allows you to iteratively refine your understanding and pinpoint the exact code responsible for the behavior you want to change.
 
+### Workflow
+
+1.  **Watch Memory Access**: Start by watching a memory address to see what code accesses it.
+2.  **Choose a Code**: Select a code from the captured data that you suspect is related to the action you want to modify.
+3.  **Verify Uniqueness**: Check if the chosen code's access is unique to the target. If so, proceed to the next step. Otherwise, test other codes from the list to find a unique one. If none are unique, additional filtering methods will be needed.
+4.  **Create Cheat**: Once a uniquely accessing code is identified, you can create a cheat to modify its behavior.
+
 | Button Name | Default Shortcut | Action |
 |---|---|---|
 | Next stack_check | (none) | The number of stack value to capture in next run, also used for asm script generation. |
