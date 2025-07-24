@@ -13,6 +13,7 @@ Whether you're a new user getting acquainted with the application or an experien
 - [Advance Cheat Menu](#advance-cheat-menu)
 - [Extended Cheat Menu (More Menu)](#extended-cheat-menu-more-menu)
 - [Edit Cheat Menu](#edit-cheat-menu)
+- [Asm Composer Menu](#asm-composer-menu)
 - [Search Setup Menu](#search-setup-menu)
 - [Search Setup Menu 2](#search-setup-menu-2)
 - [Search Manager Menu](#search-manager-menu)
@@ -185,6 +186,40 @@ This menu allows for direct editing of cheat codes.
 | Line 2 Cheat | Left Stick Left + ZR | Make a cheat code from the selected line of code. |
 | R1=... | Left Stick Down + ZL + ZR | Display the base address of the module. |
 | 4,6 to 0 | Left Stick Down + ZL | Convert type 4 and type 6 cheats into type 0 cheats. |
+
+## Asm Composer Menu
+
+This menu allows for direct composition and editing of assembly code.
+
+| Button Name | Default Shortcut | Action |
+|---|---|---|
+| Edit | X | Edit the selected line of assembly. |
+| Load file | R | Load an assembly file from `/switch/breeze`. |
+| Load file(game dir) | R + ZL | Load an assembly file from `/switch/breeze/cheats/{game dir}`. |
+| Load | L | Reload from file (unsaved changes will be lost). |
+| Save | L + ZL | Save the current assembly to file. |
+| Check ASM | Y + ZR | Validate the assembly code and add comments for issues. |
+| Copy | Y | Copy and push the current line to the stack. |
+| Cut | - | Cut and push the current line to the stack. |
+| Paste | + | Pop from the stack and insert the line. |
+| PasteBelow | + + ZL | Pop from the stack and insert the line below. |
+| Original | X + ZL | Insert the original assembly code that is being hooked. |
+| MergeNext | Right + ZL | Append the next line into the current one. |
+| ldr_str | Up + ZL | Multipurpose modification of ldr and str instructions. |
+| mov_fmov | Down + ZL | Change between mov and fmov instructions. |
+| data_value | Left + ZL | Multipurpose insert template. |
+| X30_cmp | Right Stick | Not needed, use gen2 menu to create full script. |
+| paste A | Left Stick | Paste the value of A. |
+| Cut the rest | - + ZL | Cut all lines below the cursor. |
+| Expand screen | R + ZR | Toggle the width of the left panel. |
+| cave_start | Y + ZL | Fix the starting address of the code cave. |
+| data_save | Right Stick Right + ZL | Insert template for data save. |
+| button_save | Right Stick Left + ZL | Insert template for using button and create button cheat. |
+| toggle comment | B + ZL | Comment/uncomment the current line. |
+| clear copy stack | + + ZR | Empty the copy stack (inserts blank line if stack is empty). |
+| Go to memory | Right Stick Up + ZL | Go to memory explorer if on a defined address. |
+| Set GrabA | Right Stick Down + ZL | Set data define as GrabA target. |
+| Save & Back | B | Save changes and return to the previous menu. |
 
 ## Search Setup Menu
 
@@ -445,7 +480,9 @@ Analyze pointer chains and perform multi-level pointer searches.
 
 ## Gen2 Menu
 
-Perform advanced data watch and capture to assist in cheat creation.
+The Gen2 Menu is a powerful dynamic analysis tool for creating advanced cheats by watching memory and capturing data about how and when it's accessed. Instead of just searching for static values, you can monitor a memory address or region to see exactly what code is reading from or writing to it. The core workflow involves setting up a watch, specifying the access type to look for (read/write), and defining what data to capture when a trigger occurs—most importantly, the return address (X30) of the function that accessed the memory. This is invaluable for understanding game logic and finding the precise code to modify.
+
+You will typically enter this menu from the Memory Explorer when watching a specific memory address, or from the ASM Explorer when analyzing a piece of code. Once configured, you attach Breeze as a debugger, execute the watch to capture data while the game runs, and then detach to examine the results. This cycle allows you to iteratively refine your understanding and pinpoint the exact code responsible for the behavior you want to change.
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
@@ -484,7 +521,15 @@ Perform advanced data watch and capture to assist in cheat creation.
 
 ## Gen2 Extra Menu
 
-Provides extra tools for processing data captured with the Gen2 menu.
+The Gen2 Extra Menu provides a suite of tools to process and analyze the data captured by the Gen2 Menu, with the ultimate goal of automating the creation of Assembly (ASM) cheats. After capturing a set of memory access events, you can use this menu to sort the data, find unique code paths (X30 values), and perform exclusive searches to eliminate irrelevant code. Its most powerful features can automatically generate ASM scripts (`make match all`, `make match 1`) based on the captured data, allowing you to quickly create complex cheats that replicate or modify game logic with high precision.
+
+The X30 register, also known as the Link Register (LR), holds the return address for function calls. When a function is invoked using the BL (Branch with Link) instruction, the return address is automatically stored in x30. However, the hardware does not preserve this value automatically—it’s up to the software, typically the compiler or handwritten assembly, to save it, usually by storing it on the stack.
+
+The Gen2 menu captures the current value of X30, along with up to five stack entries using best-guess heuristics. These stack entries aim to catch saved copies of X30 that may have been pushed earlier in the call chain. This provides crucial insight into the calling context of low-level functions, offering powerful hints about the nature of a memory access—whether it relates to an ally or enemy, item quantity, or other gameplay stats.
+
+`make match 1` creates a cheat that activates when either the current X30 register or one of the chosen stack values matches the captured value — using just one reference point.
+`make match all` creates a cheat that activates only when both X30 and all chosen stack values match the captured state.
+When the condition narrows memory access so that only the target is hit, a good cheat is ready.
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
