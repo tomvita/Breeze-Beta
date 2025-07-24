@@ -189,7 +189,18 @@ This menu allows for direct editing of cheat codes.
 
 ## Asm Composer Menu
 
-This menu allows for direct composition and editing of assembly code.
+The Asm Composer Menu serves as a specialized Integrated Development Environment (IDE) tailored for assembly programming within Breeze. It’s engineered to streamline the entire cheat development workflow, from initial hook to final implementation.
+
+### Workflow
+After identifying a target instruction to hook (e.g., via Gen2 menu and ASM explorer), you first create a new cheat for it. Access the `Asm Composer` through the `Edit Cheat` menu to begin writing your custom assembly logic.
+
+### Key Features
+- **File Operations**: Load and save `.asm` files from the main `/breeze/` directory or game-specific folders.
+- **Efficient Code Editing**: A syntax-aware editor with a multi-level clipboard stack simplifies managing and reusing code snippets.
+- **Assembly-Specific Tools**: Accelerate development with one-tap shortcuts for common ARM instructions (`ldr`/`str`, `mov`/`fmov`) and templates for recurring patterns like data storage and button-activated code.
+- **Seamless Integration**: For crucial context, you can instantly insert the original, hooked code for reference and jump directly into the Memory Explorer to examine relevant memory regions.
+
+The Asm Composer equips both novices and experts with the essential tools to build precise and complex assembly cheats efficiently.
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
@@ -523,13 +534,14 @@ You will typically enter this menu from the Memory Explorer when watching a spec
 
 The Gen2 Extra Menu provides a suite of tools to process and analyze the data captured by the Gen2 Menu, with the ultimate goal of automating the creation of Assembly (ASM) cheats. After capturing a set of memory access events, you can use this menu to sort the data, find unique code paths (X30 values), and perform exclusive searches to eliminate irrelevant code. Its most powerful features can automatically generate ASM scripts (`make match all`, `make match 1`) based on the captured data, allowing you to quickly create complex cheats that replicate or modify game logic with high precision.
 
-The X30 register, also known as the Link Register (LR), holds the return address for function calls. When a function is invoked using the BL (Branch with Link) instruction, the return address is automatically stored in x30. However, the hardware does not preserve this value automatically—it’s up to the software, typically the compiler or handwritten assembly, to save it, usually by storing it on the stack.
+The `x30` register, or Link Register (LR), is central to understanding program flow, as it holds the return address for function calls. The `BL` (Branch with Link) instruction automatically updates `x30` with the address of the next instruction, but its value is volatile and must be explicitly saved to the stack by software to survive nested function calls.
 
-The Gen2 menu captures the current value of X30, along with up to five stack entries using best-guess heuristics. These stack entries aim to catch saved copies of X30 that may have been pushed earlier in the call chain. This provides crucial insight into the calling context of low-level functions, offering powerful hints about the nature of a memory access—whether it relates to an ally or enemy, item quantity, or other gameplay stats.
+The Gen2 menu’s hardware watchpoints can capture both the current `x30` value and several values from the top of the stack. By analyzing these captured stack entries, you can often find saved `x30` values from earlier in the call chain. This provides invaluable context for low-level memory accesses, helping you trace them back to higher-level game logic—such as identifying whether an action affects an ally or an enemy.
 
-`make match 1` creates a cheat that activates when either the current X30 register or one of the chosen stack values matches the captured value — using just one reference point.
-`make match all` creates a cheat that activates only when both X30 and all chosen stack values match the captured state.
-When the condition narrows memory access so that only the target is hit, a good cheat is ready.
+- **`make match 1`**: Creates a cheat that triggers if *either* the current `x30` or one of the selected stack values matches the captured data. This is useful for finding a single, reliable hook point.
+- **`make match all`**: Creates a more restrictive cheat that triggers only when *both* the current `x30` and *all* selected stack values match the captured state, ensuring maximum precision.
+
+A successful cheat is achieved when these conditions isolate a memory access to only the desired target.
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
