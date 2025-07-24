@@ -464,7 +464,23 @@ Directly view and edit memory, and navigate pointer chains.
 
 ## Jump Back Menu
 
-Analyze pointer chains and perform multi-level pointer searches.
+The Jump Back Menu is designed for multi-level pointer searching, a powerful technique for finding stable pointers to dynamic memory addresses.
+
+### What is Pointer Searching?
+In game hacking, the memory address for a value like player health can change each time the game is launched. A pointer is simply a memory address that holds the value of another memory address. Pointer searching is the process of finding a sequence of pointers—a "pointer chain"—that starts from a static, unchanging base address (usually in the game's main code) and, after applying a series of offsets, reliably leads to the desired dynamic data. This allows cheats to work across different game sessions.
+
+### The Methodology
+The Jump Back menu automates this by working backward from a target address you've identified (the "node"). It scans memory for any addresses that point to your target, building a "pointer map" of potential chains. The process is iterative:
+1.  **Start**: Begins a search for pointers pointing to the initial set of target addresses (nodes).
+2.  **Next Depth**: Takes the pointers found in the previous step and searches for pointers that point to *them*, effectively moving one level up the chain toward a static base address.
+This continues until a stable path from a static address is found.
+
+### Search Parameters
+The search process is governed by several key parameters that help refine the results and manage performance:
+- **`search_depth`**: Sets the maximum number of levels (jumps) the search will automatically perform in "Goto depth" mode.
+- **`num_offsets`**: Restricts the search to using only the specified number of nearest-offset pointers for the next depth, pruning less likely candidates.
+- **`search_range`**: Defines the maximum valid offset value for a pointer. This helps filter out invalid pointers and focus the search.
+- **`Max per node`**: Limits how many pointers are found for each target address in a given search step, preventing the results from being flooded by a single, heavily-referenced node.
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
