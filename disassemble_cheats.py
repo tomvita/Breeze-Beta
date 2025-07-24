@@ -218,7 +218,7 @@ def decode_next_opcode(opcodes, index):
         mem_type = MemoryAccessType((first_dword >> 20) & 0xF)
         offset_register = (first_dword >> 16) & 0xF
         second_dword, instruction_ptr = get_next_dword(opcodes, instruction_ptr)
-        rel_address = ((first_dword & 0xFF) << 32) | second_dword 
+        rel_address = ((first_dword & 0xFF) << 32) | second_dword
         
         value, instruction_ptr = get_next_vm_int(opcodes, instruction_ptr, bit_width)
         
@@ -442,7 +442,7 @@ def disassemble_cheat(opcodes):
 
 def disassemble_opcodes_from_file(file_path):
     try:
-        with open(file_path, 'r', encoding='UTF-8') as f:
+        with open(file_path, 'r', encoding='utf-8') as f:
             cheat_opcodes = []
             for line in f:
                 stripped_line = line.strip()
@@ -462,9 +462,7 @@ def disassemble_opcodes_from_file(file_path):
                             try:
                                 cheat_opcodes.append(int(part, 16))
                             except ValueError:
-                                # Ignore non-hex parts, could be comments
                                 pass
-            # After the loop, process any remaining opcodes
             if cheat_opcodes:
                 disassemble_cheat(cheat_opcodes)
 
@@ -473,18 +471,58 @@ def disassemble_opcodes_from_file(file_path):
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
 
+def _preprocess_pasted_opcodes(opcodes_str):
+    """
+    Preprocesses the pasted opcode string to handle headers and opcodes
+    potentially on the same line, separating them with newlines.
+    """
+    lines = opcodes_str.splitlines()
+    processed_lines = []
+    
+    for i, line in enumerate(lines):
+        stripped_line = line.strip()
+        if not stripped_line:
+            continue
+
+        if stripped_line.startswith('[') or stripped_line.startswith('{'):
+            close_bracket_index = -1
+            if stripped_line.startswith('['):
+                close_bracket_index = stripped_line.find(']')
+            elif stripped_line.startswith('{'):
+                close_bracket_index = stripped_line.find('}')
+            
+            if close_bracket_index != -1:
+                header = stripped_line[:close_bracket_index + 1]
+                processed_lines.append(header)
+                
+                remaining_opcodes_str = stripped_line[close_bracket_index + 1:].strip()
+                if remaining_opcodes_str:
+                    opcode_parts = remaining_opcodes_str.split()
+                    processed_lines.extend(opcode_parts)
+            else:
+                processed_lines.append(stripped_line)
+        else:
+            opcode_parts = stripped_line.split()
+            processed_lines.extend(opcode_parts)
+
+    return "\n".join(processed_lines)
+
 def disassemble_opcodes_from_string(opcodes_str):
+    preprocessed_str = _preprocess_pasted_opcodes(opcodes_str)
+    
     cheat_opcodes = []
-    for line in opcodes_str.splitlines():
+    for line in preprocessed_str.splitlines():
         line = line.strip()
         if not line:
             continue
-        if line.startswith('[') and line.endswith(']'):
+        if (line.startswith('[') and line.endswith(']')) or \
+           (line.startswith('{') and line.endswith('}')):
             if cheat_opcodes:
                 disassemble_cheat(cheat_opcodes)
                 cheat_opcodes = []
             print(f"\n{line}")
         else:
+            # At this point, each 'line' should ideally be a single hex opcode or part of one
             parts = line.split()
             for part in parts:
                 try:
@@ -505,10 +543,10 @@ def main():
         file_path = sys.argv[1]
         print(f"--- Disassembling from file: {file_path} ---")
         disassemble_opcodes_from_file(file_path)
-        input("\nPress Enter to exit...") 
+        input("\nPress Enter to exit...")  
     else:
     
-     if len(sys.argv) != 2:
+      if len(sys.argv) != 2: # This check here might be redundant if the block below is always interactive
         print("Usage: python disassemble_cheats.py <path_to_opcode_file>")
         example_file = 'asm.txt'
         print(f"\nNo file provided. Trying with example file: '{example_file}'")
@@ -538,7 +576,6 @@ def main():
             if choice.strip().lower() != 'yes':
                 break
                 
-
 
 if __name__ == "__main__":
     main()
