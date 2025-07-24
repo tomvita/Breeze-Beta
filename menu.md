@@ -377,6 +377,13 @@ The specific search mode you select will determine how these values are used. Fo
 
 The Candidate Menu is where you can view and interact with the results of a memory search. After performing a search in the Search Manager, the addresses that match your criteria are listed here as "candidates." This menu provides a powerful set of tools to inspect, modify, and analyze these candidates, helping you pinpoint the exact memory addresses you need for your cheats.
 
+If you have a large list of candidates, there are two primary methods for narrowing them down:
+
+1.  **Refine the Search**: Return to the **Search Manager Menu** and perform a **Continue Search** with more specific criteria (e.g., searching for values that have changed, increased, or decreased). This iterative process is key to isolating the exact address you are looking for.
+2.  **Batch-Test Candidates**: The Candidate Menu also includes powerful tools to test changes on many candidates at once. Functions like `Freeze100`, `Set1000`, and `Inc1000` allow you to apply a change to hundreds or thousands of candidates simultaneously. By observing the effect in-game, you can quickly determine if any of the modified candidates control the desired behavior, providing another method for rapidly narrowing down a large result set.
+
+    > **Warning:** Be cautious when batch-modifying integer values. An integer candidate may actually be part of a pointer or other critical data structure. Modifying it can easily lead to crashes or other unexpected behavior. Batch-testing is generally safer with floating-point values, which are less likely to be integral parts of the game's core structure.
+
 | Button Name | Default Shortcut | Action |
 |---|---|---|
 | Toggle Freeze Memory | X | Freezes or unfreezes the value at the selected memory address, preventing it from changing. |
