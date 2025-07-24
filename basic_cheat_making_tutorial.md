@@ -45,18 +45,41 @@ Repeat this process:
 *   Change the value in-game.
 *   Return to Breeze and **Continue search** with the new value.
 
-Do this until you have a small number of candidates. Under 10 is great, but a list under 50 can still be manageable.
+Do this until you have a small number of candidates. An ideal result is a list with fewer than 10 candidates. A list of 50-100 is still manageable, but will require more effort to narrow down.
 
 **Pro Tip:** If your candidate list is still long, you can try to isolate the data type. Go to **Search Setup** (`Y`) and perform a **Continue Search** for a specific type, like `u32` or `f32`. This can quickly eliminate many incorrect candidates.
 
-## Step 4: Identifying the Correct Address and Hacking
+## Step 4: Identifying the Correct Address
 
-Once you have a short list of candidates, you need to figure out which one is the real one.
+Once you have a manageable list of candidates, it's time to pinpoint the exact address.
 
 1.  In the `Search Manager`, press `L` to **Show Candidates**.
-2.  This will show you the list of memory addresses that match your search.
-3.  Select a candidate and press `Y` to **Edit Memory**. By default, this will edit the value as a `u32` (unsigned 32-bit integer). Change the value to something obvious, like `999`.
-4.  Go back to the game. If your health is now 999, you've found the correct address! If not, go back to Breeze and try another candidate from the list.
+2.  This will take you to the **Candidate Menu**, showing the list of memory addresses that match your search.
+
+From here, you have two main strategies:
+
+### Strategy 1: Test Candidates One-by-One (For Short Lists)
+
+This is the most straightforward method when you have only a handful of candidates.
+
+1.  Select a candidate and press `Y` to **Edit Memory**. Change the value to something obvious, like `999`.
+2.  Go back to the game. If your health is now 999, you've found the correct address!
+3.  If not, return to Breeze, change the value back (or use the `Revert` button), and try the next candidate.
+
+### Strategy 2: Batch-Testing (For Longer Lists)
+
+If your list is in the 50-100 range, testing them one-by-one is impractical. For very large lists in the hundreds or thousands, this method should only be used as a last resort when you cannot refine the search further. In these cases, you can use the Candidate Menu's powerful batch tools to test many addresses at once.
+
+1.  In the **Candidate Menu**, you can use buttons like `Freeze100`, `Set1000`, or `Inc1000`. For example, pressing `Set1000` will let you change the value of the next 1000 candidates simultaneously.
+2.  Change them to a new value and return to the game. If you see the effect (e.g., your health changes), you know the correct address is within that batch.
+3.  You can then undo the change (`Revert1000`) and test smaller batches to zero in on the correct address.
+
+> **Warning: Use Batch-Testing with Caution!**
+> Be very careful when batch-modifying **integer** values (`u8`, `s16`, `u32`, etc.). An integer candidate might actually be part of a pointer or another critical data structure. Hacking it can easily crash your game.
+>
+> It is generally much safer to batch-test **floating-point** values (`f32`, `f64`), as they are less likely to be critical to game stability.
+
+Once you've found the correct address using either method, you're ready to create a cheat.
 
 ## Step 5: Creating a Cheat
 
