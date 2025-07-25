@@ -29,7 +29,7 @@ The first and most critical part of making an ASM cheat is finding a "unique hoo
 
 3.  **The Two Paths**:
     *   **If a unique hook is found**: You can proceed with a simple cheat. Continue to Step 2.
-    *   **If no unique hook can be found**: A simple cheat is not possible. You must use the advanced conditional logic techniques described in Part 2.
+    *   **If no unique hook can be found**: A simple cheat is not possible. You must use the advanced conditional logic techniques described in the "Advanced Technique - Automated Cheat Generation" section.
 
 ### Step 2: Writing the Cheat
 
@@ -37,10 +37,10 @@ Once you have a unique hook, you can write the code to modify the game's behavio
 
 1.  **Analyze the Hook**: From the [**Gen2 Menu**](menu.md#gen2-menu), go to the [**ASM Explorer Menu**](menu.md#asm-explorer-menu) to examine the unique instruction you found. It is crucial to understand what the code does before you attempt to modify it.
 
-2.  **Create the Cheat**: Once you have decided on the exact instruction to hook, press the `Add ASM` button directly from the [**Edit Cheat Menu**](menu.md#edit-cheat-menu). This creates a new cheat pre-configured with the necessary hook information.
+2.  **Create the Cheat**: Once you have decided on the exact instruction to hook, press the `Add ASM` button directly from the [**ASM Explorer Menu**](menu.md#asm-explorer-menu). This creates a new cheat pre-configured with the necessary hook information.
 
 3.  **Write Your Code in the Asm Composer**:
-    *   Navigate to your new cheat in the [**Advance Cheat Menu**](menu.md#advance-cheat-menu) and open it in the [**Asm Composer Menu**](menu.md#asm-composer-menu).
+    *   Navigate to your new cheat in the [**Advance Cheat Menu**](menu.md#advance-cheat-menu) and open it in the [**Asm Composer Menu**](menu.md#asm-composer-menu) by `Edit Cheat` then `Asm Composer`.
     *   Use the `Original` button to insert the original game code. This is essential for reference.
     *   The Asm Composer has many tools to help, including the powerful `data_value` button, which acts as a multi-purpose templating tool.
 
@@ -78,9 +78,9 @@ A frequent challenge is dealing with instructions that modify the registers they
 
 ### Step 3: Testing
 
-With the cheat active, go back to the game and test if your changes have the desired effect. Debugging may involve returning to the Asm Composer to tweak your code.
+With the cheat active, go back to the game and test if your changes have the desired effect. You can place watch on instruction in the cheat to debug it.
 
-### Advanced Technique - Automated Cheat Generation
+### Automated Cheat Generation
 
 When you cannot find a simple unique hook, you must use conditional logic. The [**Gen2 Extra Menu**](menu.md#gen2-extra-menu) offers powerful tools to automate this process.
 
