@@ -28,8 +28,8 @@ This project started as a rewrite of the features implemented in EdiZon SE. Over
 For detailed information, please refer to our comprehensive documentation:
 
 -   **[User Manual (Breeze.md)](Breeze.md)**: The main guide for installation, usage, and features.
--   **[UI Reference (menu.md)](menu.md)**: A complete reference for every button and menu in the UI.
--   **[Technical Cheat Details (cheats.md)](cheats.md)**: Advanced documentation on the cheat code format and CheatVM instructions.
+-   **[UI Reference (menu.md)](docs/menu.md)**: A complete reference for every button and menu in the UI.
+-   **[Technical Cheat Details (cheats.md)](docs/cheats.md)**: Advanced documentation on the cheat code format and CheatVM instructions.
 -   **[Community Wiki](https://github.com/tomvita/Breeze-Beta/wiki)**: For tutorials and community-contributed guides.
 
 ---

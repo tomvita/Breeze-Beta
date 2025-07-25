@@ -143,8 +143,10 @@ For more details, see the [Atmosphere CheatVM Documentation](https://github.com/
 
 ### Memory Hacking vs. ASM Hacking
 
--   **Memory Hack**: The cheatVM periodically writes values to memory. This needs to be timed correctly to work.
--   **ASM Hack**: The cheatVM modifies the game's own code to change memory. This is a one-time patch (per game session) and is generally more reliable for hacks that need to be active constantly (e.g., infinite health).
+Both approaches modify game memory, but they do so in fundamentally different ways:
+
+-   **Memory Hack (Direct Write)**: The CheatVM periodically writes a value to a specific memory address. Its effectiveness depends on timing, as the game might overwrite the value immediately. This is simpler but can be less reliable.
+-   **ASM Hack (Code Modification)**: The CheatVM patches the game's own code. The modified code then alters memory whenever it is executed by the game. This is a one-time patch (per game session) that is synchronized with the game's logic, making it far more reliable and precise, especially for values that change frequently. An ASM hack is generally more accurate than a pointer chain, as it hooks directly into the game's behavior rather than relying on memory structures that might be coincidental.
 
 ---
 
