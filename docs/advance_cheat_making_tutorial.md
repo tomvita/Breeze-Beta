@@ -4,6 +4,10 @@ This guide provides a comprehensive tutorial on creating advanced cheats in Bree
 
 > **Note**: This tutorial covers advanced ASM cheat creation. If you are new to cheat making, it is highly recommended to start with the [**Basic Cheat Making Tutorial**](../basic_cheat_making_tutorial.md) first.
 
+## Quick Navigation
+- [Part 1: Making ASM Cheats](#part-1-making-asm-cheats)
+- [Part 2: Creating Pointer Cheats](#part-2-creating-pointer-cheats)
+
 ## Part 1: Making ASM Cheats
 
 ASM cheats modify the game's own code to achieve results, making them incredibly powerful. The basic process involves finding an instruction to change and then writing your own ASM code to replace it.
@@ -128,11 +132,21 @@ The [**Jump Back Menu**](menu.md#jump-back-menu) is Breeze's powerful tool for d
 
 For a detailed explanation of all the options and parameters in the Jump Back Menu, please refer to the [**Jump Back Menu**](menu.md#jump-back-menu) section in the menu documentation.
 
-### Step 3: Create and Test the Pointer Cheat
+### Step 3: Evaluate and Eliminate Unreliable Pointer Chains
 
-Once you have identified a promising pointer chain, you need to create a cheat from it.
+After running the `next depth` search, the bookmarks generated in the [**Bookmark Menu**](menu.md#bookmark-menu) represent potential reliable pointer chains. When viewing these bookmarks, Breeze constantly evaluates *only the visible* pointer chains, attempting to resolve them, read the resulting memory address, and display its current value. This real-time feedback helps you identify which visible bookmarks are still valid.
 
-1.  In the **Jump Back Menu**, select a promising pointer and press `Y` to **Analyse** it.
-2.  From the analysis screen, you can press `Y + ZL` to create a cheat from the pointer.
-3.  The new cheat will appear in the [**Advance Cheat Menu**](menu.md#advance-cheat-menu).
-4.  Restart your game and test the cheat to ensure the pointer chain is stable and works across game sessions.
+To refine your bookmark list and eliminate bookmarks with unreliable pointer chains, the following methods operate on *all* bookmarks within the currently loaded bookmark file:
+
+1.  **Examine Bookmarks**: Go to the [**Bookmark Menu**](menu.md#bookmark-menu). Observe the values displayed for each bookmark. A working pointer chain should consistently show the expected value of your target (e.g., your character's health). If a chain cannot be resolved, it may show an error or an unexpected value.
+
+2.  **Eliminate Bad Bookmarks**:
+    *   **By Value (`SearchBookmark`)**: If you know the exact value your target should have, you can use the `SearchBookmark` button (`Y + ZR` in the Bookmark Menu). This will scan the current bookmark file, filter it, and save *only* those bookmarks whose resolved address currently holds the desired value to a designated bookmark file.
+    *   **By Validity (`Perform Clean up`)**: The `Perform Clean up` button (`- + ZL` in the Bookmark Menu) will remove all bookmarks whose pointer chains cannot be fully resolved or lead to invalid memory addresses. This is crucial for removing broken or unstable pointers that consume memory without providing useful results.
+
+3.  **Create the Cheat**: Once you have identified a stable and reliable pointer chain (or a small set of highly probable ones), you can create a cheat from it.
+    1.  In the **Bookmark Menu**, select the promising pointer bookmark.
+    2.  Press `Y + ZL` to **Bookmark to Cheat**.
+    3.  The new cheat will appear in the [**Advance Cheat Menu**](menu.md#advance-cheat-menu).
+
+4.  **Test the Cheat**: Restart your game and test the newly created cheat. A stable pointer cheat should consistently work across game sessions and reloads. If it doesn't, return to the Jump Back Menu or Bookmark Menu to continue refining your search.
