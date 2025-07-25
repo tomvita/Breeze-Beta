@@ -9,77 +9,27 @@ Breeze is a powerful, user-friendly cheating tool for the Nintendo Switch, desig
 Breeze was developed to address the maintenance challenges and usability issues of EdiZon SE. It introduces significant optimizations, a more intuitive UI, and a robust feature set, making it faster and more powerful. Breeze aims to be an all-in-one tool for cheat creation and management directly on the Nintendo Switch.
 
 ### Objectives
-- **Enhanced User Interface**: Make the tool accessible to a wider audience.
-- **Streamlined Codebase**: Simplify development and future extensions.
-- **Leverage Experience**: Build on lessons from EdiZon SE for a solid foundation.
-- **Comprehensive Functionality**: Enable all cheat-related tasks within Breeze.
-
----
-
-## Features
-
-Breeze offers a comprehensive set of tools for cheat management, memory hacking, and debugging:
-
-- **Cheat Code Management**:
-  - Toggle cheats on/off.
-  - Add/remove conditional key combos.
-  - Cut, paste, duplicate cheats.
-  - Collect cheats in folders.
-  - Load cheats from a database or multiple files.
-
-- **Cheat Code Editor**:
-  - Edit cheats directly in the app.
-  - Show cheat opcode in disassembled mode.
-  - Interactive opcode assembly.
-  - Show ASM cheats in ARM assembly instruction.
-  - Directly edit ARM assembly instruction.
-  - Shortcuts to facilitate cheat code composition.
-
-- **Memory Tools**:
-  - Search, edit, and freeze memory values.
-  - Bookmark memory locations with static offsets (main/heap).
-  - Search for pointer chain.
-  - Bookmark memory locations with pointer chain.
-  - Create cheat from bookmark and create bookmark from cheat.
-  - Memory explorer to view memory in supported data types and navigate pointer chain to explore data structure of the game.
-
-- **Advanced Debugging**:
-  - Set memory breakpoints to track instructions accessing specific addresses.
-  - Monitor instructions for memory access patterns.
-  - Capture caller, register state and memory target information. 
-  - Support parallel use of external debugger such as IDA pro for instruction tracing.
-
-- **ASM Composer**:
-  - Build ARM assembly-based cheats.
-
-- **Auto-Update**:
-  - Automatically update the app and cheat database.
-
-- **Consistent UI**:
-  - Intuitive navigation with full touch support.
+-   **Enhanced User Interface**: Make the tool accessible to a wider audience.
+-   **Streamlined Codebase**: Simplify development and future extensions.
+-   **Leverage Experience**: Build on lessons from EdiZon SE for a solid foundation.
+-   **Comprehensive Functionality**: Enable all cheat-related tasks within Breeze.
 
 ---
 
 ## Getting Started
 
-Follow these steps to install and launch Breeze on your Nintendo Switch.
+### Installing and Updating
 
-### Installation
-
-1.  Download the latest `Breeze.zip` from the [official repository](https://github.com/tomvita/Breeze-Beta/releases).
-2.  Extract the contents of the ZIP file.
-3.  Copy the extracted files to the root of your SD card.
+1.  **In-App Updates**: Use **Download > Check for app update**. If an update is available, **Install app update** will be enabled. To reinstall, use **Redownload** to enable the install button.
+2.  **Manual Install**: Download the latest `Breeze.zip` from the [official repository](https://github.com/tomvita/Breeze-Beta/releases). Extract its contents to the root of your SD card, overwriting existing files if prompted.
 
 ### Launching Breeze
 
-Breeze runs as a homebrew application (applet), not an overlay. You can launch it directly from the Switch's home screen after you have started the game. (You can't cheat if the game isn't running)
+Breeze runs as a homebrew application (applet), not an overlay. You must start your game *before* launching Breeze.
 
--   **Standard Launch**:
-    -   Navigate to the homebrew menu and select Breeze.
--   **Quick Launch Shortcut**:
-    -   In Breeze, go to **Settings > Profile Shortcut** and enable the shortcut. Once enabled, you can launch Breeze form you game by pressing in sequence **Home, Up, A**.
-
-To return to your game, press in sequence **Home, Home**.
+-   **Standard Launch**: Navigate to the homebrew menu (hbmenu) and select Breeze.
+-   **Profile Shortcut**: For faster access, go to **Settings > Profile shortcut** and enable it. Once enabled, you can launch Breeze from your game by pressing **Home -> Up -> A**.
+-   **Return to Game**: To return to your game from Breeze, press **Home -> Home**.
 
 ---
 
@@ -87,76 +37,130 @@ To return to your game, press in sequence **Home, Home**.
 
 Breeze uses a dual-panel interface for efficient navigation:
 
-- **Left Panel (Data Panel)**: Displays selectable data such as memory addresses or cheats.
-  - Use the L-Stick or D-Pad to navigate (configurable in **Settings**).
-  - **Up/Down**: Move the cursor one step.
-  - **Left/Right**: Move the cursor 10 steps.
-
-- **Right Panel (Button Panel)**: Contains actionable buttons.
-  - Navigate with the unused L-Stick or D-Pad.
-  - Press **A** to activate a selected button.
-  - Assign custom shortcut keys or use pre-defined shortcut keys (configurable in **Settings**) for quick access to buttons
-
-- **Touch Support**:
-  - Scroll through data by dragging your finger.
-  - Tap to select data or activate buttons.
+-   **Left Panel (Data Panel)**: Displays selectable data such as memory addresses or cheats.
+    -   Use the L-Stick or D-Pad to navigate (configurable in **Settings**).
+    -   **Up/Down**: Move the cursor one step.
+    -   **Left/Right**: Move the cursor 10 steps.
+-   **Right Panel (Button Panel)**: Contains actionable buttons.
+    -   Navigate with the unused L-Stick or D-Pad.
+    -   Press **A** to activate a selected button.
+    -   Assign custom shortcut keys for quick access.
+-   **Touch Support**:
+    -   Scroll through data by dragging your finger.
+    -   Tap to select data or activate buttons.
 
 ---
 
-## Cheat Code Management
+## Features
+
+Breeze offers a comprehensive set of tools for cheat management, memory hacking, and debugging:
+
+-   **Cheat Code Management**:
+    -   Toggle cheats on/off.
+    -   Add/remove conditional key combos.
+    -   Cut, paste, duplicate cheats.
+    -   Collect cheats in folders.
+    -   Load cheats from a database or multiple files.
+-   **Cheat Code Editor**:
+    -   Edit cheats directly in the app.
+    -   Show cheat opcode in disassembled mode.
+    -   Interactive opcode assembly.
+    -   Show ASM cheats in ARM assembly instruction.
+    -   Directly edit ARM assembly instruction.
+    -   Shortcuts to facilitate cheat code composition.
+-   **Memory Tools**:
+    -   Search, edit, and freeze memory values.
+    -   Bookmark memory locations with static offsets (main/heap).
+    -   Search for pointer chains.
+    -   Bookmark memory locations with pointer chains.
+    -   Create cheats from bookmarks and vice-versa.
+    -   Memory explorer to view memory and navigate pointer chains.
+-   **Advanced Debugging**:
+    -   Set memory breakpoints to track instructions accessing specific addresses.
+    -   Monitor instructions for memory access patterns.
+    -   Capture caller, register state, and memory target information.
+    -   Support parallel use of external debuggers like IDA Pro for instruction tracing.
+-   **ASM Composer**:
+    -   Build ARM assembly-based cheats.
+-   **Auto-Update**:
+    -   Automatically update the app and cheat database.
+-   **Consistent UI**:
+    -   Intuitive navigation with full touch support.
+
+---
+
+## Cheat Management
 
 ### Loading Cheats
 
 Breeze supports multiple methods to load cheats:
 
-1. **Cheat Database**:
-   - Automatically loads cheats from a list of URLs and the local database if no cheats are found in the Atmosphere path.
-   - To get updated local database, go to **Download > Check for Cheat Database Update > Install Cheat Database Update**. Alternatively, you can download `titles.zip` from the [NXCheatCode repository](https://github.com/tomvita/NXCheatCode/releases/latest) and place it in `sdmc:/switch/breeze/cheats/`.
+1.  **Cheat URL List**: Breeze searches a list of URLs in a fixed order to find cheats if none are loaded. The process stops when a cheat is found. Pressing "Fetch Cheat" in the download menu cycles through the URLs.
+2.  **Cheat Database**: Breeze can use a local cheat database, which it will load automatically on launch if no cheats are active. To get the database, use the in-app downloader: **Download > Check for cheat database update > Install Cheat database update**. Alternatively, download `titles.zip` from the [NXCheatCode repository](https://github.com/tomvita/NXCheatCode/releases/latest) and place it in `sdmc:/switch/breeze/cheats/`.
+3.  **Manual Cheat Files**:
+    -   **Atmosphere Path**: `sdmc:/atmosphere/contents/{titleid}/cheats/{buildid}.txt` (auto-loaded by CheatVM).
+    -   **Breeze Path**: `sdmc:/switch/breeze/cheats/{titleid or title name}/{buildid}.txt` (load via **Load Cheats from File**).
+    -   **Custom Path**: Place any cheat file in `sdmc:/switch/breeze/cheats/` and load via **More > Any Cheats from breeze/cheats**.
 
-2. **Manual Cheat Files**:
-   - Atmosphere Path: `sdmc:/atmosphere/contents/(titleid)/cheats/(buildid).txt` (auto-loaded by CheatVM).
-   - Breeze Path: `sdmc:/switch/breeze/cheats/(titleid or title name)/(buildid).txt` (load via **Load Cheats from File**).
-   - Custom Path: Place any cheat file in `sdmc:/switch/breeze/cheats/` and load via **More > Any Cheats from breeze/cheats**.
+### Combining and Customizing Cheats
 
-3. **Combining Cheats**:
-   - Load a primary cheat file.
-   - Use **More > Choose Individual Cheats from breeze/cheats** to add cheats from other files.
-   - Save changes with **Write Cheat to File** or **Write Cheat to atm**.
+-   **Combining Files**: Load one cheat file, then use **More > Choose individual cheats from breeze/cheats** to add more cheats from other files. Remember to save.
+-   **Editing Cheats**:
+    -   Edit cheat names or values via **Edit Cheat**.
+    -   Modify conditional keys with **Add/Remove Conditional Key**.
+    -   Convert moon jumps to hovers by duplicating cheats and adjusting values (e.g., reduce `f32` values).
+    -   Edit cheat value directly using buttons for common formats (u32, f32, f64).
+    -   Edit cheat multipliers.
+-   **Saving Changes**:
+    -   **"Write Cheat to atm"**: Saves changes to the file used by Atmosphere's cheatVM.
+    -   **"Write Cheat to file"**: Saves changes to Breeze's cheat directory. These cheats must be loaded manually.
 
-### Customizing Cheats
-   - Edit cheat names or values via **Edit Cheat**.
-   - Modify conditional keys with **Add/Remove Conditional Key**.
-   - Convert moon jumps to hovers by duplicating cheats and adjusting values (e.g. reduce `f32` values).
-   - Edit cheat value (using button to directly modify value in commonly used format u32, f32, f64 etc).
-   - Edit cheat multiplier.
+### Build ID (BID) and Compatibility
 
-### Build ID (BID) Considerations
-
-- **What is BID?**: A hash of the game code ensuring cheat compatibility. Mismatched BIDs may cause instability.
-- **Checking BID**: Use **Game Information** to view the BID of the running game.
-- **Using Mismatched BIDs**:
-  - Does not work most of the time.
-  - Risky; may cause crashes or save corruption. Automatic BID check is for your protection.
-  - Always back up saves before using cheats with a different BID. Restore if cheats don't work as damage may be latent.
-  - Load mismatched cheats via **More > Any Cheats from breeze/cheats** (no BID check).
+-   **What is BID?**: A hash of the game code ensuring cheat compatibility. The cheatVM will only load cheats if the BID matches the running game.
+-   **Checking BID**: Use **Game Information** to view the BID of the running game.
+-   **Using Mismatched BIDs**: It is risky to use cheats for a different BID. It may work if the game versions are similar, but it can also lead to crashes or save data corruption. Always back up saves before trying. Load mismatched cheats via **More > Any Cheats from breeze/cheats** (no BID check).
 
 ---
 
-## Memory Search Concepts
+## How Cheats Work
+
+### CheatVM Operation
+
+The CheatVM runs at a fixed frequency, performing these steps:
+1.  Clears the 15 cheat registers.
+2.  Assembles the opcodes to be executed, starting with the master code, followed by any enabled cheat sections.
+3.  Executes the assembled opcodes.
+
+For more details, see the [Atmosphere CheatVM Documentation](https://github.com/Atmosphere-NX/Atmosphere/blob/master/docs/features/cheats.md).
+
+### Cheat Code File Syntax
+
+-   `{}` or `[]` create labels.
+-   `{}`: Marks the start of the **master code**, which is always executed. It is commonly used to set up ASM code caves or register content for other cheats.
+-   `[]`: Marks the start of an **optional cheat**, which can be toggled on or off.
+-   Only 8-digit hex opcodes are allowed outside of labels.
+
+### Memory Hacking vs. ASM Hacking
+
+-   **Memory Hack**: The cheatVM periodically writes values to memory. This needs to be timed correctly to work.
+-   **ASM Hack**: The cheatVM modifies the game's own code to change memory. This is a one-time patch (per game session) and is generally more reliable for hacks that need to be active constantly (e.g., infinite health).
+
+---
+
+## Memory Search
 
 ### Key Principles
 
-1. **Static Memory Locations**: Some game data remains at fixed addresses for a short time (e.g., during a game mode).
-2. **Game State Dependency**: Memory addresses may change during transitions (e.g., loading screens). Searches must occur within the valid state window.
-3. **Data Types**:
-   - Common types: `u8`, `u16`, `u32`, `f32`, `f64`, `pointer`.
-   - Search order: `u32`, `f32`, `f64`, then `u16`, `u8`.
+1.  **Static Memory Locations**: Some game data remains at fixed addresses for a short time (e.g., during a game mode).
+2.  **Game State Dependency**: Memory addresses may change during transitions (e.g., loading screens). Searches must occur within the valid state window.
+3.  **Data Types**: Common types are `u8`, `u16`, `u32`, `f32`, `f64`, `pointer`. Search in the order of `u32`, `f32`, `f64`, then `u16`, `u8` for best results.
 
 ### Search Strategies
 
-- **Known Value Search**: Search for visible values (e.g., health, gold) with guessed data types.
-- **Fuzzy Search**: Use ranges (e.g., `3 to 300` for a three-heart health bar).
-- **Unknown Value Search**: Dump memory and compare changes to narrow down candidates.
+-   **Known Value Search**: Search for visible values (e.g., health, gold) with guessed data types.
+-   **Fuzzy Search**: Use ranges (e.g., `3 to 300` for a three-heart health bar).
+-   **Unknown Value Search**: Dump memory and compare changes to narrow down candidates. Use search modes like `++` (increased), `--` (decreased), `SAME` (unchanged), or `DIFF` (changed).
 
 ### Search Modes
 
@@ -181,116 +185,83 @@ Breeze supports multiple methods to load cheats:
 
 ## Breeze Search Manager
 
-### Workflow
+### Workflow and File Management
 
-1. Start with **Start Search** or **Memory Dump**. 
-2. Play the game to change values, then use  **Continue Search** or **Dump Compare** (only as follow up to memory dump).
-3. Repeat step 2 until the candidates list is short enough to start hacking.
-4. Hack memory to see if desired result can be achieved.
+Breeze uses a file-based search system. Each search or diff creates a new file (e.g., `File 1`, `File 1(00)`), storing address-value pairs and a screenshot. This allows you to track changes across multiple game states.
 
-### File Management
+-   **Dump File**: A dump of the RW memory accessible to the game. It needs to be converted into a candidate file.
+-   **Candidate File**: Stores address-value pairs and screenshots.
 
-- Dump file is a dump of the RW memory accesible to the game and screenshots of the game when the search is performed. Dump file needs to be converted into candidate file for subsequent use.
-- Candidate Files store address-value pairs and screenshots of the game when the search is performed. 
-- Files are valid only within the current game state where target memory remain static.
-- Every itteration of step 1 or 2 produce a file. 
-- Choose a dump file to create a candidate file. This file will have the address-value pair that has the value that is from the dump and will have the screen short that was captured on the dump file. Only the last four search mode listed above is supported on dump file. 
-- Choose a candidate file to create the next candidate file which satisfy the search condition. The file you choose will have the "previous value" and the file produce by the search will have the current value in memory.
-- You can choose to name the output file or have Breeze create the file name to help track you search progress.
+**Search Process Example (starting with a search):**
+1.  **Search**: (Game State A) Candidates meeting the search condition go into **File 1**.
+2.  **Play**: Transition to Game State B.
+3.  **Search**: Compare candidates from **File 1** to current memory (State B). Create **File 1(00)**.
 
-### An illustration of a Search Process not starting from dump
-
-1. **Search**: (Game State A) Candidate meeting search condition goes into into **File 1** (candidate file with State A values).
-2. **Play**: Transition to Game State B.
-3. **Search**: Compare candidate list from **File 1** to current memory (State B). Create **File 1(00)** (candidate file with State B values)
-4. **Play**: Transition to Game State C.
-5. **Search**: Compare **File 1(00)** (State B) to current memory (State C), saving results in **File 1(01)** (State C values).
-
-### An illustration of a Search Process starting from dump
-
-1. **Dump**: Capture full memory (Game State A) into **File 1**(this is a dump file).
-2. **Play**: Transition to Game State B.
-3. **Search**: Compare **File 1** (State A dump) to current memory (State B), saving results in **File 1(00)** (candidate file with State A values)
-4. **Search**: Compare candidate list from **File 1(00)** to current memory (State B). Create **File 1(01)** (candidate file with State B values)
-4. **Play**: Transition to Game State C.
-5. **Search**: Compare File 1(01) (State B) to current memory (State C), saving results in **File 1(02)** (State C values).
-
+**Search Process Example (starting with a dump):**
+1.  **Dump**: Capture full memory (Game State A) into **File 1** (dump file).
+2.  **Play**: Transition to Game State B.
+3.  **Search**: Compare **File 1** (State A dump) to current memory (State B), saving results in **File 1(00)** (candidate file with State A values).
 
 ---
 
 ## Game Hacking Techniques
 
-### Approaches
-
-1. **Direct Memory Modification**: Change game data values directly.
-2. **Code Modification (ASM Hacks)**: Alter game code to modify data behavior.
-
 ### ASLR and Dynamic Memory
 
-- **Address Space Layout Randomization (ASLR)**: Memory addresses vary between game sessions.
-- **Solutions**:
-  - Use static offsets from main or heap.
-  - Employ pointer chains or ASM hacks for dynamic addresses.
+-   **Address Space Layout Randomization (ASLR)**: Memory addresses vary between game sessions.
+-   **Solutions**:
+    -   Use static offsets from `main` or `heap`.
+    -   Employ pointer chains or ASM hacks for dynamic addresses.
 
 ### Pointer Chains
 
-- A series of offsets starting from a base address (e.g., main) leading to the target memory.
-- Validity depends on game state; test across sessions to ensure reliability.
+-   A series of offsets starting from a base address (e.g., `main`) leading to the target memory.
+-   Validity depends on game state; test across sessions to ensure reliability.
 
 ### ASM Hacks
 
-- Modify game code to write desired values.
-- Permanent until the game is reloaded; requires an "off" code to revert changes.
-- Use **ASM Composer** to build hacks efficiently.
+-   Modify game code to write desired values.
+-   Permanent until the game is reloaded; requires an "off" code to revert changes.
+-   Use **ASM Composer** to build hacks efficiently.
 
 ---
 
-## Advanced Features (Gen2 menu)
+## Advanced Techniques
 
-### Memory Breakpoints and Watches
+### Memory Breakpoints and Watches (Gen2 Menu)
 
-- **SetBreakPoint**: Monitor a memory address to identify accessing instructions.
-- **Execute Watch**: Capture instructions accessing the target memory (via **Gen2Attach**).
-- **Gen2Detach**: Stop the watch and review results.
+1.  In the memory explorer, point to an address and press **SetBreakPoint**.
+2.  In the Gen2 menu, use **Gen2Attach** then **Execute Watch**.
+3.  Play the game to trigger memory access.
+4.  Return to Breeze and use **Gen2Detach**.
+5.  Examine the captured list of code that accessed the memory.
 
-### X30 Matching
+### Array of Bytes (AOB) Scanning
 
-- Use **X30_cmp** in ASM Composer to filter instructions based on the X30 register value, distinguishing between friend and foe data.
+AOB scanning helps find code that has shifted after a game update.
+-   **"Make AOB"**: Creates a file with an AOB pattern from a cheat created with "Add ASM".
+-   **"Load AOB"**: Loads the pattern and starts a search. You can edit the pattern to remove lines that are likely to have changed.
 
+### ASM Explorer
 
----
-
-## CheatVM Operation
-
-CheatVM runs at a fixed frequency, performing:
-
-1. **Clear Registers**: Reset 15 cheat registers to zero.
-2. **Assemble Opcodes**:
-   - Execute master code (inside `{}`).
-   - Include enabled optional codes (inside `[]`).
-3. **Execute Opcodes**: Apply the assembled instructions.
-
-### Cheat Code Syntax
-
-- `{}`: Master code label (always executed).
-- `[]`: Optional code label (toggled on/off).
-- Opcodes: 8-digit hex values, 1–4 per instruction.
-- Nothing other than white space character or 8-digit hex values are allowed outside of `{}` or `[]`
+-   **From a cheat**: Use the "Jump to ASM" button.
+-   **From memory explorer**: Use the "ASM explorer" button.
 
 ---
 
 ## Settings
 
-| Setting                     | Description                                                                 |
-|-----------------------------|---------------------------------------------------------------------|
-| **Profile Shortcut**        | Enable to launch Breeze with **Home + Up + A**.                     |
-| **Combo Keys**              | Set number of keys (1–6) for conditional key combos.                |
-| **Use TitleID**             | Use title ID (1) or title name (0) for cheat file paths.           |
-| **Starfield Background**    | Disable (0) to show game screen as background.                     |
-| **Search Code Segment**     | Enable (1) to include code segment in searches.                    |
-| **Search Main Only**        | Limit searches to main memory for faster results.                  |
-| **VisibleOnly**             | Restrict shortcut keys to visible buttons (1) or allow all (0).    |
-| **Install Gen2 Fork**       | Install Gen2 fork (requires Atmosphere 1.4+ and system settings).  |
+-   **Sysmodule manager**: Enable/disable optional sysmodules like Tesla, sys-ftpd, and NoExes.
+-   **Profile shortcut**: Toggle whether the profile button launches Breeze.
+-   **Combo keys**: Set the maximum number of keys for a hotkey combo.
+-   **Use titleid**: Use title names instead of title IDs for cheat folders.
+-   **Use starfield as background**: Toggle the starfield background.
+-   **Install gen2 fork**: Install the gen2 fork for gen2 features.
+-   **Use Dpad for Left panel item select**: Switch between D-pad and L-stick for the left panel.
+-   **Search Code Segment**: Include the code segment in searches.
+-   **Search Main only**: Limit searches to the `main` memory region.
+-   **Install dmnt fork**: Install a fork with extended code types.
+-   **VisibleOnly**: If enabled, shortcuts only work for visible buttons.
 
 ---
 
@@ -326,7 +297,7 @@ Using cheats can be risky and may lead to unexpected behavior, including game cr
 
 ## Further Resources
 
-- [Breeze Wiki](https://github.com/tomvita/Breeze-Beta/wiki)
-- [Breeze Repository](https://github.com/tomvita/Breeze-Beta)
-- [NXCheatCode Repository](https://github.com/tomvita/NXCheatCode)
-- [CheatVM Documentation](https://github.com/Atmosphere-NX/Atmosphere/blob/master/docs/features/cheats.md)
+-   [Breeze Wiki](https://github.com/tomvita/Breeze-Beta/wiki)
+-   [Breeze Repository](https://github.com/tomvita/Breeze-Beta)
+-   [NXCheatCode Repository](https://github.com/tomvita/NXCheatCode)
+-   [CheatVM Documentation](https://github.com/Atmosphere-NX/Atmosphere/blob/master/docs/features/cheats.md)
