@@ -143,10 +143,12 @@ For more details, see the [Atmosphere CheatVM Documentation](https://github.com/
 
 ### Memory Hacking vs. ASM Hacking
 
-Both approaches modify game memory, but they do so in fundamentally different ways:
+Both approaches modify game memory, but their method and reliability differ significantly:
 
--   **Memory Hack (Direct Write)**: The CheatVM periodically writes a value to a specific memory address. Its effectiveness depends on timing, as the game might overwrite the value immediately. This is simpler but can be less reliable.
--   **ASM Hack (Code Modification)**: The CheatVM patches the game's own code. The modified code then alters memory whenever it is executed by the game. This is a one-time patch (per game session) that is synchronized with the game's logic, making it far more reliable and precise, especially for values that change frequently. An ASM hack is generally more accurate than a pointer chain, as it hooks directly into the game's behavior rather than relying on memory structures that might be coincidental.
+-   **Memory Hack (Direct Write)**: The CheatVM writes a value to a memory address at a fixed, periodic interval. This process is unconditional and does not depend on in-game events. The effectiveness of this method is highly dependent on timing and the cheat's purpose. For a critical cheat (e.g., "do not die"), the write must be persistent enough to always counteract the game's logic. For a less critical cheat (e.g., "gain health"), it only needs to succeed intermittently to be effective.
+
+-   **ASM Hack (Code Modification)**: The CheatVM applies a one-time patch to the game's executable code. The cheat does not run periodically; instead, the patched code activates only when the game itself executes it. This means the memory modification is triggered by a specific in-game event (e.g., opening a menu, picking up gold, taking damage). This synchronization with the game's logic makes ASM hacks far more precise and reliable than direct writes.
+    -   **Potential Pitfalls**: While powerful, ASM hacking has its own challenges. Finding the right code to hook can be difficult. For example, a hook for updating the health bar might only be active when the health bar is visible on screen. A hook for "take damage" might only trigger under specific damage conditions. Furthermore, there is a risk of hooking code that is later overwritten by another part of the game, rendering the cheat ineffective.
 
 ---
 
@@ -262,7 +264,6 @@ AOB scanning helps find code that has shifted after a game update.
 -   **Use Dpad for Left panel item select**: Switch between D-pad and L-stick for the left panel.
 -   **Search Code Segment**: Include the code segment in searches.
 -   **Search Main only**: Limit searches to the `main` memory region.
--   **Install dmnt fork**: Install a fork with extended code types.
 -   **VisibleOnly**: If enabled, shortcuts only work for visible buttons.
 
 ---
