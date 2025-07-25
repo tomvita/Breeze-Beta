@@ -20,6 +20,7 @@ Whether you're a new user getting acquainted with the application or an experien
 - [Candidate Menu](#candidate-menu)
 - [Bookmark Menu](#bookmark-menu)
 - [Memory Explorer Menu](#memory-explorer-menu)
+- [ASM Explorer Menu](#asm-explorer-menu)
 - [Jump Back Menu](#jump-back-menu)
 - [Gen2 Menu](#gen2-menu)
 - [Gen2 Extra Menu](#gen2-extra-menu)
@@ -499,6 +500,30 @@ Directly view and edit memory, and navigate pointer chains.
 | CopyPasteQty | (none) | Set copy paste quantity. |
 | PasteMultiple | Right Stick + ZR | Paste multiple values from the clipboard. |
 | EditOffset | Left Stick Left + Right Stick Right + ZR | Edit the offset of the bookmark. |
+
+## ASM Explorer Menu
+
+The ASM Explorer allows for in-depth analysis of disassembled code directly from memory. It is an essential tool for reverse engineering and understanding how a game functions at a low level. You can set breakpoints, edit instructions on the fly, and navigate through code to identify key logic for cheat development.
+
+| Button Name | Default Shortcut | Action |
+|---|---|---|
+| ASMedit | X | Directly edit game code (not recommended). |
+| Copy instruction | Y | Push code to the paste stack of cheat editor and asm composer. |
+| Watch instruction | L | Place a watch on this instruction and go to the Gen2 Menu for dynamic analysis. |
+| Follow branch | R | Go to the target of this branch instruction. |
+| Add to Cheat | Y + ZL | Make a cheat with this ASM as the hook. |
+| Expand screen | R + ZR | Toggle the width of the disassembly panel. |
+| MemoryExplorer | StickR + ZL | View this address in memory explorer. |
+| Goto Source | StickR | Jump to the caller or base pointer of this instruction. |
+| Branch_to above | StickRUp + ZL | Perform a scan for and move to the branch target above the current address. |
+| Branch_to below | StickRDown + ZL | Perform a scan for and move to the branch target below the current address. |
+| AutoSave = 0/1 | StickRDown + ZL | Toggle whether to automatically save the cheat list to file after using "Add to Cheat". |
+| Line Up | StickRLeft | Scroll up one line. |
+| Line Down | StickRRight | Scroll down one line. |
+| Page Up | StickRUp | Go to the previous page of disassembly. |
+| Page Down | StickRDown | Go to the next page of disassembly. |
+| Write info to file | + | Write information on the left panel to a file. |
+| Back | B | Return to the previous menu. |
 
 ## Jump Back Menu
 
