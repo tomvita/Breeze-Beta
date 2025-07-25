@@ -132,9 +132,9 @@ The [**Jump Back Menu**](menu.md#jump-back-menu) is Breeze's powerful tool for d
 
 For a detailed explanation of all the options and parameters in the Jump Back Menu, please refer to the [**Jump Back Menu**](menu.md#jump-back-menu) section in the menu documentation.
 
-### Step 3: Evaluate and Eliminate Unreliable Pointer Chains
+### Step 3: Evaluate and Choose a bookmark with reliable Pointer Chains
 
-After running the `next depth` search, the bookmarks generated in the [**Bookmark Menu**](menu.md#bookmark-menu) represent potential reliable pointer chains. When viewing these bookmarks, Breeze constantly evaluates *only the visible* pointer chains, attempting to resolve them, read the resulting memory address, and display its current value. This real-time feedback helps you identify which visible bookmarks are still valid.
+After running the `next depth` search, the bookmarks generated in the [**Bookmark Menu**](menu.md#bookmark-menu) represent potential pointer chains. When viewing the bookmarks in the Bookmark Menu, Breeze constantly evaluates *only the visible* pointer chains, attempting to resolve them, read the resulting memory address, and display its current value. This real-time feedback helps you identify which visible bookmarks are still valid.
 
 To refine your bookmark list and eliminate bookmarks with unreliable pointer chains, the following methods operate on *all* bookmarks within the currently loaded bookmark file:
 
@@ -144,9 +144,12 @@ To refine your bookmark list and eliminate bookmarks with unreliable pointer cha
     *   **By Value (`SearchBookmark`)**: If you know the exact value your target should have, you can use the `SearchBookmark` button (`Y + ZR` in the Bookmark Menu). This will scan the current bookmark file, filter it, and save *only* those bookmarks whose resolved address currently holds the desired value to a designated bookmark file.
     *   **By Validity (`Perform Clean up`)**: The `Perform Clean up` button (`- + ZL` in the Bookmark Menu) will remove all bookmarks whose pointer chains cannot be fully resolved or lead to invalid memory addresses. This is crucial for removing broken or unstable pointers that consume memory without providing useful results.
 
-3.  **Create the Cheat**: Once you have identified a stable and reliable pointer chain (or a small set of highly probable ones), you can create a cheat from it.
-    1.  In the **Bookmark Menu**, select the promising pointer bookmark.
-    2.  Press `Y + ZL` to **Bookmark to Cheat**.
-    3.  The new cheat will appear in the [**Advance Cheat Menu**](menu.md#advance-cheat-menu).
+### Step 4: Create and Test the Pointer Cheat
+
+Once you have identified a stable and reliable pointer chain (or a small set of highly probable ones), you can create a cheat from it.
+
+1.  In the **Bookmark Menu**, select the promising pointer bookmark.
+2.  Press `Y + ZL` to **Bookmark to Cheat**.
+3.  The new cheat will appear in the [**Advance Cheat Menu**](menu.md#advance-cheat-menu).
 
 4.  **Test the Cheat**: Restart your game and test the newly created cheat. A stable pointer cheat should consistently work across game sessions and reloads. If it doesn't, return to the Jump Back Menu or Bookmark Menu to continue refining your search.
