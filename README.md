@@ -36,19 +36,5 @@ For detailed information, please refer to our comprehensive documentation:
 
 ---
 
-## Getting Started
-
-For installation and basic usage, please see the **[Quick Start Guide](quick_start.md)**.
-
-For more advanced features and in-depth information, refer to the **[User Manual (Breeze.md)](Breeze.md)**.
-
----
-
-## Cheat Code Database
--   [NXCheatCode Repository](https://github.com/tomvita/NXCheatCode)
--   For offline use, place `titles.zip` in `/switch/breeze/cheats/`.
-
----
-
 ## Acknowledgments
 This project builds on the UI framework from Daybreak. The knowledge gained from developing EdiZon SE and insights from contributors like Werwolv have been invaluable. Special thanks to the Atmosphere team and the broader hacking community for their support and inspiration.
