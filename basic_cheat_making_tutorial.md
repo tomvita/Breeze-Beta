@@ -13,7 +13,7 @@ Our goal is to find a specific value in the game's memory and create a cheat to 
 
 ## Step 1: Getting Started - The Search Manager
 
-The heart of cheat creation in Breeze is the **Search Manager**.
+The heart of cheat creation in Breeze is the **[Search Manager Menu](docs/menu.md#search-manager-menu)**.
 
 1.  Launch your game.
 2.  Launch Breeze.
@@ -54,7 +54,7 @@ Do this until you have a small number of candidates. An ideal result is a list w
 Once you have a manageable list of candidates, it's time to pinpoint the exact address.
 
 1.  In the `Search Manager`, press `L` to **Show Candidates**.
-2.  This will take you to the **Candidate Menu**, showing the list of memory addresses that match your search.
+2.  This will take you to the **[Candidate Menu](docs/menu.md#candidate-menu)**, showing the list of memory addresses that match your search.
 
 From here, you have two main strategies:
 
@@ -86,11 +86,11 @@ Once you've found the correct address using either method, you're ready to creat
 Once you've confirmed the correct memory address, you can create a cheat for it.
 
 1.  With the correct address highlighted in the candidate list, press `+` to **Add Bookmark**. Give it a descriptive name like "Player Health".
-2.  Go to the **Bookmark Menu** (`Right Stick Up` from the `Main Menu`).
+2.  Go to the **[Bookmark Menu](docs/menu.md#bookmark-menu)** (`Right Stick Up` from the `Main Menu`).
 3.  Find your new "Player Health" bookmark.
 4.  Press `Y + ZL` to **Bookmark to Cheat**.
 
-This will automatically create a new cheat that writes a value to the health address. You can now go to the **Advance Cheat Menu** (`R` from `Main Menu`), find your new cheat, and edit it further if you wish (e.g., change the value it writes).
+This will automatically create a new cheat that writes a value to the health address. You can now go to the **[Advance Cheat Menu](docs/menu.md#advance-cheat-menu)** (`R` from `Main Menu`), find your new cheat, and edit it further if you wish (e.g., change the value it writes).
 
 ## What's Next? Pointers and ASM Cheats
 
@@ -98,7 +98,7 @@ You've created a basic cheat! **Be aware: this type of cheat is often very unsta
 
 To create reliable cheats that work consistently, you need to use more advanced techniques:
 
-*   **Pointer Searching**: If a value's address changes, it's often pointed to by a more stable, static address. The **Jump Back Menu** helps you find these "pointer chains" to create cheats that work across game sessions. You can start a pointer search from the **Bookmark Menu**.
-*   **ASM Cheats**: Instead of just changing a value, you can modify the game's actual code (in Assembly) to, for example, prevent health from ever decreasing. The **Asm Composer Menu** and the **Gen2 Menu** are powerful tools for this.
+*   **Pointer Searching**: If a value's address changes, it's often pointed to by a more stable, static address. The **[Jump Back Menu](docs/menu.md#jump-back-menu)** helps you find these "pointer chains" to create cheats that work across game sessions. You can start a pointer search from the **Bookmark Menu**.
+*   **ASM Cheats**: Instead of just changing a value, you can modify the game's actual code (in Assembly) to, for example, prevent health from ever decreasing. The **[Asm Composer Menu](docs/menu.md#asm-composer-menu)** and the **[Gen2 Menu](docs/menu.md#gen2-menu)** are powerful tools for this.
 
 This tutorial covers the basics, but Breeze is a very powerful tool. Explore the menus, experiment, and check out the other documentation files to learn more!

@@ -27,18 +27,20 @@ This project started as a rewrite of the features implemented in EdiZon SE. Over
 
 For detailed information, please refer to our comprehensive documentation:
 
--   **[User Manual (Breeze.md)](Breeze.md)**: The main guide for installation, usage, and features.
+-   **[Quick Start Guide](quick_start.md)**: For new users who want to get started with basic cheat usage right away.
+-   **[User Manual (Breeze.md)](Breeze.md)**: The main guide for installation, usage, and all features.
+-   **[Basic Cheat Making Tutorial](basic_cheat_making_tutorial.md)**: A step-by-step guide to creating your first cheat.
 -   **[UI Reference (menu.md)](docs/menu.md)**: A complete reference for every button and menu in the UI.
 -   **[Technical Cheat Details (cheats.md)](docs/cheats.md)**: Advanced documentation on the cheat code format and CheatVM instructions.
--   **[Community Wiki](https://github.com/tomvita/Breeze-Beta/wiki)**: For tutorials and community-contributed guides.
+-   **[Community Wiki](https://github.com/tomvita/Breeze-Beta/wiki)**: For other tutorials and community-contributed guides.
 
 ---
 
-## Installation
-1.  Download the latest `Breeze.zip` from the [releases page](https://github.com/tomvita/Breeze-Beta/releases).
-2.  Copy the contents of `Breeze.zip` to the root of your SD card.
+## Getting Started
 
-For more detailed instructions, see the [User Manual (Breeze.md)](Breeze.md).
+For installation and basic usage, please see the **[Quick Start Guide](quick_start.md)**.
+
+For more advanced features and in-depth information, refer to the **[User Manual (Breeze.md)](Breeze.md)**.
 
 ---
 
