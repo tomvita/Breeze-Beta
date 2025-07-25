@@ -1,12 +1,14 @@
-# Making ASM Cheats: A Tutorial
+# Advanced Cheat Making Tutorial
 
-This guide provides a comprehensive tutorial on creating Assembly (ASM) cheats in Breeze. It covers the fundamental workflow of finding a hook, writing code, and testing your cheat. It also introduces powerful automated tools for advanced and complex scenarios.
+This guide provides a comprehensive tutorial on creating advanced cheats in Breeze, covering two primary techniques: creating powerful **Assembly (ASM) Cheats** to modify game logic directly, and robust **Pointer Cheats** to handle dynamic memory addresses.
 
 > **Note**: This tutorial covers advanced ASM cheat creation. If you are new to cheat making, it is highly recommended to start with the [**Basic Cheat Making Tutorial**](../basic_cheat_making_tutorial.md) first.
 
-## Part 1: The Basic Workflow
+## Part 1: Making ASM Cheats
 
 ASM cheats modify the game's own code to achieve results, making them incredibly powerful. The basic process involves finding an instruction to change and then writing your own ASM code to replace it.
+
+### The Basic Workflow
 
 ### Step 1: Finding a Unique Hook
 
@@ -74,7 +76,7 @@ A frequent challenge is dealing with instructions that modify the registers they
 
 With the cheat active, go back to the game and test if your changes have the desired effect. Debugging may involve returning to the Asm Composer to tweak your code.
 
-## Part 2: Advanced Technique - Automated Cheat Generation
+### Advanced Technique - Automated Cheat Generation
 
 When you cannot find a simple unique hook, you must use conditional logic. The [**Gen2 Extra Menu**](menu.md#gen2-extra-menu) offers powerful tools to automate this process.
 
@@ -88,3 +90,49 @@ Instead of relying on a single instruction, you can create a cheat that only act
 2.  **Configure and Capture Data**: In the **Gen2 Menu**, set the `Next stack_check` value. A value of `0` captures only the `x30` register, while `1` to `5` also captures that many values from the top of the stack. Execute the watch, perform the target action in-game, and detach.
 3.  **Analyze and Generate**: In the **Gen2 Extra Menu**, analyze the captured data to find a reliable pattern. Once you select a promising data line, press `make match 1` or `make match all` to automatically generate the complete ASM cheat script.
 4.  **Test The Cheat**: Test the newly generated conditional cheat in-game. This automated process can create highly precise cheats that would be very tedious to write manually.
+
+## Part 2: Creating Pointer Cheats
+
+When a value's memory address changes every time you restart the game or even during gameplay, a simple static cheat won't work. This is where pointer cheats are essential. A pointer is a memory address that stores another memory address. By finding a stable "pointer chain," you can reliably locate a dynamic value.
+
+### Step 1: Find the Initial Address
+
+First, you need to find the memory address of the value you want to modify, just like in the [**Basic Cheat Making Tutorial**](../basic_cheat_making_tutorial.md).
+
+1.  Use the [**Search Manager Menu**](menu.md#search-manager-menu) to find the address of your target value.
+2.  Once you have a single candidate, add it to your bookmarks from the [**Candidate Menu**](menu.md#candidate-menu).
+
+### Step 2: Use the Jump Back Menu to Find Pointers
+
+The [**Jump Back Menu**](menu.md#jump-back-menu) is Breeze's powerful tool for discovering pointer chains. It works by building a map of "nodes," where each node represents a potential step in the pointer chain.
+
+> **Understanding Nodes and Pointer Chains**
+> *   **Depth 0**: The process starts with your initial bookmarked address. This is the first node, with an empty offset chain.
+> *   **Increasing Depth**: When you perform a `Start` or `next depth` search, Breeze looks for pointers pointing to the previous set of nodes. Each pointer it finds creates a *new* node at the next depth.
+> *   **Offset Chains**: Each new node contains the address of the pointer itself, plus the chain of offsets required to get from that pointer back to your original target address. The goal is to find a node whose address is in a static memory region (like `main`), giving you a complete, stable pointer chain.
+
+1.  Go to the [**Bookmark Menu**](menu.md#bookmark-menu) and highlight the bookmark you just created.
+2.  Press `X + ZL` to start a **Pointer Search** for that address. This will take you to the **Jump Back Menu**.
+3.  Press `L` to **Start** the search. Breeze will scan the memory for any addresses that point to your bookmarked address.
+4.  The results will be displayed as a list of potential pointers, showing the offset from the base address.
+
+> **Pro-Tip: Finding the First Offset**: Often, the first offset in a pointer chain is visible in the instruction that accesses your target value. Before starting a blind pointer search, use the [**Gen2 Menu**](menu.md#gen2-menu) to watch the memory address. The instruction that reads/writes the value (e.g., `LDR W8, [X0, #0x40]`) will show you the base register (`X0`) and the immediate offset (`0x40`). This tells you that the value is at `[address in X0] + 0x40`. The address in `X0` is your next target, and `0x40` is your first offset. This can significantly speed up finding the pointer chain.
+5.  To find a multi-level pointer chain, press `R` for **next depth**. This takes the pointers found in the previous step and searches for pointers that point to *them*, effectively moving one level up the chain.
+6.  Repeat the **next depth** search until you find a stable pointer path that originates from a static part of the game's memory (usually `main`). When a candidate is found that originates from `main`, a bookmark with the complete pointer chain is automatically created.
+
+> **Pointer Search Strategy & Key Controls**
+> The `Jump Back Menu` has many options, but a successful search primarily relies on a few key controls:
+> *   **Core Actions**: `Start` and `next depth` are the main buttons you will use to initiate and build your pointer chain.
+> *   **Essential Parameters**: To manage memory usage and refine results, focus on `num_offsets=` (limits candidates for the next depth) and `search_range=` (defines the maximum valid offset). The `search_depth=` and `goto depth` buttons are optional for more automated searching.
+> *   **Validation is Key**: Remember that every pointer found is only a *candidate*. It was valid at the moment it was found but may become invalid later. You must test the final pointer chain by restarting the game to ensure it is stable.
+
+For a detailed explanation of all the options and parameters in the Jump Back Menu, please refer to the [**Jump Back Menu**](menu.md#jump-back-menu) section in the menu documentation.
+
+### Step 3: Create and Test the Pointer Cheat
+
+Once you have identified a promising pointer chain, you need to create a cheat from it.
+
+1.  In the **Jump Back Menu**, select a promising pointer and press `Y` to **Analyse** it.
+2.  From the analysis screen, you can press `Y + ZL` to create a cheat from the pointer.
+3.  The new cheat will appear in the [**Advance Cheat Menu**](menu.md#advance-cheat-menu).
+4.  Restart your game and test the cheat to ensure the pointer chain is stable and works across game sessions.
