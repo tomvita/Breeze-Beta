@@ -99,6 +99,6 @@ You've created a basic cheat! **Be aware: this type of cheat is often very unsta
 To create reliable cheats that work consistently, you need to use more advanced techniques:
 
 *   **Pointer Searching**: If a value's address changes, it's often pointed to by a more stable, static address. The **[Jump Back Menu](docs/menu.md#jump-back-menu)** helps you find these "pointer chains" to create cheats that work across game sessions. You can start a pointer search from the **Bookmark Menu**.
-*   **ASM Cheats**: Instead of just changing a value, you can modify the game's actual code (in Assembly) to, for example, prevent health from ever decreasing. The **[Asm Composer Menu](docs/menu.md#asm-composer-menu)** and the **[Gen2 Menu](docs/menu.md#gen2-menu)** are powerful tools for this.
+*   **ASM Cheats**: Instead of just changing a value, you can modify the game's actual code (in Assembly) to, for example, prevent health from ever decreasing. The **[Asm Composer Menu](docs/menu.md#asm-composer-menu)** and the **[Gen2 Menu](docs/menu.md#gen2-menu)** are powerful tools for this. For a detailed guide on this topic, see the [**Advance Cheat Making Tutorial**](docs/advance_cheat_making_tutorial.md).
 
 This tutorial covers the basics, but Breeze is a very powerful tool. Explore the menus, experiment, and check out the other documentation files to learn more!

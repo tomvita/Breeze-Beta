@@ -2,6 +2,8 @@
 
 This guide provides a comprehensive tutorial on creating Assembly (ASM) cheats in Breeze. It covers the fundamental workflow of finding a hook, writing code, and testing your cheat. It also introduces powerful automated tools for advanced and complex scenarios.
 
+> **Note**: This tutorial covers advanced ASM cheat creation. If you are new to cheat making, it is highly recommended to start with the [**Basic Cheat Making Tutorial**](../basic_cheat_making_tutorial.md) first.
+
 ## Part 1: The Basic Workflow
 
 ASM cheats modify the game's own code to achieve results, making them incredibly powerful. The basic process involves finding an instruction to change and then writing your own ASM code to replace it.

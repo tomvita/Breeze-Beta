@@ -55,3 +55,5 @@ Want to change a cheat?
 Feeling adventurous? Creating your own cheats from scratch is a powerful feature of Breeze. The process involves searching for memory values, identifying the correct address, and creating a cheat to modify it.
 
 For a full walkthrough, check out the **[Basic Cheat Making Tutorial](basic_cheat_making_tutorial.md)**.
+
+For more advanced ASM cheat creation, see the **[Advance Cheat Making Tutorial](docs/advance_cheat_making_tutorial.md)**.

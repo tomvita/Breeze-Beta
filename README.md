@@ -30,6 +30,7 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[Quick Start Guide](quick_start.md)**: For new users who want to get started with basic cheat usage right away.
 -   **[User Manual (Breeze.md)](Breeze.md)**: The main guide for installation, usage, and all features.
 -   **[Basic Cheat Making Tutorial](basic_cheat_making_tutorial.md)**: A step-by-step guide to creating your first cheat.
+-   **[Advance Cheat Making Tutorial](docs/advance_cheat_making_tutorial.md)**: A step-by-step guide to creating advanced ASM cheat.
 -   **[UI Reference (menu.md)](docs/menu.md)**: A complete reference for every button and menu in the UI.
 -   **[Technical Cheat Details (cheats.md)](docs/cheats.md)**: Advanced documentation on the cheat code format and CheatVM instructions.
 -   **[Community Wiki](https://github.com/tomvita/Breeze-Beta/wiki)**: For other tutorials and community-contributed guides.
