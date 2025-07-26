@@ -439,12 +439,14 @@ class DisassemblerGUI:
         master.geometry("1600x900")
 
         self.sort_asm = tk.BooleanVar(value=False)
+        self.column_mode = tk.BooleanVar(value=False)
 
         self.output_text = scrolledtext.ScrolledText(master, wrap=tk.WORD, width=100, height=40)
         self.output_text.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
-        # Bind paste event to the output_text widget
+        # Bind paste and copy events
         self.output_text.bind('<<Paste>>', self.handle_paste)
+        self.output_text.bind('<<Copy>>', self.handle_copy)
 
         self.button_frame = tk.Frame(master)
         self.button_frame.pack(pady=5)
@@ -457,6 +459,9 @@ class DisassemblerGUI:
 
         self.sort_asm_button = tk.Checkbutton(self.button_frame, text="Sort ASM", variable=self.sort_asm)
         self.sort_asm_button.pack(side=tk.LEFT, padx=5)
+        
+        self.column_mode_button = tk.Checkbutton(self.button_frame, text="Column Mode", variable=self.column_mode)
+        self.column_mode_button.pack(side=tk.LEFT, padx=5)
 
         if TkinterDnD is not None:
             self.output_text.drop_target_register(DND_FILES)
@@ -626,6 +631,36 @@ class DisassemblerGUI:
         except tk.TclError:
             messagebox.showwarning("Paste Error", "No content in clipboard or clipboard access denied.")
         return "break" # Prevent default paste behavior
+
+    def handle_copy(self, event):
+        if not self.column_mode.get():
+            return # Allow default copy behavior
+
+        try:
+            sel_start = self.output_text.index(tk.SEL_FIRST)
+            sel_end = self.output_text.index(tk.SEL_LAST)
+            selected_text = self.output_text.get(sel_start, sel_end)
+        except tk.TclError:
+            return "break" # No selection
+
+        start_line, start_char = map(int, sel_start.split('.'))
+        column_to_copy = 1 if start_char < 40 else 2
+
+        processed_lines = []
+        for line in selected_text.splitlines():
+            if len(line) >= 40:
+                if column_to_copy == 1:
+                    processed_lines.append(line[:40].strip())
+                else:
+                    processed_lines.append(line[40:].strip())
+            elif column_to_copy == 1:
+                processed_lines.append(line.strip())
+
+        clipboard_text = "\n".join(processed_lines)
+        self.master.clipboard_clear()
+        self.master.clipboard_append(clipboard_text)
+
+        return "break" # Prevent default copy behavior
 
     def save_output(self):
         file_path = filedialog.asksaveasfilename(
