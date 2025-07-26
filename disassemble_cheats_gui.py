@@ -634,33 +634,40 @@ class DisassemblerGUI:
 
     def handle_copy(self, event):
         if not self.column_mode.get():
-            return # Allow default copy behavior
+            return  # Allow default copy behavior
 
         try:
-            sel_start = self.output_text.index(tk.SEL_FIRST)
-            sel_end = self.output_text.index(tk.SEL_LAST)
-            selected_text = self.output_text.get(sel_start, sel_end)
+            sel_start_index = self.output_text.index(tk.SEL_FIRST)
+            sel_end_index = self.output_text.index(tk.SEL_LAST)
         except tk.TclError:
-            return "break" # No selection
+            return "break"  # No selection
 
-        start_line, start_char = map(int, sel_start.split('.'))
-        column_to_copy = 1 if start_char < 40 else 2
+        start_line, start_col = map(int, sel_start_index.split('.'))
+        end_line, _ = map(int, sel_end_index.split('.'))
+
+        # Determine which column is being selected based on the start of the selection
+        column_to_copy = 1 if start_col < 40 else 2
 
         processed_lines = []
-        for line in selected_text.splitlines():
-            if len(line) >= 40:
-                if column_to_copy == 1:
-                    processed_lines.append(line[:40].strip())
+        for i in range(start_line, end_line + 1):
+            line_text = self.output_text.get(f"{i}.0", f"{i}.end")
+            
+            if column_to_copy == 1:
+                # Always take the first part of the line for column 1
+                processed_lines.append(line_text[:40].strip())
+            else: # column_to_copy == 2
+                if len(line_text) > 40:
+                    processed_lines.append(line_text[40:].strip())
                 else:
-                    processed_lines.append(line[40:].strip())
-            elif column_to_copy == 1:
-                processed_lines.append(line.strip())
+                    # If line is not long enough for column 2, add an empty line
+                    # to maintain row correspondence.
+                    processed_lines.append("")
 
         clipboard_text = "\n".join(processed_lines)
         self.master.clipboard_clear()
         self.master.clipboard_append(clipboard_text)
 
-        return "break" # Prevent default copy behavior
+        return "break"  # Prevent default copy behavior
 
     def save_output(self):
         file_path = filedialog.asksaveasfilename(
