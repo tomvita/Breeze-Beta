@@ -145,6 +145,8 @@ class CheatVmOpcode:
         self.opcode = None
         self.size = 0
         self.str = ""
+        self.sort_key = None
+        self.has_asm = False
 
 def get_next_dword(opcodes, instruction_ptr):
     if instruction_ptr >= len(opcodes):
@@ -227,6 +229,7 @@ def decode_next_opcode(opcodes, index):
         offset_register = (first_dword >> 16) & 0xF
         second_dword, instruction_ptr = get_next_dword(opcodes, instruction_ptr)
         rel_address = ((first_dword & 0xFF) << 32) | second_dword
+        out.sort_key = rel_address
         
         value, instruction_ptr = get_next_vm_int(opcodes, instruction_ptr, bit_width)
         
@@ -247,6 +250,7 @@ def decode_next_opcode(opcodes, index):
             asm = arm64_disassemble(value_for_disasm, bit_width, rel_address)
             if asm:
                 out.str += f"  {asm}"
+                out.has_asm = True
         else:
             out.str += " (Disassembly skipped - Capstone not available or invalid bit_width)"
     
@@ -441,6 +445,8 @@ class DisassemblerGUI:
         # Set window size (slightly smaller than 1080p, e.g., 1600x900)
         master.geometry("1600x900")
 
+        self.sort_asm = tk.BooleanVar(value=False)
+
         self.output_text = scrolledtext.ScrolledText(master, wrap=tk.WORD, width=100, height=40)
         self.output_text.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
 
@@ -455,6 +461,9 @@ class DisassemblerGUI:
 
         self.save_button = tk.Button(self.button_frame, text="Save Output", command=self.save_output)
         self.save_button.pack(side=tk.LEFT, padx=5)
+
+        self.sort_asm_button = tk.Checkbutton(self.button_frame, text="Sort ASM", variable=self.sort_asm)
+        self.sort_asm_button.pack(side=tk.LEFT, padx=5)
 
         if TkinterDnD is not None:
             self.output_text.drop_target_register(DND_FILES)
@@ -472,6 +481,7 @@ class DisassemblerGUI:
     def disassemble_cheat(self, opcodes):
         """Disassembles a list of opcodes for a single cheat."""
         index = 0
+        lines_buffer = []
         while index < len(opcodes):
             opcode_info = decode_next_opcode(opcodes, index)
             if not opcode_info:
@@ -480,9 +490,37 @@ class DisassemblerGUI:
             raw_opcodes_list = opcodes[index : index + opcode_info.size]
             raw_opcodes_str = " ".join([f"{opc:08X}" for opc in raw_opcodes_list])
 
-            self.log_output(f"{raw_opcodes_str:<40} {opcode_info.str}")
+            line_text = f"{raw_opcodes_str:<40} {opcode_info.str}"
+            
+            sort_key = opcode_info.sort_key if opcode_info.has_asm else None
+            
+            lines_buffer.append({'text': line_text, 'key': sort_key})
             
             index += opcode_info.size
+
+        if self.sort_asm.get():
+            final_lines = []
+            current_sortable_block = []
+
+            for line in lines_buffer:
+                if line['key'] is not None:
+                    current_sortable_block.append(line)
+                else:
+                    if current_sortable_block:
+                        current_sortable_block.sort(key=lambda x: x['key'])
+                        final_lines.extend(current_sortable_block)
+                        current_sortable_block = []
+                    final_lines.append(line)
+
+            if current_sortable_block:
+                current_sortable_block.sort(key=lambda x: x['key'])
+                final_lines.extend(current_sortable_block)
+            
+            for line in final_lines:
+                self.log_output(line['text'])
+        else:
+            for line in lines_buffer:
+                self.log_output(line['text'])
 
     def _preprocess_pasted_opcodes(self, opcodes_str):
         """
