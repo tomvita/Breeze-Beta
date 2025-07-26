@@ -225,15 +225,8 @@ def decode_next_opcode(opcodes, index):
         out.str = f"[{mem_type_str(mem_type)}+R{offset_register}+0x{rel_address:010X}] = 0x{value.value:X}"
         
         value_for_disasm = value.value
-        if bit_width == 8:
-            # The 64-bit value is read as (high_dword << 32 | low_dword).
-            # For little-endian disassembly, the byte stream needs to be
-            # ordered by the dwords as they appear in the file (high then low).
-            # value.to_bytes(..., 'little') would produce bytes(low) then bytes(high).
-            # To fix this, swap the dwords before converting to bytes.
-            high_dw = value.value >> 32
-            low_dw = value.value & 0xFFFFFFFF
-            value_for_disasm = (low_dw << 32) | high_dw
+        # The dword swap was incorrect for 64-bit little-endian disassembly.
+        # The original value is now passed directly to the disassembler.
 
         if CAPSTONE_AVAILABLE and (bit_width == 4 or bit_width == 8):
             asm = arm64_disassemble(value_for_disasm, bit_width, rel_address)
