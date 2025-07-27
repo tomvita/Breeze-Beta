@@ -195,6 +195,81 @@ class AssemblerGUI:
                     output_lines.append(current_cheat_name)
                     continue
 
+                # Type A Cheat: Store Register to Memory Address
+                m_typeA = re.match(r'\[([^\]!]+)(!)?\]\s*=\s*R(\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
+                if m_typeA:
+                    inside_brackets, inc_flag, src_reg_str, width_str = m_typeA.groups()
+                    src_reg = int(src_reg_str)
+                    bit_width = int(width_str) if width_str else 4
+                    increment_reg = 1 if inc_flag else 0
+
+                    parts = [p.strip() for p in inside_brackets.split('+')]
+                    
+                    mem_type_str = None
+                    base_reg_str = None
+                    offset_reg_str = None
+                    rel_addr_str = None
+                    
+                    for part in parts:
+                        if part.lower() in ['main', 'heap', 'alias', 'aslr']:
+                            mem_type_str = part
+                        elif part.upper().startswith('R'):
+                            if base_reg_str is None:
+                                base_reg_str = part[1:]
+                            else:
+                                offset_reg_str = part[1:]
+                        elif part.lower().startswith('0x'):
+                            rel_addr_str = part[2:]
+
+                    first_dword = 0xA0000000
+                    first_dword |= (bit_width & 0xF) << 24
+                    first_dword |= (src_reg & 0xF) << 20
+                    first_dword |= (increment_reg & 0x1) << 12
+                    
+                    offset_type = 0
+                    has_mem = mem_type_str is not None
+                    has_base_reg = base_reg_str is not None
+                    has_offset_reg = offset_reg_str is not None
+                    has_rel_addr = rel_addr_str is not None
+
+                    if not has_mem and has_base_reg and not has_offset_reg and not has_rel_addr: offset_type = 0
+                    elif not has_mem and has_base_reg and has_offset_reg and not has_rel_addr: offset_type = 1
+                    elif not has_mem and has_base_reg and not has_offset_reg and has_rel_addr: offset_type = 2
+                    elif has_mem and has_base_reg and not has_offset_reg and not has_rel_addr: offset_type = 3
+                    elif has_mem and not has_base_reg and not has_offset_reg and has_rel_addr: offset_type = 4
+                    elif has_mem and has_base_reg and not has_offset_reg and has_rel_addr: offset_type = 5
+                    
+                    first_dword |= (offset_type & 0xF) << 8
+                    
+                    if has_base_reg:
+                        first_dword |= (int(base_reg_str) & 0xF) << 16
+
+                    if offset_type in [2, 4, 5]:
+                        if not has_rel_addr:
+                            log_messages.append(f"Error (Line {line_num}): Missing immediate offset for address.")
+                            continue
+                        rel_address = int(rel_addr_str, 16)
+                        if rel_address.bit_length() > 32:
+                            log_messages.append(f"Error (Line {line_num}): Immediate offset exceeds 32 bits.")
+                            continue
+                        
+                        if offset_type == 4: # [M+a]
+                             first_dword |= (mem_type_from_str(mem_type_str).value & 0xF) << 4
+                        elif offset_type == 5: # [M+R+a]
+                             first_dword |= (mem_type_from_str(mem_type_str).value & 0xF) << 4
+
+                        output_lines.append(f"{first_dword:08X} {rel_address:08X}")
+                    else: # types 0, 1, 3
+                        if offset_type == 1: # [R+r]
+                            first_dword |= (int(offset_reg_str) & 0xF) << 4
+                        elif offset_type == 3: # [M+R]
+                            first_dword |= (mem_type_from_str(mem_type_str).value & 0xF) << 4
+                        
+                        output_lines.append(f"{first_dword:08X}")
+                    
+                    processed_lines_count += 1
+                    continue
+
                 # Type 0 Cheat: Static Memory Write
                 m_type0 = re.match(r'\[(?:(\w+)\+)?\+?R(\d+)\+0x([0-9A-Fa-f]+)\]\s*=\s*(?:0x[0-9A-Fa-f]+\s+)?(.*)', line_stripped)
                 if m_type0:
@@ -546,11 +621,12 @@ class AssemblerGUI:
                     continue
                 
                 # Type 6 Cheat: Store Static Value to Register Memory Address
-                m_type6 = re.match(r'\[(R\d+(?:\s*\+\s*R\d+)?)\]\s*=\s*(0x[0-9A-Fa-f]+|\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
+                m_type6 = re.match(r'\[(R\d+(?:\s*\+\s*R\d+)?)\](!)?\s*=\s*(0x[0-9A-Fa-f]+|\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
                 if m_type6:
-                    address_part, value_str, width_str = m_type6.groups()
+                    address_part, inc_flag, value_str, width_str = m_type6.groups()
                     
                     bit_width = int(width_str) if width_str else 4
+                    increment_reg = 1 if inc_flag else 0
                     
                     val = int(value_str, 0)
                     if val.bit_length() > 64:
@@ -567,16 +643,14 @@ class AssemblerGUI:
                     first_dword = 0x60000000
                     first_dword |= (bit_width & 0xF) << 24
                     first_dword |= (base_reg & 0xF) << 16
+                    first_dword |= (increment_reg & 0x1) << 12
                     first_dword |= (add_offset_reg & 0xF) << 8
                     first_dword |= (offset_reg & 0xF) << 4
                     
                     val_upper = (val >> 32) & 0xFFFFFFFF
                     val_lower = val & 0xFFFFFFFF
-
-                    if bit_width == 8:
-                        output_lines.append(f"{first_dword:08X} {val_upper:08X} {val_lower:08X}")
-                    else:
-                        output_lines.append(f"{first_dword:08X} {val_lower:08X}")
+                    
+                    output_lines.append(f"{first_dword:08X} {val_upper:08X} {val_lower:08X}")
 
                     processed_lines_count += 1
                     continue
@@ -630,7 +704,26 @@ class AssemblerGUI:
                     continue
 
                 # Type 9 Cheat: Perform Arithmetic
-                m_type9 = re.match(r'R(\d+)\s*=\s*R(\d+)\s*([+\-*/]|<<|>>|&|\||\^)\s*(R(\d+)|0x[0-9A-Fa-f]+|\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
+                m_type9_unary = re.match(r'R(\d+)\s*=\s*([!~])\s*R(\d+)', line_stripped, re.IGNORECASE)
+                if m_type9_unary:
+                    dest_reg_str, op_str, src_reg_str = m_type9_unary.groups()
+                    dest_reg = int(dest_reg_str)
+                    src_reg = int(src_reg_str)
+                    
+                    op_map = {"!": 7, "~": 9}
+                    op_type = op_map.get(op_str)
+
+                    first_dword = 0x90000000
+                    first_dword |= (4 & 0xF) << 24 # Bit-width is ignored but let's set it to 4
+                    first_dword |= (op_type & 0xF) << 20
+                    first_dword |= (dest_reg & 0xF) << 16
+                    first_dword |= (src_reg & 0xF) << 12
+                    
+                    output_lines.append(f"{first_dword:08X}")
+                    processed_lines_count += 1
+                    continue
+
+                m_type9 = re.match(r'R(\d+)\s*=\s*R(\d+)\s*([+\-*/]|<<|>>|&|\||\^|\+f|-f|\*f|\/f)\s*(R(\d+)|0x[0-9A-Fa-f]+|\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
                 if m_type9:
                     dest_reg_str, src1_reg_str, op_str, rhs_str, src2_reg_str, width_str = m_type9.groups()
                     
@@ -638,8 +731,12 @@ class AssemblerGUI:
                     src1_reg = int(src1_reg_str)
                     bit_width = int(width_str) if width_str else 4
 
-                    op_map = {"+": 0, "-": 1, "*": 2, "<<": 3, ">>": 4, "&": 5, "|": 6, "^": 8}
-                    op_type = op_map.get(op_str)
+                    op_map = {
+                        "+": 0, "-": 1, "*": 2, "<<": 3, ">>": 4, 
+                        "&": 5, "|": 6, "!": 7, "^": 8, "~": 9,
+                        "+f": 10, "-f": 11, "*f": 12, "/f": 13
+                    }
+                    op_type = op_map.get(op_str.lower())
 
                     if op_type is None:
                         log_messages.append(f"Error (Line {line_num}): Invalid operator '{op_str}'")
@@ -675,72 +772,6 @@ class AssemblerGUI:
                     processed_lines_count += 1
                     continue
                 
-                # Type A Cheat: Store Register to Memory Address
-                m_typeA = re.match(r'\[([^\]]+)\]\s*=\s*R(\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
-                if m_typeA:
-                    inside_brackets, src_reg_str, width_str = m_typeA.groups()
-                    src_reg = int(src_reg_str)
-                    bit_width = int(width_str) if width_str else 4
-
-                    parts = [p.strip() for p in inside_brackets.split('+')]
-                    
-                    mem_type_str = None
-                    base_reg_str = None
-                    offset_reg_str = None
-                    rel_addr_str = None
-                    
-                    for part in parts:
-                        if part.lower() in ['main', 'heap', 'alias', 'aslr']:
-                            mem_type_str = part
-                        elif part.upper().startswith('R'):
-                            if base_reg_str is None:
-                                base_reg_str = part[1:]
-                            else:
-                                offset_reg_str = part[1:]
-                        elif part.lower().startswith('0x'):
-                            rel_addr_str = part[2:]
-
-                    first_dword = 0xA0000000
-                    first_dword |= (bit_width & 0xF) << 24
-                    first_dword |= (src_reg & 0xF) << 20
-                    
-                    offset_type = 0
-                    if not mem_type_str:
-                        if not offset_reg_str and not rel_addr_str: # [R1]
-                            offset_type = 0
-                        elif offset_reg_str and not rel_addr_str: # [R1+R2]
-                            offset_type = 1
-                        elif not offset_reg_str and rel_addr_str: # [R1+0x...]
-                            offset_type = 2
-                    else:
-                        if not offset_reg_str and not rel_addr_str: # [Main+R1]
-                            offset_type = 3
-                        elif not offset_reg_str and rel_addr_str: # [Main+0x...]
-                            offset_type = 4
-                        elif offset_reg_str and rel_addr_str: # [Main+R1+0x...]
-                            offset_type = 5
-
-                    first_dword |= (offset_type & 0xF) << 8
-                    
-                    if base_reg_str:
-                        first_dword |= (int(base_reg_str) & 0xF) << 16
-
-                    if offset_type == 1:
-                        first_dword |= (int(offset_reg_str) & 0xF) << 4
-                    elif offset_type in [2, 4, 5]:
-                        rel_address = int(rel_addr_str, 16)
-                        first_dword |= (rel_address & 0xFF)
-                        addr_lower_32 = (rel_address >> 8) & 0xFFFFFFFF
-                        output_lines.append(f"{first_dword:08X} {addr_lower_32:08X}")
-                    elif offset_type == 3:
-                         first_dword |= (mem_type_from_str(mem_type_str).value & 0xF) << 4
-                    
-                    if offset_type in [0, 1, 3]:
-                        output_lines.append(f"{first_dword:08X}")
-                    
-                    processed_lines_count += 1
-                    continue
-
                 # Type C4 Cheat: Begin Extended Keypress Conditional Block
                 m_typeC4 = re.match(r'if\s+(keydown|keyheld)\s+(0x[0-9A-Fa-f]+|\d+)', line_stripped, re.IGNORECASE)
                 if m_typeC4:
