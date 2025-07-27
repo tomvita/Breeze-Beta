@@ -237,7 +237,7 @@ class AssemblerGUI:
                     elif not has_mem and has_base_reg and not has_offset_reg and has_rel_addr: offset_type = 2
                     elif has_mem and has_base_reg and not has_offset_reg and not has_rel_addr: offset_type = 3
                     elif has_mem and not has_base_reg and not has_offset_reg and has_rel_addr: offset_type = 4
-                    elif has_mem and has_base_reg and not has_offset_reg and has_rel_addr: offset_type = 5
+                    elif has_mem and has_base_reg and has_rel_addr: offset_type = 5
                     
                     first_dword |= (offset_type & 0xF) << 8
                     
@@ -256,7 +256,11 @@ class AssemblerGUI:
                         if offset_type == 4: # [M+a]
                              first_dword |= (mem_type_from_str(mem_type_str).value & 0xF) << 4
                         elif offset_type == 5: # [M+R+a]
-                             first_dword |= (mem_type_from_str(mem_type_str).value & 0xF) << 4
+                            if has_offset_reg:
+                                first_dword |= (int(offset_reg_str) & 0xF) << 4
+                            else: # Backwards compatibility with my old implementation
+                                first_dword |= (mem_type_from_str(mem_type_str).value & 0xF) << 4
+                                
 
                         output_lines.append(f"{first_dword:08X} {rel_address:08X}")
                     else: # types 0, 1, 3
@@ -267,6 +271,41 @@ class AssemblerGUI:
                         
                         output_lines.append(f"{first_dword:08X}")
                     
+                    processed_lines_count += 1
+                    continue
+
+                # Type 6 Cheat: Store Static Value to Register Memory Address
+                m_type6 = re.match(r'\[(R\d+(?:\s*\+\s*R\d+)?)\](!)?\s*=\s*(0x[0-9A-Fa-f]+|\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
+                if m_type6:
+                    address_part, inc_flag, value_str, width_str = m_type6.groups()
+                    
+                    bit_width = int(width_str) if width_str else 4
+                    increment_reg = 1 if inc_flag else 0
+                    
+                    val = int(value_str, 0)
+                    if val.bit_length() > 64:
+                        log_messages.append(f"Error (Line {line_num}): Value '{value_str}' exceeds 64 bits.")
+                        output_lines.append("")
+                        continue
+
+                    regs = [r.strip() for r in address_part.split('+')]
+                    base_reg = int(regs[0][1:])
+                    offset_reg = int(regs[1][1:]) if len(regs) > 1 else 0
+                    
+                    add_offset_reg = 1 if len(regs) > 1 else 0
+
+                    first_dword = 0x60000000
+                    first_dword |= (bit_width & 0xF) << 24
+                    first_dword |= (base_reg & 0xF) << 16
+                    first_dword |= (increment_reg & 0x1) << 12
+                    first_dword |= (add_offset_reg & 0xF) << 8
+                    first_dword |= (offset_reg & 0xF) << 4
+                    
+                    val_upper = (val >> 32) & 0xFFFFFFFF
+                    val_lower = val & 0xFFFFFFFF
+                    
+                    output_lines.append(f"{first_dword:08X} {val_upper:08X} {val_lower:08X}")
+
                     processed_lines_count += 1
                     continue
 
@@ -620,41 +659,6 @@ class AssemblerGUI:
                     processed_lines_count += 1
                     continue
                 
-                # Type 6 Cheat: Store Static Value to Register Memory Address
-                m_type6 = re.match(r'\[(R\d+(?:\s*\+\s*R\d+)?)\](!)?\s*=\s*(0x[0-9A-Fa-f]+|\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
-                if m_type6:
-                    address_part, inc_flag, value_str, width_str = m_type6.groups()
-                    
-                    bit_width = int(width_str) if width_str else 4
-                    increment_reg = 1 if inc_flag else 0
-                    
-                    val = int(value_str, 0)
-                    if val.bit_length() > 64:
-                        log_messages.append(f"Error (Line {line_num}): Value '{value_str}' exceeds 64 bits.")
-                        output_lines.append("")
-                        continue
-
-                    regs = [r.strip() for r in address_part.split('+')]
-                    base_reg = int(regs[0][1:])
-                    offset_reg = int(regs[1][1:]) if len(regs) > 1 else 0
-                    
-                    add_offset_reg = 1 if len(regs) > 1 else 0
-
-                    first_dword = 0x60000000
-                    first_dword |= (bit_width & 0xF) << 24
-                    first_dword |= (base_reg & 0xF) << 16
-                    first_dword |= (increment_reg & 0x1) << 12
-                    first_dword |= (add_offset_reg & 0xF) << 8
-                    first_dword |= (offset_reg & 0xF) << 4
-                    
-                    val_upper = (val >> 32) & 0xFFFFFFFF
-                    val_lower = val & 0xFFFFFFFF
-                    
-                    output_lines.append(f"{first_dword:08X} {val_upper:08X} {val_lower:08X}")
-
-                    processed_lines_count += 1
-                    continue
-
                 # Type 7 Cheat: Legacy Arithmetic
                 m_type7 = re.match(r'R(\d+)\s*=\s*R\1\s*([+\-*/]|<<|>>)\s*(0x[0-9A-Fa-f]+|\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
                 if m_type7:
@@ -813,9 +817,74 @@ class AssemblerGUI:
                     first_dword |= (bit_width & 0xF) << 20
                     first_dword |= (cond_type.value & 0xF) << 16
                     first_dword |= (src_reg & 0xF) << 12
+                    
+                    # Check for memory operand first
+                    if rhs_str.startswith('['):
+                        inside_brackets = rhs_str[1:-1]
+                        parts = [p.strip() for p in inside_brackets.split('+')]
+                        
+                        mem_type_str = None
+                        addr_reg_str = None
+                        offset_reg_str = None
+                        rel_addr_str = None
+
+                        for part in parts:
+                            if part.lower() in ['main', 'heap', 'alias', 'aslr']:
+                                mem_type_str = part
+                            elif part.upper().startswith('R'):
+                                if addr_reg_str is None:
+                                    addr_reg_str = part[1:]
+                                else:
+                                    offset_reg_str = part[1:]
+                            elif part.lower().startswith('0x'):
+                                rel_addr_str = part[2:]
+                        
+                        operand_type = -1 # Unassigned
+                        has_mem = mem_type_str is not None
+                        has_addr_reg = addr_reg_str is not None
+                        has_offset_reg = offset_reg_str is not None
+                        has_rel_addr = rel_addr_str is not None
+
+                        if has_mem and not has_addr_reg and not has_offset_reg and has_rel_addr: 
+                            operand_type = 0
+                        elif has_mem and not has_addr_reg and has_offset_reg and not has_rel_addr:
+                            operand_type = 1
+                            addr_reg_str = offset_reg_str # In this case, the first reg is the offset reg
+                        elif not has_mem and has_addr_reg and not has_offset_reg and has_rel_addr:
+                            operand_type = 2
+                        elif not has_mem and has_addr_reg and has_offset_reg and not has_rel_addr:
+                            operand_type = 3
+                        
+                        if operand_type == -1:
+                            # Fallback for [Main+R1] etc.
+                            if has_mem and has_addr_reg and not has_offset_reg and not has_rel_addr:
+                                operand_type = 1
+                                offset_reg_str = addr_reg_str
+                            else:
+                                log_messages.append(f"Error (Line {line_num}): Invalid C0 memory operand format: '{rhs_str}'")
+                                continue
+                            
+                        first_dword |= (operand_type & 0xF) << 8
+                        
+                        if operand_type == 0: # [Main+0x...]
+                            first_dword |= (mem_type_from_str(mem_type_str).value & 0xF) << 4
+                            rel_address = int(rel_addr_str, 16)
+                            output_lines.append(f"{first_dword:08X} {rel_address:08X}")
+                        elif operand_type == 1: # [Main+R1]
+                            first_dword |= (mem_type_from_str(mem_type_str).value & 0xF) << 4
+                            first_dword |= (int(offset_reg_str) & 0xF)
+                            output_lines.append(f"{first_dword:08X}")
+                        elif operand_type == 2: # [R1+0x...]
+                            first_dword |= (int(addr_reg_str) & 0xF) << 4
+                            rel_address = int(rel_addr_str, 16)
+                            output_lines.append(f"{first_dword:08X} {rel_address:08X}")
+                        elif operand_type == 3: # [R1+R2]
+                            first_dword |= (int(addr_reg_str) & 0xF) << 4
+                            first_dword |= (int(offset_reg_str) & 0xF)
+                            output_lines.append(f"{first_dword:08X}")
 
                     # Operand Type 5: Other Register
-                    if rhs_str.upper().startswith('R'):
+                    elif rhs_str.upper().startswith('R'):
                         other_reg = int(rhs_str[1:])
                         first_dword |= (5 & 0xF) << 8
                         first_dword |= (other_reg & 0xF) << 4
