@@ -318,7 +318,7 @@ def decode_next_opcode(opcodes, index):
         
     elif out.opcode == CheatVmOpcodeType.PerformArithmeticRegister:
         bit_width = (first_dword >> 24) & 0xF
-        math_type = RegisterArithmeticType((first_dword >> 20) & 0xF)
+        math_type = RegisterArithmeticType((first_dword >> 12) & 0xF)
         dst_reg_index = (first_dword >> 16) & 0xF
         src_reg_1_index = (first_dword >> 12) & 0xF
         has_immediate = ((first_dword >> 8) & 0xF) != 0
