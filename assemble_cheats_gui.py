@@ -450,6 +450,167 @@ class AssemblerGUI:
                     processed_lines_count += 1
                     continue
 
+                # Type 4 Cheat: Load Register with Static Value
+                m_type4 = re.match(r'R(\d+)\s*=\s*(0x[0-9A-Fa-f]+|\d+)', line_stripped, re.IGNORECASE)
+                if m_type4:
+                    reg_index_str, value_str = m_type4.groups()
+                    reg_index = int(reg_index_str)
+                    
+                    if not (0 <= reg_index <= 15):
+                        log_messages.append(f"Error (Line {line_num}): Invalid register index {reg_index}.")
+                        output_lines.append("")
+                        continue
+                        
+                    try:
+                        val = int(value_str, 0) # Auto-detect base for hex/dec
+                        if val.bit_length() > 64:
+                            log_messages.append(f"Error (Line {line_num}): Value '{value_str}' exceeds 64 bits.")
+                            output_lines.append("")
+                            continue
+                    except ValueError:
+                        log_messages.append(f"Error (Line {line_num}): Invalid value '{value_str}'")
+                        output_lines.append("")
+                        continue
+
+                    first_dword = 0x40000000
+                    first_dword |= (reg_index & 0xF) << 16
+                    
+                    val_upper_32 = (val >> 32) & 0xFFFFFFFF
+                    val_lower_32 = val & 0xFFFFFFFF
+                    
+                    output_lines.append(f"{first_dword:08X} {val_upper_32:08X} {val_lower_32:08X}")
+                    processed_lines_count += 1
+                    continue
+
+                # Type 5 Cheat: Load Register with Memory Value
+                m_type5 = re.match(r'R(\d+)\s*=\s*\[([^\]]+)\]\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
+                if m_type5:
+                    dest_reg_str, inside_brackets, width_str = m_type5.groups()
+                    dest_reg = int(dest_reg_str)
+                    bit_width = int(width_str) if width_str else 4
+
+                    if not (0 <= dest_reg <= 15):
+                        log_messages.append(f"Error (Line {line_num}): Invalid destination register R{dest_reg}.")
+                        output_lines.append("")
+                        continue
+                    
+                    parts = [p.strip() for p in inside_brackets.split('+')]
+                    
+                    mem_type_str = None
+                    base_reg_str = None
+                    offset_reg_str = None
+                    rel_addr_str = None
+                    
+                    for part in parts:
+                        if part.lower() in ['main', 'heap', 'alias', 'aslr']:
+                            mem_type_str = part
+                        elif part.upper().startswith('R'):
+                            if base_reg_str is None:
+                                base_reg_str = part[1:]
+                            else:
+                                offset_reg_str = part[1:]
+                        elif part.lower().startswith('0x'):
+                            rel_addr_str = part[2:]
+                    
+                    mem_type = mem_type_from_str(mem_type_str)
+                    rel_address = int(rel_addr_str, 16) if rel_addr_str else 0
+                    
+                    first_dword = 0x50000000
+                    first_dword |= (bit_width & 0xF) << 24
+                    first_dword |= (dest_reg & 0xF) << 16
+
+                    load_from_reg_mode = 0
+                    if base_reg_str and not mem_type_str: # R1+0x... or R1+R2
+                        load_from_reg_mode = 2 if offset_reg_str else 1
+                    elif mem_type_str and base_reg_str: # Main+R1+...
+                        load_from_reg_mode = 3
+
+                    first_dword |= (load_from_reg_mode & 0xF) << 12
+
+                    if load_from_reg_mode == 0: # Main+0x...
+                        first_dword |= (mem_type.value & 0xF) << 20
+                    elif load_from_reg_mode == 1: # R1+0x...
+                         first_dword |= (int(base_reg_str) & 0xF) << 16
+                    elif load_from_reg_mode == 2: # R1+R2
+                        first_dword |= (int(base_reg_str) & 0xF) << 16
+                        first_dword |= (int(offset_reg_str) & 0xF) << 8
+                    elif load_from_reg_mode == 3:
+                        first_dword |= (mem_type.value & 0xF) << 20
+                        first_dword |= (int(base_reg_str) & 0xF) << 8
+                        
+                    first_dword |= ((rel_address >> 32) & 0xFF)
+                    addr_lower_32 = rel_address & 0xFFFFFFFF
+
+                    output_lines.append(f"{first_dword:08X} {addr_lower_32:08X}")
+                    processed_lines_count += 1
+                    continue
+                
+                # Type 6 Cheat: Store Static Value to Register Memory Address
+                m_type6 = re.match(r'\[(R\d+(?:\s*\+\s*R\d+)?)\]\s*=\s*(0x[0-9A-Fa-f]+|\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
+                if m_type6:
+                    address_part, value_str, width_str = m_type6.groups()
+                    
+                    bit_width = int(width_str) if width_str else 4
+                    
+                    val = int(value_str, 0)
+                    if val.bit_length() > 64:
+                        log_messages.append(f"Error (Line {line_num}): Value '{value_str}' exceeds 64 bits.")
+                        output_lines.append("")
+                        continue
+
+                    regs = [r.strip() for r in address_part.split('+')]
+                    base_reg = int(regs[0][1:])
+                    offset_reg = int(regs[1][1:]) if len(regs) > 1 else 0
+                    
+                    add_offset_reg = 1 if len(regs) > 1 else 0
+
+                    first_dword = 0x60000000
+                    first_dword |= (bit_width & 0xF) << 24
+                    first_dword |= (base_reg & 0xF) << 16
+                    first_dword |= (add_offset_reg & 0xF) << 8
+                    first_dword |= (offset_reg & 0xF) << 4
+                    
+                    val_upper = (val >> 32) & 0xFFFFFFFF
+                    val_lower = val & 0xFFFFFFFF
+
+                    if bit_width == 8:
+                        output_lines.append(f"{first_dword:08X} {val_upper:08X} {val_lower:08X}")
+                    else:
+                        output_lines.append(f"{first_dword:08X} {val_lower:08X}")
+
+                    processed_lines_count += 1
+                    continue
+
+                # Type 7 Cheat: Legacy Arithmetic
+                m_type7 = re.match(r'R(\d+)\s*=\s*R\1\s*([+\-*/]|<<|>>)\s*(0x[0-9A-Fa-f]+|\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
+                if m_type7:
+                    reg_index_str, op_str, value_str, width_str = m_type7.groups()
+                    reg_index = int(reg_index_str)
+                    bit_width = int(width_str) if width_str else 4
+
+                    op_map = {"+": 0, "-": 1, "*": 2, "<<": 3, ">>": 4}
+                    op_type = op_map.get(op_str)
+
+                    if op_type is None:
+                        log_messages.append(f"Error (Line {line_num}): Invalid operator '{op_str}'")
+                        output_lines.append("")
+                        continue
+
+                    val = int(value_str, 0)
+                    if val.bit_length() > 32:
+                        log_messages.append(f"Error (Line {line_num}): Value '{value_str}' exceeds 32 bits for type 7 cheat.")
+                        output_lines.append("")
+                        continue
+
+                    first_dword = 0x70000000
+                    first_dword |= (bit_width & 0xF) << 24
+                    first_dword |= (reg_index & 0xF) << 16
+                    first_dword |= (op_type & 0xF) << 12
+
+                    output_lines.append(f"{first_dword:08X} {val:08X}")
+                    processed_lines_count += 1
+                    continue
+
                 # If no cheat format matched, preserve the line
                 output_lines.append(line_stripped)
             except Exception as e:
