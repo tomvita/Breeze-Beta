@@ -268,7 +268,7 @@ def decode_next_opcode(opcodes, index):
             num_iters, instruction_ptr = get_next_dword(opcodes, instruction_ptr)
             out.str = f"Loop Start R{reg_index} = {num_iters}"
         else:
-            out.str = "Loop stop"
+            out.str = f"Loop Stop R{reg_index}"
 
     elif out.opcode == CheatVmOpcodeType.LoadRegisterStatic:
         reg_index = (first_dword >> 16) & 0xF
