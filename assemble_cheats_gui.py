@@ -323,65 +323,108 @@ class AssemblerGUI:
                     val = None
                     bit_width = 4
 
-                    if value_to_encode.lower().startswith('flt:'):
-                        float_str = value_to_encode[4:]
-                        try:
-                            float_val = float(float_str)
-                            packed_float_bytes = struct.pack('<f', float_val)
-                            val = int.from_bytes(packed_float_bytes, 'little')
-                            bit_width = 4
-                        except (ValueError, struct.error) as e:
-                            log_messages.append(f"Error (Line {line_num}): Could not parse float value '{float_str}'. Error: {e}.")
-                            output_lines.append("")
-                            continue
-                    else:
-                        instructions = [i.strip() for i in value_to_encode.split(';') if i.strip()]
-                        
-                        if not instructions:
-                            log_messages.append(f"Warning (Line {line_num}): No instruction found in line: '{line_stripped}'.")
-                            output_lines.append("")
-                            continue
-                        
-                        if len(instructions) > 2:
-                            log_messages.append(f"Warning (Line {line_num}): More than two instructions on a line are not supported.")
-                            output_lines.append("")
-                            continue
-
-                        bit_width = 4 * len(instructions)
-                        
-                        assembled_bytes_list = []
-                        current_instr_addr = relative_address
-                        
-                        assembly_failed = False
-                        for instr_idx, instr in enumerate(instructions):
-                            encoding_bytes, error = self.assemble_instruction(instr, current_instr_addr)
-                            
-                            if encoding_bytes is None:
-                                log_messages.append(f"Error (Line {line_num}): Assembly failed for '{instr}'. {error}")
-                                assembly_failed = True
-                                break
-                            
-                            if len(encoding_bytes) != 4:
-                                log_messages.append(f"Error (Line {line_num}): Assembled instruction '{instr}' is not 4 bytes.")
-                                assembly_failed = True
-                                break
-                            
-                            assembled_bytes_list.append(encoding_bytes)
-                            current_instr_addr += 4
-
-                        if assembly_failed:
-                            output_lines.append("")
-                            continue
-
-                        if len(instructions) == 1:
-                            val = int.from_bytes(assembled_bytes_list[0], 'little')
+                    try:
+                        # Try to parse as a direct numeric value first
+                        if ';' not in value_to_encode:
+                            val = int(value_to_encode, 0)
+                            if val.bit_length() > 64:
+                                log_messages.append(f"Error (Line {line_num}): Value '{value_to_encode}' exceeds 64 bits.")
+                                output_lines.append("")
+                                continue
+                            elif val.bit_length() > 32:
+                                bit_width = 8
+                            else:
+                                bit_width = 4
                         else:
-                            val1 = int.from_bytes(assembled_bytes_list[0], 'little')
-                            val2 = int.from_bytes(assembled_bytes_list[1], 'little')
-                            val = (val2 << 32) | val1
+                            raise ValueError # Has semicolons, must be assembly
+                    except (ValueError, TypeError):
+                        val = None # Not a simple number
+
+                    if val is None:
+                        value_lower = value_to_encode.lower()
+                        directive_found = True
+                        try:
+                            if value_lower.startswith('.word '):
+                                value_str = value_to_encode[6:].strip()
+                                val = int(value_str, 0)
+                                bit_width = 4
+                            elif value_lower.startswith('.short '):
+                                value_str = value_to_encode[7:].strip()
+                                val = int(value_str, 0)
+                                bit_width = 2
+                            elif value_lower.startswith('.byte '):
+                                value_str = value_to_encode[5:].strip()
+                                val = int(value_str, 0)
+                                bit_width = 1
+                            elif value_lower.startswith('.float '):
+                                value_str = value_to_encode[7:].strip()
+                                float_val = float(value_str)
+                                val = int.from_bytes(struct.pack('<f', float_val), 'little')
+                                bit_width = 4
+                            elif value_lower.startswith('.double '):
+                                value_str = value_to_encode[8:].strip()
+                                double_val = float(value_str)
+                                val = int.from_bytes(struct.pack('<d', double_val), 'little')
+                                bit_width = 8
+                            elif value_lower.startswith('flt:'): # Legacy support
+                                float_str = value_to_encode[4:]
+                                float_val = float(float_str)
+                                val = int.from_bytes(struct.pack('<f', float_val), 'little')
+                                bit_width = 4
+                            else:
+                                directive_found = False
+                        except (ValueError, struct.error) as e:
+                            log_messages.append(f"Error (Line {line_num}): Could not parse value for directive in '{value_to_encode}'. Error: {e}.")
+                            output_lines.append("")
+                            continue
+
+                        if not directive_found:
+                            instructions = [i.strip() for i in value_to_encode.split(';') if i.strip()]
+                            
+                            if not instructions:
+                                output_lines.append("")
+                                continue
+                            
+                            if len(instructions) > 2:
+                                log_messages.append(f"Warning (Line {line_num}): More than two instructions on a line are not supported.")
+                                output_lines.append("")
+                                continue
+
+                            bit_width = 4 * len(instructions)
+                            
+                            assembled_bytes_list = []
+                            current_instr_addr = relative_address
+                            
+                            assembly_failed = False
+                            for instr_idx, instr in enumerate(instructions):
+                                encoding_bytes, error = self.assemble_instruction(instr, current_instr_addr)
+                                
+                                if encoding_bytes is None:
+                                    log_messages.append(f"Error (Line {line_num}): Assembly failed for '{instr}'. {error}")
+                                    assembly_failed = True
+                                    break
+                                
+                                if len(encoding_bytes) != 4:
+                                    log_messages.append(f"Error (Line {line_num}): Assembled instruction '{instr}' is not 4 bytes.")
+                                    assembly_failed = True
+                                    break
+                                
+                                assembled_bytes_list.append(encoding_bytes)
+                                current_instr_addr += 4
+
+                            if assembly_failed:
+                                output_lines.append("")
+                                continue
+
+                            if len(instructions) == 1:
+                                val = int.from_bytes(assembled_bytes_list[0], 'little')
+                            else:
+                                val1 = int.from_bytes(assembled_bytes_list[0], 'little')
+                                val2 = int.from_bytes(assembled_bytes_list[1], 'little')
+                                val = (val2 << 32) | val1
 
                     if val is not None:
-                        if not (bit_width == 4 or bit_width == 8):
+                        if bit_width not in [1, 2, 4, 8]:
                             log_messages.append(f"Error (Line {line_num}): Invalid bit_width {bit_width}.")
                             output_lines.append("")
                             continue

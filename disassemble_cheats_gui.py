@@ -195,6 +195,8 @@ def arm64_disassemble(value, bit_width, address):
     disassembled = []
     try:
         for i in md.disasm(code, address):
+            if i.mnemonic == 'udf':
+                return "" # It's data, not an instruction.
             disassembled.append(f"{i.mnemonic} {i.op_str}")
         return "; ".join(disassembled).strip()
     except Exception:
@@ -242,8 +244,6 @@ def decode_next_opcode(opcodes, index):
             if asm:
                 out.str += f"  {asm}"
                 out.has_asm = True
-        else:
-            out.str += " (Disassembly skipped - Capstone not available or invalid bit_width)"
     
     elif out.opcode == CheatVmOpcodeType.BeginConditionalBlock:
         bit_width = (first_dword >> 24) & 0xF
