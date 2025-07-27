@@ -610,6 +610,209 @@ class AssemblerGUI:
                     output_lines.append(f"{first_dword:08X} {val:08X}")
                     processed_lines_count += 1
                     continue
+                
+                # Type 8 Cheat: Begin Keypress Conditional Block
+                m_type8 = re.match(r'if\s+keyheld\s+(0x[0-9A-Fa-f]+|\d+)', line_stripped, re.IGNORECASE)
+                if m_type8:
+                    key_mask_str = m_type8.groups()[0]
+                    key_mask = int(key_mask_str, 0)
+
+                    if key_mask.bit_length() > 28:
+                        log_messages.append(f"Error (Line {line_num}): Key mask '{key_mask_str}' exceeds 28 bits.")
+                        output_lines.append("")
+                        continue
+                        
+                    first_dword = 0x80000000
+                    first_dword |= key_mask & 0x0FFFFFFF
+                    
+                    output_lines.append(f"{first_dword:08X}")
+                    processed_lines_count += 1
+                    continue
+
+                # Type 9 Cheat: Perform Arithmetic
+                m_type9 = re.match(r'R(\d+)\s*=\s*R(\d+)\s*([+\-*/]|<<|>>|&|\||\^)\s*(R(\d+)|0x[0-9A-Fa-f]+|\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
+                if m_type9:
+                    dest_reg_str, src1_reg_str, op_str, rhs_str, src2_reg_str, width_str = m_type9.groups()
+                    
+                    dest_reg = int(dest_reg_str)
+                    src1_reg = int(src1_reg_str)
+                    bit_width = int(width_str) if width_str else 4
+
+                    op_map = {"+": 0, "-": 1, "*": 2, "<<": 3, ">>": 4, "&": 5, "|": 6, "^": 8}
+                    op_type = op_map.get(op_str)
+
+                    if op_type is None:
+                        log_messages.append(f"Error (Line {line_num}): Invalid operator '{op_str}'")
+                        output_lines.append("")
+                        continue
+
+                    first_dword = 0x90000000
+                    first_dword |= (bit_width & 0xF) << 24
+                    first_dword |= (op_type & 0xF) << 20
+                    first_dword |= (dest_reg & 0xF) << 16
+                    first_dword |= (src1_reg & 0xF) << 12
+
+                    if src2_reg_str: # Register operand
+                        src2_reg = int(src2_reg_str)
+                        first_dword |= (src2_reg & 0xF) << 4
+                        output_lines.append(f"{first_dword:08X}")
+                    else: # Immediate value
+                        first_dword |= (1 & 0xF) << 8
+                        val = int(rhs_str, 0)
+                        
+                        if val.bit_length() > 64:
+                            log_messages.append(f"Error (Line {line_num}): Value '{rhs_str}' exceeds 64 bits.")
+                            output_lines.append("")
+                            continue
+
+                        if bit_width == 8:
+                            val_upper = (val >> 32) & 0xFFFFFFFF
+                            val_lower = val & 0xFFFFFFFF
+                            output_lines.append(f"{first_dword:08X} {val_upper:08X} {val_lower:08X}")
+                        else:
+                            output_lines.append(f"{first_dword:08X} {val:08X}")
+
+                    processed_lines_count += 1
+                    continue
+                
+                # Type A Cheat: Store Register to Memory Address
+                m_typeA = re.match(r'\[([^\]]+)\]\s*=\s*R(\d+)\s*(?:W=(\d+))?', line_stripped, re.IGNORECASE)
+                if m_typeA:
+                    inside_brackets, src_reg_str, width_str = m_typeA.groups()
+                    src_reg = int(src_reg_str)
+                    bit_width = int(width_str) if width_str else 4
+
+                    parts = [p.strip() for p in inside_brackets.split('+')]
+                    
+                    mem_type_str = None
+                    base_reg_str = None
+                    offset_reg_str = None
+                    rel_addr_str = None
+                    
+                    for part in parts:
+                        if part.lower() in ['main', 'heap', 'alias', 'aslr']:
+                            mem_type_str = part
+                        elif part.upper().startswith('R'):
+                            if base_reg_str is None:
+                                base_reg_str = part[1:]
+                            else:
+                                offset_reg_str = part[1:]
+                        elif part.lower().startswith('0x'):
+                            rel_addr_str = part[2:]
+
+                    first_dword = 0xA0000000
+                    first_dword |= (bit_width & 0xF) << 24
+                    first_dword |= (src_reg & 0xF) << 20
+                    
+                    offset_type = 0
+                    if not mem_type_str:
+                        if not offset_reg_str and not rel_addr_str: # [R1]
+                            offset_type = 0
+                        elif offset_reg_str and not rel_addr_str: # [R1+R2]
+                            offset_type = 1
+                        elif not offset_reg_str and rel_addr_str: # [R1+0x...]
+                            offset_type = 2
+                    else:
+                        if not offset_reg_str and not rel_addr_str: # [Main+R1]
+                            offset_type = 3
+                        elif not offset_reg_str and rel_addr_str: # [Main+0x...]
+                            offset_type = 4
+                        elif offset_reg_str and rel_addr_str: # [Main+R1+0x...]
+                            offset_type = 5
+
+                    first_dword |= (offset_type & 0xF) << 8
+                    
+                    if base_reg_str:
+                        first_dword |= (int(base_reg_str) & 0xF) << 16
+
+                    if offset_type == 1:
+                        first_dword |= (int(offset_reg_str) & 0xF) << 4
+                    elif offset_type in [2, 4, 5]:
+                        rel_address = int(rel_addr_str, 16)
+                        first_dword |= (rel_address & 0xFF)
+                        addr_lower_32 = (rel_address >> 8) & 0xFFFFFFFF
+                        output_lines.append(f"{first_dword:08X} {addr_lower_32:08X}")
+                    elif offset_type == 3:
+                         first_dword |= (mem_type_from_str(mem_type_str).value & 0xF) << 4
+                    
+                    if offset_type in [0, 1, 3]:
+                        output_lines.append(f"{first_dword:08X}")
+                    
+                    processed_lines_count += 1
+                    continue
+
+                # Type C4 Cheat: Begin Extended Keypress Conditional Block
+                m_typeC4 = re.match(r'if\s+(keydown|keyheld)\s+(0x[0-9A-Fa-f]+|\d+)', line_stripped, re.IGNORECASE)
+                if m_typeC4:
+                    repeat_type, key_mask_str = m_typeC4.groups()
+                    key_mask = int(key_mask_str, 0)
+                    auto_repeat = 1 if repeat_type.lower() == 'keyheld' else 0
+
+                    if key_mask.bit_length() > 64:
+                        log_messages.append(f"Error (Line {line_num}): Key mask '{key_mask_str}' exceeds 64 bits.")
+                        output_lines.append("")
+                        continue
+
+                    first_dword = 0xC4000000
+                    first_dword |= (auto_repeat & 0xF) << 20
+                    
+                    key_mask_upper = (key_mask >> 32) & 0xFFFFFFFF
+                    key_mask_lower = key_mask & 0xFFFFFFFF
+                    
+                    output_lines.append(f"{first_dword:08X} {key_mask_upper:08X} {key_mask_lower:08X}")
+                    processed_lines_count += 1
+                    continue
+
+                # Type C0 Cheat: Begin Register Conditional Block
+                m_typeC0 = re.match(r'if\s+R(\d+)\s*([<>=!]+)\s*(.*)', line_stripped, re.IGNORECASE)
+                if m_typeC0:
+                    src_reg_str, op_str, rhs_str = m_typeC0.groups()
+                    src_reg = int(src_reg_str)
+                    
+                    cond_type = get_cond_type_from_str(op_str)
+                    if cond_type is None:
+                        log_messages.append(f"Error (Line {line_num}): Invalid operator '{op_str}'")
+                        output_lines.append("")
+                        continue
+
+                    rhs_str = rhs_str.strip()
+                    bit_width = 4
+
+                    first_dword = 0xC0000000
+                    first_dword |= (bit_width & 0xF) << 20
+                    first_dword |= (cond_type.value & 0xF) << 16
+                    first_dword |= (src_reg & 0xF) << 12
+
+                    # Operand Type 5: Other Register
+                    if rhs_str.upper().startswith('R'):
+                        other_reg = int(rhs_str[1:])
+                        first_dword |= (5 & 0xF) << 8
+                        first_dword |= (other_reg & 0xF) << 4
+                        output_lines.append(f"{first_dword:08X}")
+                    # Operand Type 4: Static Value
+                    elif rhs_str.lower().startswith('0x') or rhs_str.isdigit():
+                        val = int(rhs_str, 0)
+                        if val.bit_length() > 64:
+                            log_messages.append(f"Error (Line {line_num}): Value '{rhs_str}' exceeds 64 bits.")
+                            output_lines.append("")
+                            continue
+                        
+                        if val.bit_length() > 32: bit_width = 8
+                        else: bit_width = 4
+                        
+                        first_dword &= ~0x00F00000 # Clear and set new bitwidth
+                        first_dword |= (bit_width & 0xF) << 20
+                        first_dword |= (4 & 0xF) << 8
+
+                        if bit_width == 8:
+                            val_upper = (val >> 32) & 0xFFFFFFFF
+                            val_lower = val & 0xFFFFFFFF
+                            output_lines.append(f"{first_dword:08X} {val_upper:08X} {val_lower:08X}")
+                        else:
+                             output_lines.append(f"{first_dword:08X} {val:08X}")
+                    
+                    processed_lines_count += 1
+                    continue
 
                 # If no cheat format matched, preserve the line
                 output_lines.append(line_stripped)
