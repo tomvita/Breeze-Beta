@@ -236,8 +236,6 @@ def decode_next_opcode(opcodes, index):
         out.str = f"[{mem_type_str(mem_type)}+R{offset_register}+0x{rel_address:010X}] = 0x{value.value:X}"
         
         value_for_disasm = value.value
-        # The dword swap was incorrect for 64-bit little-endian disassembly.
-        # The original value is now passed directly to the disassembler.
 
         if CAPSTONE_AVAILABLE and (bit_width == 4 or bit_width == 8):
             asm = arm64_disassemble(value_for_disasm, bit_width, rel_address)
@@ -434,246 +432,180 @@ class DisassemblerGUI:
     def __init__(self, master):
         self.master = master
         master.title("Cheat Disassembler")
-
-        # Set window size (slightly smaller than 1080p, e.g., 1600x900)
         master.geometry("1600x900")
+        self.after_id = None
 
-        self.sort_asm = tk.BooleanVar(value=False)
-        self.column_mode = tk.BooleanVar(value=False)
+        main_frame = tk.Frame(master)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        self.output_text = scrolledtext.ScrolledText(master, wrap=tk.WORD, width=100, height=40)
-        self.output_text.pack(padx=10, pady=10, fill=tk.BOTH, expand=True)
+        paned_window = tk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
+        paned_window.pack(fill=tk.BOTH, expand=True)
 
-        # Bind paste and copy events
-        self.output_text.bind('<<Paste>>', self.handle_paste)
-        self.output_text.bind('<<Copy>>', self.handle_copy)
+        self.input_text = scrolledtext.ScrolledText(paned_window, wrap=tk.WORD, width=80, height=40)
+        paned_window.add(self.input_text)
+
+        self.output_text = scrolledtext.ScrolledText(paned_window, wrap=tk.WORD, width=80, height=40, state=tk.DISABLED)
+        paned_window.add(self.output_text)
+
+        log_frame = tk.Frame(master, height=100)
+        log_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
+        
+        log_label = tk.Label(log_frame, text="Logs:")
+        log_label.pack(anchor='w')
+        
+        self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD, height=6)
+        self.log_text.pack(fill=tk.X, expand=True)
+        self.log_text.config(state=tk.DISABLED)
 
         self.button_frame = tk.Frame(master)
-        self.button_frame.pack(pady=5)
+        self.button_frame.pack(pady=5, fill=tk.X, side=tk.BOTTOM)
 
         self.open_button = tk.Button(self.button_frame, text="Open File", command=self.open_file)
         self.open_button.pack(side=tk.LEFT, padx=5)
 
         self.save_button = tk.Button(self.button_frame, text="Save Output", command=self.save_output)
         self.save_button.pack(side=tk.LEFT, padx=5)
-
-        self.sort_asm_button = tk.Checkbutton(self.button_frame, text="Sort ASM", variable=self.sort_asm)
+        
+        self.sort_asm = tk.BooleanVar(value=False)
+        self.sort_asm_button = tk.Checkbutton(self.button_frame, text="Sort ASM", variable=self.sort_asm, command=self.trigger_disassembly)
         self.sort_asm_button.pack(side=tk.LEFT, padx=5)
         
+        self.column_mode = tk.BooleanVar(value=False)
         self.column_mode_button = tk.Checkbutton(self.button_frame, text="Column Mode", variable=self.column_mode)
         self.column_mode_button.pack(side=tk.LEFT, padx=5)
 
+        self.input_text.bind('<KeyRelease>', self.on_key_release)
+        
+        
         if TkinterDnD is not None:
-            self.output_text.drop_target_register(DND_FILES)
-            self.output_text.dnd_bind('<<Drop>>', self.handle_drop)
+            self.input_text.drop_target_register(DND_FILES)
+            self.input_text.dnd_bind('<<Drop>>', self.handle_drop)
         else:
-            messagebox.showwarning("Warning", "tkinterdnd2 library not found. Drag and drop functionality will not be available. Please install it with 'pip install tkinterdnd2'")
+            self.log_message("Warning: tkinterdnd2 not found. Drag-and-drop is disabled.")
 
         if not CAPSTONE_AVAILABLE:
-            messagebox.showwarning("Warning", "Capstone library not found. Disassembly of ARM64 instructions will be skipped.")
+            messagebox.showerror("Fatal Error", "Capstone library not found. Please install it with 'pip install capstone'")
+            master.destroy()
 
-    def log_output(self, message):
-        self.output_text.insert(tk.INSERT, message + "\n")
-        self.output_text.see(tk.INSERT)
+    def log_message(self, message):
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.insert(tk.END, message + "\n")
+        self.log_text.config(state=tk.DISABLED)
+        self.log_text.see(tk.END)
 
-    def disassemble_cheat(self, opcodes):
-        """Disassembles a list of opcodes for a single cheat."""
-        index = 0
-        lines_buffer = []
-        while index < len(opcodes):
-            opcode_info = decode_next_opcode(opcodes, index)
-            if not opcode_info:
-                break
-            
-            raw_opcodes_list = opcodes[index : index + opcode_info.size]
-            raw_opcodes_str = " ".join([f"{opc:08X}" for opc in raw_opcodes_list])
+    def on_key_release(self, event=None):
+        if self.after_id:
+            self.master.after_cancel(self.after_id)
+        self.after_id = self.master.after(300, self.trigger_disassembly)
 
-            line_text = f"{raw_opcodes_str:<40} {opcode_info.str}"
-            
-            sort_key = opcode_info.sort_key if opcode_info.has_asm else None
-            
-            lines_buffer.append({'text': line_text, 'key': sort_key})
-            
-            index += opcode_info.size
-
-        if self.sort_asm.get():
-            final_lines = []
-            current_sortable_block = []
-
-            for line in lines_buffer:
-                if line['key'] is not None:
-                    current_sortable_block.append(line)
-                else:
-                    if current_sortable_block:
-                        current_sortable_block.sort(key=lambda x: x['key'])
-                        final_lines.extend(current_sortable_block)
-                        current_sortable_block = []
-                    final_lines.append(line)
-
-            if current_sortable_block:
-                current_sortable_block.sort(key=lambda x: x['key'])
-                final_lines.extend(current_sortable_block)
-            
-            for line in final_lines:
-                self.log_output(line['text'])
-        else:
-            for line in lines_buffer:
-                self.log_output(line['text'])
-
-    def _preprocess_pasted_opcodes(self, opcodes_str):
-        """
-        Preprocesses the pasted opcode string to handle headers and opcodes
-        potentially on the same line, separating them with newlines.
-        """
-        lines = opcodes_str.replace('\r\n', '\n').replace('\r', '\n').split('\n')
-        processed_lines = []
+    def trigger_disassembly(self):
+        input_str = self.input_text.get(1.0, tk.END)
         
-        for i, line in enumerate(lines):
-            stripped_line = line.strip()
-            if not stripped_line:
-                continue
+        self.output_text.config(state=tk.NORMAL)
+        self.output_text.delete(1.0, tk.END)
+        self.log_text.config(state=tk.NORMAL)
+        self.log_text.delete(1.0, tk.END)
+        
+        output_str, log_messages = self.disassemble_from_string(input_str)
+        
+        self.output_text.insert(tk.END, output_str)
+        self.output_text.config(state=tk.DISABLED)
+        
+        for msg in log_messages:
+            self.log_message(msg)
+        
+        self.log_text.config(state=tk.DISABLED)
 
-            if stripped_line.startswith('[') or stripped_line.startswith('{'):
-                close_bracket_index = -1
-                if stripped_line.startswith('['):
-                    close_bracket_index = stripped_line.find(']')
-                elif stripped_line.startswith('{'):
-                    close_bracket_index = stripped_line.find('}')
+    def disassemble_from_string(self, input_str):
+        output_lines = []
+        log_messages = []
+        
+        # This function processes the raw text to find cheats and opcodes
+        cheats = self._preprocess_input(input_str)
+        
+        for cheat in cheats:
+            output_lines.append(cheat['name'])
+            if cheat['opcodes']:
+                lines_buffer = []
                 
-                if close_bracket_index != -1:
-                    header = stripped_line[:close_bracket_index + 1]
-                    processed_lines.append(header)
+                # Disassemble each opcode
+                index = 0
+                while index < len(cheat['opcodes']):
+                    opcode_info = decode_next_opcode(cheat['opcodes'], index)
+                    if not opcode_info:
+                        break
                     
-                    remaining_opcodes_str = stripped_line[close_bracket_index + 1:].strip()
-                    if remaining_opcodes_str:
-                        opcode_parts = remaining_opcodes_str.split()
-                        processed_lines.extend(opcode_parts)
-                else:
-                    processed_lines.append(stripped_line)
-            else:
-                opcode_parts = stripped_line.split()
-                processed_lines.extend(opcode_parts)
+                    line_text = opcode_info.str
+                    
+                    sort_key = opcode_info.sort_key if opcode_info.has_asm else float('inf')
+                    
+                    lines_buffer.append({'text': line_text, 'key': sort_key})
+                    
+                    index += opcode_info.size
+                
+                # Sort if requested
+                if self.sort_asm.get():
+                    lines_buffer.sort(key=lambda x: x['key'])
 
-        return "\n".join(processed_lines)
+                for line in lines_buffer:
+                    output_lines.append(line['text'])
 
-    def disassemble_opcodes_from_string(self, opcodes_str):
-        preprocessed_str = self._preprocess_pasted_opcodes(opcodes_str)
-        
-        cheat_opcodes = []
-        for line in preprocessed_str.splitlines():
-            line = line.strip()
-            if not line:
-                continue
-            if (line.startswith('[') and line.endswith(']')) or \
-               (line.startswith('{') and line.endswith('}')):
-                if cheat_opcodes:
-                    self.disassemble_cheat(cheat_opcodes)
-                    cheat_opcodes = []
-                self.log_output(f"\n{line}")
-            else:
-                # At this point, each 'line' should ideally be a single hex opcode or part of one
-                parts = line.split()
+        return "\n".join(output_lines), log_messages
+
+    def _preprocess_input(self, input_str):
+        cheats = []
+        current_opcodes = []
+        current_cheat_name = None
+
+        for line in input_str.splitlines():
+            stripped_line = line.strip()
+            
+            if (stripped_line.startswith('[') and stripped_line.endswith(']')) or \
+               (stripped_line.startswith('{') and stripped_line.endswith('}')):
+                # Save previous cheat, even if no opcodes
+                if current_cheat_name is not None:
+                    cheats.append({'name': current_cheat_name, 'opcodes': current_opcodes})
+                current_cheat_name = stripped_line
+                current_opcodes = []
+            elif stripped_line and all(c in '0123456789abcdefABCDEF ' for c in stripped_line):
+                parts = stripped_line.split()
                 for part in parts:
                     try:
-                        cheat_opcodes.append(int(part, 16))
+                        current_opcodes.append(int(part, 16))
                     except ValueError:
-                        pass  # Ignore non-hex parts
-        if cheat_opcodes:
-            self.disassemble_cheat(cheat_opcodes)
+                        pass
+            else:
+                if current_cheat_name is not None:
+                    cheats.append({'name': current_cheat_name, 'opcodes': current_opcodes})
+                    current_opcodes = []
+                    current_cheat_name = None
+                cheats.append({'name': line, 'opcodes': []})
 
-    def disassemble_opcodes_from_file(self, file_path):
-        self.output_text.delete(1.0, tk.END) # Clear previous output
-        self.log_output(f"--- Disassembling from file: {file_path} ---")
-        try:
-            with open(file_path, 'r', encoding='utf-8') as f:
-                cheat_opcodes = []
-                for line in f:
-                    stripped_line = line.strip()
-                    if not stripped_line:
-                        continue
-
-                    if (stripped_line.startswith('[') and stripped_line.endswith(']')) or \
-                       (stripped_line.startswith('{') and stripped_line.endswith('}')):
-                        if cheat_opcodes:
-                            self.disassemble_cheat(cheat_opcodes)
-                            cheat_opcodes = []
-                        self.log_output(f"\n{stripped_line}")
-                    else:
-                        parts = stripped_line.split()
-                        for part in parts:
-                            if part:
-                                try:
-                                    cheat_opcodes.append(int(part, 16))
-                                except ValueError:
-                                    pass
-                if cheat_opcodes:
-                    self.disassemble_cheat(cheat_opcodes)
-
-        except FileNotFoundError:
-            messagebox.showerror("Error", f"The file '{file_path}' was not found.")
-            self.log_output(f"Error: The file '{file_path}' was not found.")
-        except Exception as e:
-            messagebox.showerror("Error", f"An unexpected error occurred: {e}")
-            self.log_output(f"An unexpected error occurred: {e}")
+        # Add last cheat, even if no opcodes
+        if current_cheat_name is not None:
+            cheats.append({'name': current_cheat_name, 'opcodes': current_opcodes})
+            
+        return cheats
 
     def open_file(self):
         file_path = filedialog.askopenfilename(
-            title="Select Opcode File",
+            title="Select Cheat File",
             filetypes=[("Text files", "*.txt"), ("All files", "*.*")]
         )
         if file_path:
-            self.disassemble_opcodes_from_file(file_path)
-
-    def handle_paste(self, event):
-        try:
-            pasted_text = self.master.clipboard_get()
-            self.disassemble_opcodes_from_string(pasted_text)
-        except tk.TclError:
-            messagebox.showwarning("Paste Error", "No content in clipboard or clipboard access denied.")
-        return "break" # Prevent default paste behavior
-
-    def handle_copy(self, event):
-        if not self.column_mode.get():
-            return  # Allow default copy behavior
-
-        try:
-            sel_start_index = self.output_text.index(tk.SEL_FIRST)
-            sel_end_index = self.output_text.index(tk.SEL_LAST)
-        except tk.TclError:
-            return "break"  # No selection
-
-        start_line, start_col = map(int, sel_start_index.split('.'))
-        end_line, _ = map(int, sel_end_index.split('.'))
-
-        # Determine which column is being selected based on the start of the selection
-        column_to_copy = 1 if start_col < 40 else 2
-
-        processed_lines = []
-        for i in range(start_line, end_line + 1):
-            line_text = self.output_text.get(f"{i}.0", f"{i}.end")
-            
-            if column_to_copy == 1:
-                # Always take the first part of the line for column 1
-                processed_lines.append(line_text[:40].strip())
-            else: # column_to_copy == 2
-                if len(line_text) > 40:
-                    processed_lines.append(line_text[40:].strip())
-                else:
-                    # If line is not long enough for column 2, add an empty line
-                    # to maintain row correspondence.
-                    processed_lines.append("")
-
-        clipboard_text = "\n".join(processed_lines)
-        self.master.clipboard_clear()
-        self.master.clipboard_append(clipboard_text)
-
-        return "break"  # Prevent default copy behavior
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    self.input_text.delete(1.0, tk.END)
+                    self.input_text.insert(tk.END, f.read())
+                self.trigger_disassembly()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to open file: {e}")
 
     def save_output(self):
         file_path = filedialog.asksaveasfilename(
             defaultextension=".txt",
             filetypes=[("Text files", "*.txt"), ("All files", "*.*")],
-            title="Save Disassembly Output"
+            title="Save Disassembled Cheats"
         )
         if file_path:
             try:
@@ -681,37 +613,43 @@ class DisassemblerGUI:
                     f.write(self.output_text.get(1.0, tk.END))
                 messagebox.showinfo("Success", f"Output saved to {file_path}")
             except Exception as e:
-                messagebox.showerror
-
+                messagebox.showerror("Error", f"Failed to save file: {e}")
 
 
     def handle_drop(self, event):
         file_path = event.data.strip()
-        # On Windows, event.data might be a list of paths enclosed in curly braces
-        # like "{path1} {path2}". We need to parse this.
         if file_path.startswith('{') and file_path.endswith('}'):
-            # Remove curly braces and split by space for multiple files
             file_paths = file_path[1:-1].split('} {')
-            # For this application, we'll only process the first dropped file
             if file_paths:
                 file_path = file_paths[0].strip()
             else:
                 file_path = ""
         
-        # Remove quotes if present (e.g., for paths with spaces)
         if file_path.startswith('"') and file_path.endswith('"'):
             file_path = file_path[1:-1]
 
         if file_path:
-            self.disassemble_opcodes_from_file(file_path)
-        else:
-            messagebox.showwarning("Drop Error", "Could not determine file path from dropped item.")
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    self.input_text.delete(1.0, tk.END)
+                    self.input_text.insert(tk.END, f.read())
+                self.trigger_disassembly()
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to open dropped file: {e}")
 
 def main():
+    if not CAPSTONE_AVAILABLE:
+        print("FATAL ERROR: Capstone library not found. Please install it with 'pip install capstone'", file=sys.stderr)
+        root = tk.Tk()
+        root.withdraw()
+        messagebox.showerror("Fatal Error", "Capstone library not found. Please install it with 'pip install capstone'")
+        return
+
     if TkinterDnD is not None:
         root = TkinterDnD.Tk()
     else:
         root = tk.Tk()
+    
     app = DisassemblerGUI(root)
     root.mainloop()
 
