@@ -55,7 +55,27 @@ def mem_type_from_str(s):
     if s_lower == "heap": return MemoryAccessType.Heap
     if s_lower == "alias": return MemoryAccessType.Alias
     if s_lower == "aslr": return MemoryAccessType.Aslr
-    return MemoryAccessType.Blank
+    return MemoryAccessType.MainNso
+
+class ConditionalComparisonType(Enum):
+    GT = 1
+    GE = 2
+    LT = 3
+    LE = 4
+    EQ = 5
+    NE = 6
+
+CONDITION_STR = {
+    ">": ConditionalComparisonType.GT,
+    ">=": ConditionalComparisonType.GE,
+    "<": ConditionalComparisonType.LT,
+    "<=": ConditionalComparisonType.LE,
+    "==": ConditionalComparisonType.EQ,
+    "!=": ConditionalComparisonType.NE,
+}
+
+def get_cond_type_from_str(s):
+    return CONDITION_STR.get(s)
 
 class AssemblerGUI:
     def __init__(self, master):
@@ -162,11 +182,11 @@ class AssemblerGUI:
 
         for line_num, line in enumerate(input_str.splitlines(), 1):
             line_stripped = line.strip()
-            
+
             if not line_stripped:
                 output_lines.append("")
                 continue
-            
+
             if line_stripped.startswith('[') and line_stripped.endswith(']') and not '=' in line_stripped:
                 if current_cheat_name:
                     output_lines.append("")
@@ -174,104 +194,202 @@ class AssemblerGUI:
                 output_lines.append(current_cheat_name)
                 continue
 
-            is_cheat_instruction_line = line_stripped.startswith('[') and '=' in line_stripped
-            if not is_cheat_instruction_line:
-                output_lines.append(line_stripped)
-                continue
-
-            match = re.match(r'\[(?:(\w+)\+)?\+?R(\d+)\+0x([0-9A-Fa-f]+)\]\s*=\s*(?:0x[0-9A-Fa-f]+\s+)?(.*)', line_stripped)
-            if not match:
-                log_messages.append(f"Warning (Line {line_num}): Line format not recognized: '{line_stripped}'")
-                output_lines.append("")
-                continue
+            # Type 0 Cheat: Static Memory Write
+            m_type0 = re.match(r'\[(?:(\w+)\+)?\+?R(\d+)\+0x([0-9A-Fa-f]+)\]\s*=\s*(?:0x[0-9A-Fa-f]+\s+)?(.*)', line_stripped)
+            if m_type0:
+                mem_type_str_raw, reg_str, addr_str, value_str_raw = m_type0.groups()
                 
-            mem_type_str_raw, reg_str, addr_str, value_str_raw = match.groups()
-            
-            mem_type = mem_type_from_str(mem_type_str_raw) 
-            register_index = int(reg_str)
-            absolute_address = int(addr_str, 16)
-            value_to_encode = value_str_raw.strip()
+                mem_type = mem_type_from_str(mem_type_str_raw)
+                register_index = int(reg_str)
+                absolute_address = int(addr_str, 16)
+                value_to_encode = value_str_raw.strip()
+                relative_address = absolute_address
 
-            relative_address = absolute_address 
+                val = None
+                bit_width = 4
 
-            val = None
-            bit_width = 4 
-
-            if value_to_encode.lower().startswith('flt:'):
-                float_str = value_to_encode[4:]
-                try:
-                    float_val = float(float_str)
-                    packed_float_bytes = struct.pack('<f', float_val)
-                    val = int.from_bytes(packed_float_bytes, 'little')
-                    bit_width = 4
-                except (ValueError, struct.error) as e:
-                    log_messages.append(f"Error (Line {line_num}): Could not parse float value '{float_str}'. Error: {e}.")
-                    output_lines.append("")
-                    continue
-            else:
-                instructions = [i.strip() for i in value_to_encode.split(';') if i.strip()]
-                
-                if not instructions:
-                    log_messages.append(f"Warning (Line {line_num}): No instruction found in line: '{line_stripped}'.")
-                    output_lines.append("")
-                    continue
-                
-                if len(instructions) > 2:
-                    log_messages.append(f"Warning (Line {line_num}): More than two instructions on a line are not supported.")
-                    output_lines.append("")
-                    continue
-
-                bit_width = 4 * len(instructions)
-                
-                assembled_bytes_list = []
-                current_instr_addr = relative_address
-                
-                assembly_failed = False
-                for instr_idx, instr in enumerate(instructions):
-                    encoding_bytes, error = self.assemble_instruction(instr, current_instr_addr)
-                    
-                    if encoding_bytes is None:
-                        log_messages.append(f"Error (Line {line_num}): Assembly failed for '{instr}'. {error}")
-                        assembly_failed = True
-                        break
-                    
-                    if len(encoding_bytes) != 4:
-                        log_messages.append(f"Error (Line {line_num}): Assembled instruction '{instr}' is not 4 bytes.")
-                        assembly_failed = True
-                        break
-                    
-                    assembled_bytes_list.append(encoding_bytes)
-                    current_instr_addr += 4
-
-                if assembly_failed:
-                    output_lines.append("")
-                    continue
-
-                if len(instructions) == 1:
-                    val = int.from_bytes(assembled_bytes_list[0], 'little')
+                if value_to_encode.lower().startswith('flt:'):
+                    float_str = value_to_encode[4:]
+                    try:
+                        float_val = float(float_str)
+                        packed_float_bytes = struct.pack('<f', float_val)
+                        val = int.from_bytes(packed_float_bytes, 'little')
+                        bit_width = 4
+                    except (ValueError, struct.error) as e:
+                        log_messages.append(f"Error (Line {line_num}): Could not parse float value '{float_str}'. Error: {e}.")
+                        output_lines.append("")
+                        continue
                 else:
-                    val1 = int.from_bytes(assembled_bytes_list[0], 'little')
-                    val2 = int.from_bytes(assembled_bytes_list[1], 'little')
-                    val = (val2 << 32) | val1
+                    instructions = [i.strip() for i in value_to_encode.split(';') if i.strip()]
+                    
+                    if not instructions:
+                        log_messages.append(f"Warning (Line {line_num}): No instruction found in line: '{line_stripped}'.")
+                        output_lines.append("")
+                        continue
+                    
+                    if len(instructions) > 2:
+                        log_messages.append(f"Warning (Line {line_num}): More than two instructions on a line are not supported.")
+                        output_lines.append("")
+                        continue
 
-            if val is not None:
-                if not (bit_width == 4 or bit_width == 8):
-                    log_messages.append(f"Error (Line {line_num}): Invalid bit_width {bit_width}.")
+                    bit_width = 4 * len(instructions)
+                    
+                    assembled_bytes_list = []
+                    current_instr_addr = relative_address
+                    
+                    assembly_failed = False
+                    for instr_idx, instr in enumerate(instructions):
+                        encoding_bytes, error = self.assemble_instruction(instr, current_instr_addr)
+                        
+                        if encoding_bytes is None:
+                            log_messages.append(f"Error (Line {line_num}): Assembly failed for '{instr}'. {error}")
+                            assembly_failed = True
+                            break
+                        
+                        if len(encoding_bytes) != 4:
+                            log_messages.append(f"Error (Line {line_num}): Assembled instruction '{instr}' is not 4 bytes.")
+                            assembly_failed = True
+                            break
+                        
+                        assembled_bytes_list.append(encoding_bytes)
+                        current_instr_addr += 4
+
+                    if assembly_failed:
+                        output_lines.append("")
+                        continue
+
+                    if len(instructions) == 1:
+                        val = int.from_bytes(assembled_bytes_list[0], 'little')
+                    else:
+                        val1 = int.from_bytes(assembled_bytes_list[0], 'little')
+                        val2 = int.from_bytes(assembled_bytes_list[1], 'little')
+                        val = (val2 << 32) | val1
+
+                if val is not None:
+                    if not (bit_width == 4 or bit_width == 8):
+                        log_messages.append(f"Error (Line {line_num}): Invalid bit_width {bit_width}.")
+                        output_lines.append("")
+                        continue
+
+                    if not (0 <= register_index <= 15):
+                        log_messages.append(f"Error (Line {line_num}): Invalid register index {register_index}.")
+                        output_lines.append("")
+                        continue
+                    
+                    first_dword_val = 0x00000000
+                    first_dword_val |= (bit_width & 0xF) << 24
+                    first_dword_val |= (mem_type.value & 0xF) << 20
+                    first_dword_val |= (register_index & 0xF) << 16
+                    first_dword_val |= ((relative_address >> 32) & 0xFF)
+
+                    addr_lower_32 = relative_address & 0xFFFFFFFF
+                    
+                    if bit_width == 8:
+                        val_lower_32 = val & 0xFFFFFFFF
+                        val_upper_32 = (val >> 32) & 0xFFFFFFFF
+                        output_lines.append(f"{first_dword_val:08X} {addr_lower_32:08X} {val_upper_32:08X} {val_lower_32:08X}")
+                    else:
+                        output_lines.append(f"{first_dword_val:08X} {addr_lower_32:08X} {val:08X}")
+                    
+                    processed_lines_count += 1
+                else:
+                    log_messages.append(f"Error (Line {line_num}): Unknown error processing line.")
                     output_lines.append("")
-                    continue
+                continue
 
-                if not (0 <= register_index <= 15):
-                    log_messages.append(f"Error (Line {line_num}): Invalid register index {register_index}.")
+            # Type 1 Cheat: Conditional
+            m_type1 = re.match(r'if\s+\[([^\]]+)\]\s*([<>=!]+)\s*(.*)', line_stripped, re.IGNORECASE)
+            if m_type1:
+                inside_brackets, cond_str, value_str_raw = m_type1.groups()
+                
+                mem_type_str_raw = None
+                reg_str = None
+                addr_str = None
+
+                parts = [p.strip() for p in inside_brackets.split('+')]
+                addr_part = parts[-1]
+                
+                if not addr_part.lower().startswith('0x'):
+                    log_messages.append(f"Error (Line {line_num}): Could not parse address from '{inside_brackets}'")
                     output_lines.append("")
                     continue
                 
-                first_dword_val = 0x00000000
+                addr_str = addr_part[2:]
+                
+                other_parts = parts[:-1]
+                if len(other_parts) > 0:
+                    for part in other_parts:
+                        part_upper = part.upper()
+                        if part.lower() in ['main', 'heap', 'alias', 'aslr']:
+                            mem_type_str_raw = part
+                        elif part_upper.startswith('R'):
+                            reg_str = part_upper[1:]
+
+                mem_type = mem_type_from_str(mem_type_str_raw)
+                absolute_address = int(addr_str, 16)
+                cond_type = get_cond_type_from_str(cond_str)
+                value_to_encode = value_str_raw.strip()
+
+                operand_type = 0
+                register_index = 0
+                if reg_str:
+                    try:
+                        register_index = int(reg_str)
+                        operand_type = 1
+                    except ValueError:
+                        log_messages.append(f"Error (Line {line_num}): Invalid register '{reg_str}'")
+                        output_lines.append("")
+                        continue
+                
+                if cond_type is None:
+                    log_messages.append(f"Error (Line {line_num}): Invalid condition '{cond_str}'")
+                    output_lines.append("")
+                    continue
+                
+                val = None
+                bit_width = 4
+                
+                if value_to_encode.lower().startswith('0x'):
+                    try:
+                        val = int(value_to_encode, 16)
+                        if val.bit_length() > 64:
+                            log_messages.append(f"Error (Line {line_num}): Hex value '{value_to_encode}' exceeds 64 bits.")
+                            output_lines.append("")
+                            continue
+                    except ValueError:
+                        log_messages.append(f"Error (Line {line_num}): Invalid hex value '{value_to_encode}'")
+                        output_lines.append("")
+                        continue
+                else:
+                    try:
+                        val = int(value_to_encode)
+                        if val.bit_length() > 64:
+                            log_messages.append(f"Error (Line {line_num}): Integer value '{value_to_encode}' exceeds 64 bits.")
+                            output_lines.append("")
+                            continue
+                    except ValueError:
+                        log_messages.append(f"Error (Line {line_num}): Invalid integer value '{value_to_encode}'")
+                        output_lines.append("")
+                        continue
+                
+                if val.bit_length() > 32:
+                    bit_width = 8
+                else:
+                    bit_width = 4
+
+                r_val = register_index
+                if operand_type == 0:
+                    r_val = 1
+
+                first_dword_val = 0x10000000
                 first_dword_val |= (bit_width & 0xF) << 24
                 first_dword_val |= (mem_type.value & 0xF) << 20
-                first_dword_val |= (register_index & 0xF) << 16
-                first_dword_val |= ((relative_address >> 32) & 0xFF)
-
-                addr_lower_32 = relative_address & 0xFFFFFFFF
+                first_dword_val |= (cond_type.value & 0xF) << 16
+                first_dword_val |= (operand_type & 0xF) << 12
+                first_dword_val |= (r_val & 0xF) << 8
+                first_dword_val |= ((absolute_address >> 32) & 0xFF)
+                
+                addr_lower_32 = absolute_address & 0xFFFFFFFF
                 
                 if bit_width == 8:
                     val_lower_32 = val & 0xFFFFFFFF
@@ -281,9 +399,10 @@ class AssemblerGUI:
                     output_lines.append(f"{first_dword_val:08X} {addr_lower_32:08X} {val:08X}")
                 
                 processed_lines_count += 1
-            else:
-                log_messages.append(f"Error (Line {line_num}): Unknown error processing line.")
-                output_lines.append("")
+                continue
+            
+            # If no cheat format matched, preserve the line
+            output_lines.append(line_stripped)
 
         if processed_lines_count == 0 and not any(line.strip().startswith('[') for line in output_lines if line.strip()):
             log_messages.append("--- No valid cheat lines were processed. ---")
