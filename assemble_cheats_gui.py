@@ -116,6 +116,10 @@ class AssemblerGUI:
         self.save_button.pack(side=tk.LEFT, padx=5)
 
         self.input_text.bind('<KeyRelease>', self.on_key_release)
+        self.popup_menu = tk.Menu(self.master, tearoff=0)
+        self.popup_menu.add_command(label="Edit ASM", command=self.edit_asm)
+        self.input_text.bind("<Button-3>", self.show_popup_menu)
+        self.current_cheat_for_menu = None
         if TkinterDnD is not None:
             self.input_text.drop_target_register(DND_FILES)
             self.input_text.dnd_bind('<<Drop>>', self.handle_drop)
@@ -125,6 +129,129 @@ class AssemblerGUI:
         if not KEYSTONE_AVAILABLE:
             messagebox.showerror("Fatal Error", "Keystone library not found. Please install it with 'pip install keystone-engine'")
             master.destroy()
+
+    def show_popup_menu(self, event):
+        clicked_index = self.input_text.index(f"@{event.x},{event.y}")
+        clicked_line_num = int(clicked_index.split('.')[0])
+
+        all_lines = self.input_text.get(1.0, tk.END).splitlines()
+        
+        found_cheat_title = None
+        # Search backwards from the clicked line to find the containing cheat title
+        for i in range(clicked_line_num - 1, -1, -1):
+            line_content = all_lines[i].strip()
+            if line_content.startswith('[') and line_content.endswith(']') and not '=' in line_content:
+                found_cheat_title = line_content
+                break
+        
+        if found_cheat_title:
+            self.current_cheat_for_menu = found_cheat_title
+            self.popup_menu.post(event.x_root, event.y_root)
+
+    def edit_asm(self):
+        if not self.current_cheat_for_menu:
+            return
+
+        editor_window = tk.Toplevel(self.master)
+        editor_window.title(f"ASM Editor - {self.current_cheat_for_menu}")
+        editor_window.geometry("600x400")
+
+        asm_text = scrolledtext.ScrolledText(editor_window, wrap=tk.WORD, width=80, height=20)
+        asm_text.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        all_content = self.input_text.get(1.0, tk.END)
+        lines = all_content.splitlines()
+        
+        start_index = -1
+        for i, line in enumerate(lines):
+            if line.strip() == self.current_cheat_for_menu:
+                start_index = i
+                break
+        
+        if start_index == -1: return
+
+        end_index = len(lines)
+        for i in range(start_index + 1, len(lines)):
+            if lines[i].strip().startswith('[') and lines[i].strip().endswith(']') and not '=' in lines[i]:
+                end_index = i
+                break
+        
+        cheat_block_lines = lines[start_index + 1:end_index]
+        
+        parsed_lines = []
+        editable_lines_for_display = []
+
+        line_parser_re = re.compile(r'(\[.*?\]\s*=\s*)(.*)')
+        hex_prefix_re = re.compile(r'^(?:0x[0-9a-fA-F]+\s+)?(.*)')
+
+        for i, line_text in enumerate(cheat_block_lines):
+            stripped_line = line_text.strip()
+            match = line_parser_re.match(stripped_line)
+            
+            line_info = {
+                'original_index': i,
+                'original_line': line_text,
+                'is_editable': False
+            }
+
+            if match:
+                line_info['is_editable'] = True
+                address_part = match.group(1)
+                value_part = match.group(2).strip()
+                asm_content = hex_prefix_re.match(value_part).group(1).strip()
+                
+                line_info.update({
+                    'address_part': address_part,
+                    'asm_content': asm_content,
+                    'whitespace': re.match(r'(\s*)', line_text).group(1)
+                })
+                editable_lines_for_display.append(line_info)
+
+            parsed_lines.append(line_info)
+        
+        asm_text.insert(tk.END, "\n".join(l['asm_content'] for l in editable_lines_for_display))
+
+        editor_window.editable_lines_in_display_order = editable_lines_for_display
+        editor_window.original_parsed_lines = parsed_lines
+        editor_window.block_indices = (start_index, end_index)
+
+        def save_changes():
+            edited_asm_text_lines = asm_text.get(1.0, tk.END).strip().splitlines()
+            
+            if len(edited_asm_text_lines) != len(editor_window.editable_lines_in_display_order):
+                messagebox.showerror("Error", "The number of assembly lines must not change.")
+                return
+
+            for i, line_data in enumerate(editor_window.editable_lines_in_display_order):
+                line_data['asm_content'] = edited_asm_text_lines[i]
+
+            updated_editable_lines_map = {l['original_index']: l for l in editor_window.editable_lines_in_display_order}
+
+            new_cheat_block_lines = []
+            for line_info in editor_window.original_parsed_lines:
+                if not line_info['is_editable']:
+                    new_cheat_block_lines.append(line_info['original_line'])
+                else:
+                    updated_line_info = updated_editable_lines_map[line_info['original_index']]
+                    full_line = f"{updated_line_info['whitespace']}{updated_line_info['address_part']}{updated_line_info['asm_content']}"
+                    new_cheat_block_lines.append(full_line)
+
+            start_idx, end_idx = editor_window.block_indices
+            all_content_lines = self.input_text.get(1.0, tk.END).splitlines()
+            
+            new_full_content = all_content_lines[:start_idx + 1] + new_cheat_block_lines + all_content_lines[end_idx:]
+            
+            self.input_text.delete(1.0, tk.END)
+            self.input_text.insert(tk.END, "\n".join(new_full_content))
+            self.trigger_assembly()
+            editor_window.destroy()
+
+        button_frame = tk.Frame(editor_window)
+        button_frame.pack(pady=5)
+        save_button = tk.Button(button_frame, text="Save", command=save_changes)
+        save_button.pack(side=tk.LEFT, padx=5)
+        cancel_button = tk.Button(button_frame, text="Cancel", command=editor_window.destroy)
+        cancel_button.pack(side=tk.LEFT, padx=5)
 
     def log_message(self, message):
         self.log_text.config(state=tk.NORMAL)
