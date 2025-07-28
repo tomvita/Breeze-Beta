@@ -116,6 +116,7 @@ class AssemblerGUI:
         self.save_button.pack(side=tk.LEFT, padx=5)
 
         self.input_text.bind('<KeyRelease>', self.on_key_release)
+        self.input_text.tag_config("error", background="#FFCCCC")
         self.popup_menu = tk.Menu(self.master, tearoff=0)
         self.popup_menu.add_command(label="Edit ASM", command=self.edit_asm)
         self.input_text.bind("<Button-3>", self.show_popup_menu)
@@ -267,18 +268,23 @@ class AssemblerGUI:
     def trigger_assembly(self):
         input_str = self.input_text.get(1.0, tk.END)
         
+        self.input_text.tag_remove("error", "1.0", tk.END)
+
         self.output_text.config(state=tk.NORMAL)
         self.output_text.delete(1.0, tk.END)
         self.log_text.config(state=tk.NORMAL)
         self.log_text.delete(1.0, tk.END)
         
-        output_str, log_messages = self.assemble_from_string(input_str)
+        output_str, log_messages, error_lines = self.assemble_from_string(input_str)
         
         self.output_text.insert(tk.END, output_str)
         self.output_text.config(state=tk.DISABLED)
         
         for msg in log_messages:
             self.log_message(msg)
+
+        for line_num in error_lines:
+            self.input_text.tag_add("error", f"{line_num}.0", f"{line_num}.end")
         
         self.log_text.config(state=tk.DISABLED)
 
@@ -304,6 +310,7 @@ class AssemblerGUI:
     def assemble_from_string(self, input_str):
         output_lines = []
         log_messages = []
+        error_lines = []
         current_cheat_name = ""
         processed_lines_count = 0
 
@@ -317,7 +324,8 @@ class AssemblerGUI:
 
                 if line_stripped.startswith('[') and line_stripped.endswith(']') and not '=' in line_stripped:
                     if current_cheat_name:
-                        output_lines.append("")
+                        if not output_lines or output_lines[-1].strip() != "":
+                            output_lines.append("")
                     current_cheat_name = line_stripped
                     output_lines.append(current_cheat_name)
                     continue
@@ -373,11 +381,17 @@ class AssemblerGUI:
 
                     if offset_type in [2, 4, 5]:
                         if not has_rel_addr:
-                            log_messages.append(f"Error (Line {line_num}): Missing immediate offset for address.")
+                            error_msg = "Missing immediate offset for address."
+                            log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                            error_lines.append(line_num)
+                            output_lines.append(f"Error: {error_msg}")
                             continue
                         rel_address = int(rel_addr_str, 16)
                         if rel_address.bit_length() > 32:
-                            log_messages.append(f"Error (Line {line_num}): Immediate offset exceeds 32 bits.")
+                            error_msg = "Immediate offset exceeds 32 bits."
+                            log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                            error_lines.append(line_num)
+                            output_lines.append(f"Error: {error_msg}")
                             continue
                         
                         if offset_type == 4: # [M+a]
@@ -411,8 +425,10 @@ class AssemblerGUI:
                     
                     val = int(value_str, 0)
                     if val.bit_length() > 64:
-                        log_messages.append(f"Error (Line {line_num}): Value '{value_str}' exceeds 64 bits.")
-                        output_lines.append("")
+                        error_msg = f"Value '{value_str}' exceeds 64 bits."
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
 
                     regs = [r.strip() for r in address_part.split('+')]
@@ -455,8 +471,10 @@ class AssemblerGUI:
                         if ';' not in value_to_encode:
                             val = int(value_to_encode, 0)
                             if val.bit_length() > 64:
-                                log_messages.append(f"Error (Line {line_num}): Value '{value_to_encode}' exceeds 64 bits.")
-                                output_lines.append("")
+                                error_msg = f"Value '{value_to_encode}' exceeds 64 bits."
+                                log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                                error_lines.append(line_num)
+                                output_lines.append(f"Error: {error_msg}")
                                 continue
                             elif val.bit_length() > 32:
                                 bit_width = 8
@@ -501,8 +519,10 @@ class AssemblerGUI:
                             else:
                                 directive_found = False
                         except (ValueError, struct.error) as e:
-                            log_messages.append(f"Error (Line {line_num}): Could not parse value for directive in '{value_to_encode}'. Error: {e}.")
-                            output_lines.append("")
+                            error_msg = f"Could not parse value for directive in '{value_to_encode}'. Error: {e}."
+                            log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                            error_lines.append(line_num)
+                            output_lines.append(f"Error: {error_msg}")
                             continue
 
                         if not directive_found:
@@ -527,12 +547,18 @@ class AssemblerGUI:
                                 encoding_bytes, error = self.assemble_instruction(instr, current_instr_addr)
                                 
                                 if encoding_bytes is None:
-                                    log_messages.append(f"Error (Line {line_num}): Assembly failed for '{instr}'. {error}")
+                                    error_msg = f"Assembly failed for '{instr}'. {error}"
+                                    log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                                    error_lines.append(line_num)
+                                    output_lines.append(f"Error: {error_msg}")
                                     assembly_failed = True
                                     break
                                 
                                 if len(encoding_bytes) != 4:
-                                    log_messages.append(f"Error (Line {line_num}): Assembled instruction '{instr}' is not 4 bytes.")
+                                    error_msg = f"Assembled instruction '{instr}' is not 4 bytes."
+                                    log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                                    error_lines.append(line_num)
+                                    output_lines.append(f"Error: {error_msg}")
                                     assembly_failed = True
                                     break
                                 
@@ -540,7 +566,6 @@ class AssemblerGUI:
                                 current_instr_addr += 4
 
                             if assembly_failed:
-                                output_lines.append("")
                                 continue
 
                             if len(instructions) == 1:
@@ -552,13 +577,17 @@ class AssemblerGUI:
 
                     if val is not None:
                         if bit_width not in [1, 2, 4, 8]:
-                            log_messages.append(f"Error (Line {line_num}): Invalid bit_width {bit_width}.")
-                            output_lines.append("")
+                            error_msg = f"Invalid bit_width {bit_width}."
+                            log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                            error_lines.append(line_num)
+                            output_lines.append(f"Error: {error_msg}")
                             continue
 
                         if not (0 <= register_index <= 15):
-                            log_messages.append(f"Error (Line {line_num}): Invalid register index {register_index}.")
-                            output_lines.append("")
+                            error_msg = f"Invalid register index {register_index}."
+                            log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                            error_lines.append(line_num)
+                            output_lines.append(f"Error: {error_msg}")
                             continue
                         
                         first_dword_val = 0x00000000
@@ -578,8 +607,10 @@ class AssemblerGUI:
                         
                         processed_lines_count += 1
                     else:
-                        log_messages.append(f"Error (Line {line_num}): Unknown error processing line.")
-                        output_lines.append("")
+                        error_msg = "Unknown error processing line."
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                     continue
 
                 # Type 1 Cheat: Conditional
@@ -595,8 +626,10 @@ class AssemblerGUI:
                     addr_part = parts[-1]
                     
                     if not addr_part.lower().startswith('0x'):
-                        log_messages.append(f"Error (Line {line_num}): Could not parse address from '{inside_brackets}'")
-                        output_lines.append("")
+                        error_msg = f"Could not parse address from '{inside_brackets}'"
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
                     
                     addr_str = addr_part[2:]
@@ -622,13 +655,17 @@ class AssemblerGUI:
                             register_index = int(reg_str)
                             operand_type = 1
                         except ValueError:
-                            log_messages.append(f"Error (Line {line_num}): Invalid register '{reg_str}'")
-                            output_lines.append("")
+                            error_msg = f"Invalid register '{reg_str}'"
+                            log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                            error_lines.append(line_num)
+                            output_lines.append(f"Error: {error_msg}")
                             continue
                     
                     if cond_type is None:
-                        log_messages.append(f"Error (Line {line_num}): Invalid condition '{cond_str}'")
-                        output_lines.append("")
+                        error_msg = f"Invalid condition '{cond_str}'"
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
                     
                     val = None
@@ -638,23 +675,31 @@ class AssemblerGUI:
                         try:
                             val = int(value_to_encode, 16)
                             if val.bit_length() > 64:
-                                log_messages.append(f"Error (Line {line_num}): Hex value '{value_to_encode}' exceeds 64 bits.")
-                                output_lines.append("")
+                                error_msg = f"Hex value '{value_to_encode}' exceeds 64 bits."
+                                log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                                error_lines.append(line_num)
+                                output_lines.append(f"Error: {error_msg}")
                                 continue
                         except ValueError:
-                            log_messages.append(f"Error (Line {line_num}): Invalid hex value '{value_to_encode}'")
-                            output_lines.append("")
+                            error_msg = f"Invalid hex value '{value_to_encode}'"
+                            log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                            error_lines.append(line_num)
+                            output_lines.append(f"Error: {error_msg}")
                             continue
                     else:
                         try:
                             val = int(value_to_encode)
                             if val.bit_length() > 64:
-                                log_messages.append(f"Error (Line {line_num}): Integer value '{value_to_encode}' exceeds 64 bits.")
-                                output_lines.append("")
+                                error_msg = f"Integer value '{value_to_encode}' exceeds 64 bits."
+                                log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                                error_lines.append(line_num)
+                                output_lines.append(f"Error: {error_msg}")
                                 continue
                         except ValueError:
-                            log_messages.append(f"Error (Line {line_num}): Invalid integer value '{value_to_encode}'")
-                            output_lines.append("")
+                            error_msg = f"Invalid integer value '{value_to_encode}'"
+                            log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                            error_lines.append(line_num)
+                            output_lines.append(f"Error: {error_msg}")
                             continue
                     
                     if val.bit_length() > 32:
@@ -706,8 +751,10 @@ class AssemblerGUI:
                     num_iters = int(num_iters_str)
 
                     if not (0 <= reg_index <= 15):
-                        log_messages.append(f"Error (Line {line_num}): Invalid register index {reg_index}.")
-                        output_lines.append("")
+                        error_msg = f"Invalid register index {reg_index}."
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
 
                     first_dword = 0x30000000
@@ -723,8 +770,10 @@ class AssemblerGUI:
                     reg_index = int(reg_index_str)
 
                     if not (0 <= reg_index <= 15):
-                        log_messages.append(f"Error (Line {line_num}): Invalid register index {reg_index}.")
-                        output_lines.append("")
+                        error_msg = f"Invalid register index {reg_index}."
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
 
                     first_dword = 0x31000000
@@ -741,19 +790,25 @@ class AssemblerGUI:
                     reg_index = int(reg_index_str)
                     
                     if not (0 <= reg_index <= 15):
-                        log_messages.append(f"Error (Line {line_num}): Invalid register index {reg_index}.")
-                        output_lines.append("")
+                        error_msg = f"Invalid register index {reg_index}."
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
                         
                     try:
                         val = int(value_str, 0) # Auto-detect base for hex/dec
                         if val.bit_length() > 64:
-                            log_messages.append(f"Error (Line {line_num}): Value '{value_str}' exceeds 64 bits.")
-                            output_lines.append("")
+                            error_msg = f"Value '{value_str}' exceeds 64 bits."
+                            log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                            error_lines.append(line_num)
+                            output_lines.append(f"Error: {error_msg}")
                             continue
                     except ValueError:
-                        log_messages.append(f"Error (Line {line_num}): Invalid value '{value_str}'")
-                        output_lines.append("")
+                        error_msg = f"Invalid value '{value_str}'"
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
 
                     first_dword = 0x40000000
@@ -774,8 +829,10 @@ class AssemblerGUI:
                     bit_width = int(width_str) if width_str else 4
 
                     if not (0 <= dest_reg <= 15):
-                        log_messages.append(f"Error (Line {line_num}): Invalid destination register R{dest_reg}.")
-                        output_lines.append("")
+                        error_msg = f"Invalid destination register R{dest_reg}."
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
                     
                     parts = [p.strip() for p in inside_brackets.split('+')]
@@ -840,14 +897,18 @@ class AssemblerGUI:
                     op_type = op_map.get(op_str)
 
                     if op_type is None:
-                        log_messages.append(f"Error (Line {line_num}): Invalid operator '{op_str}'")
-                        output_lines.append("")
+                        error_msg = f"Invalid operator '{op_str}'"
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
 
                     val = int(value_str, 0)
                     if val.bit_length() > 32:
-                        log_messages.append(f"Error (Line {line_num}): Value '{value_str}' exceeds 32 bits for type 7 cheat.")
-                        output_lines.append("")
+                        error_msg = f"Value '{value_str}' exceeds 32 bits for type 7 cheat."
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
 
                     first_dword = 0x70000000
@@ -866,8 +927,10 @@ class AssemblerGUI:
                     key_mask = int(key_mask_str, 0)
 
                     if key_mask.bit_length() > 28:
-                        log_messages.append(f"Error (Line {line_num}): Key mask '{key_mask_str}' exceeds 28 bits.")
-                        output_lines.append("")
+                        error_msg = f"Key mask '{key_mask_str}' exceeds 28 bits."
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
                         
                     first_dword = 0x80000000
@@ -913,8 +976,10 @@ class AssemblerGUI:
                     op_type = op_map.get(op_str.lower())
 
                     if op_type is None:
-                        log_messages.append(f"Error (Line {line_num}): Invalid operator '{op_str}'")
-                        output_lines.append("")
+                        error_msg = f"Invalid operator '{op_str}'"
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
 
                     first_dword = 0x90000000
@@ -932,8 +997,10 @@ class AssemblerGUI:
                         val = int(rhs_str, 0)
                         
                         if val.bit_length() > 64:
-                            log_messages.append(f"Error (Line {line_num}): Value '{rhs_str}' exceeds 64 bits.")
-                            output_lines.append("")
+                            error_msg = f"Value '{rhs_str}' exceeds 64 bits."
+                            log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                            error_lines.append(line_num)
+                            output_lines.append(f"Error: {error_msg}")
                             continue
 
                         if bit_width == 8:
@@ -954,8 +1021,10 @@ class AssemblerGUI:
                     auto_repeat = 1 if repeat_type.lower() == 'keyheld' else 0
 
                     if key_mask.bit_length() > 64:
-                        log_messages.append(f"Error (Line {line_num}): Key mask '{key_mask_str}' exceeds 64 bits.")
-                        output_lines.append("")
+                        error_msg = f"Key mask '{key_mask_str}' exceeds 64 bits."
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
 
                     first_dword = 0xC4000000
@@ -976,8 +1045,10 @@ class AssemblerGUI:
                     
                     cond_type = get_cond_type_from_str(op_str)
                     if cond_type is None:
-                        log_messages.append(f"Error (Line {line_num}): Invalid operator '{op_str}'")
-                        output_lines.append("")
+                        error_msg = f"Invalid operator '{op_str}'"
+                        log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                        error_lines.append(line_num)
+                        output_lines.append(f"Error: {error_msg}")
                         continue
 
                     rhs_str = rhs_str.strip()
@@ -1031,7 +1102,10 @@ class AssemblerGUI:
                                 operand_type = 1
                                 offset_reg_str = addr_reg_str
                             else:
-                                log_messages.append(f"Error (Line {line_num}): Invalid C0 memory operand format: '{rhs_str}'")
+                                error_msg = f"Invalid C0 memory operand format: '{rhs_str}'"
+                                log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                                error_lines.append(line_num)
+                                output_lines.append(f"Error: {error_msg}")
                                 continue
                             
                         first_dword |= (operand_type & 0xF) << 8
@@ -1063,8 +1137,10 @@ class AssemblerGUI:
                     elif rhs_str.lower().startswith('0x') or rhs_str.isdigit():
                         val = int(rhs_str, 0)
                         if val.bit_length() > 64:
-                            log_messages.append(f"Error (Line {line_num}): Value '{rhs_str}' exceeds 64 bits.")
-                            output_lines.append("")
+                            error_msg = f"Value '{rhs_str}' exceeds 64 bits."
+                            log_messages.append(f"Error (Line {line_num}): {error_msg}")
+                            error_lines.append(line_num)
+                            output_lines.append(f"Error: {error_msg}")
                             continue
                         
                         if val.bit_length() > 32: bit_width = 8
@@ -1088,6 +1164,7 @@ class AssemblerGUI:
                 output_lines.append(line_stripped)
             except Exception as e:
                 log_messages.append(f"An unexpected error occurred on line {line_num}: {e}")
+                error_lines.append(line_num)
                 output_lines.append(f"ERROR: {line_stripped}")
 
         if processed_lines_count == 0 and not any(line.strip().startswith('[') for line in output_lines if line.strip()):
@@ -1095,7 +1172,7 @@ class AssemblerGUI:
         elif processed_lines_count > 0:
             log_messages.append(f"--- Successfully processed {processed_lines_count} lines. ---")
         
-        return "\n".join(output_lines), log_messages
+        return "\n".join(output_lines), log_messages, error_lines
 
     def open_file(self):
         file_path = filedialog.askopenfilename(
