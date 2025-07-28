@@ -83,6 +83,7 @@ class AssemblerGUI:
         master.title("Cheat Assembler")
         master.geometry("1600x900")
         self.after_id = None
+        self._scroll_lock = False
 
         main_frame = tk.Frame(master)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
@@ -95,6 +96,12 @@ class AssemblerGUI:
 
         self.output_text = scrolledtext.ScrolledText(paned_window, wrap=tk.WORD, width=80, height=40, state=tk.DISABLED)
         paned_window.add(self.output_text)
+
+        self.input_text.bind("<<YView>>", lambda e, s=self.input_text, t=self.output_text: self.on_y_scroll(s, t))
+        self.output_text.bind("<<YView>>", lambda e, s=self.output_text, t=self.input_text: self.on_y_scroll(s, t))
+
+        self.input_text.bind("<MouseWheel>", self.on_mouse_wheel)
+        self.output_text.bind("<MouseWheel>", self.on_mouse_wheel)
 
         log_frame = tk.Frame(master, height=100)
         log_frame.pack(fill=tk.X, padx=10, pady=(0, 10))
@@ -260,12 +267,33 @@ class AssemblerGUI:
         self.log_text.config(state=tk.DISABLED)
         self.log_text.see(tk.END)
 
+    def on_mouse_wheel(self, event):
+        # This function is called when the mouse wheel is used.
+        # It scrolls both text widgets in unison.
+        # The 'delta' attribute provides the direction of scroll.
+        # We scroll both widgets and then return "break" to prevent the default
+        # event from firing, which would scroll only the widget under the cursor.
+        self.input_text.yview_scroll(int(-1*(event.delta/120)), "units")
+        self.output_text.yview_scroll(int(-1*(event.delta/120)), "units")
+        return "break"
+
+    def on_y_scroll(self, source, target):
+        if self._scroll_lock:
+            return
+        self._scroll_lock = True
+        try:
+            scroll_pos = source.yview()
+            target.yview_moveto(scroll_pos[0])
+        finally:
+            self._scroll_lock = False
+
     def on_key_release(self, event=None):
         if self.after_id:
             self.master.after_cancel(self.after_id)
         self.after_id = self.master.after(300, self.trigger_assembly)
 
     def trigger_assembly(self):
+        scroll_pos = self.input_text.yview()[0]
         input_str = self.input_text.get(1.0, tk.END)
         
         self.input_text.tag_remove("error", "1.0", tk.END)
@@ -287,6 +315,10 @@ class AssemblerGUI:
             self.input_text.tag_add("error", f"{line_num}.0", f"{line_num}.end")
         
         self.log_text.config(state=tk.DISABLED)
+        
+        self.master.update_idletasks()
+        self.input_text.yview_moveto(scroll_pos)
+        self.output_text.yview_moveto(scroll_pos)
 
     def assemble_instruction(self, instruction, addr=0):
         try:
