@@ -112,6 +112,7 @@ class AssemblerGUI:
         self.log_text = scrolledtext.ScrolledText(log_frame, wrap=tk.WORD, height=6)
         self.log_text.pack(fill=tk.X, expand=True)
         self.log_text.config(state=tk.DISABLED)
+        self.log_text.bind("<Button-1>", self.on_log_click)
 
         self.button_frame = tk.Frame(master)
         self.button_frame.pack(pady=5, fill=tk.X, side=tk.BOTTOM)
@@ -124,6 +125,7 @@ class AssemblerGUI:
 
         self.input_text.bind('<KeyRelease>', self.on_key_release)
         self.input_text.tag_config("error", background="#FFCCCC")
+        self.input_text.tag_config("highlight", background="#FFFF99")
         self.popup_menu = tk.Menu(self.master, tearoff=0)
         self.popup_menu.add_command(label="Edit ASM", command=self.edit_asm)
         self.input_text.bind("<Button-3>", self.show_popup_menu)
@@ -266,6 +268,32 @@ class AssemblerGUI:
         self.log_text.insert(tk.END, message + "\n")
         self.log_text.config(state=tk.DISABLED)
         self.log_text.see(tk.END)
+
+    def on_log_click(self, event):
+        try:
+            # Get the index of the character at the click position
+            index = self.log_text.index(f"@{event.x},{event.y}")
+            # Get the content of the line that was clicked
+            line_content = self.log_text.get(f"{index} linestart", f"{index} lineend")
+            
+            # Use regex to find a line number in the format "(Line XXX)"
+            match = re.search(r"\(Line (\d+)\)", line_content)
+            if match:
+                line_num = int(match.group(1))
+                
+                # Scroll both text panels to the identified line number
+                self.input_text.see(f"{line_num}.0")
+                self.output_text.see(f"{line_num}.0")
+                
+                # Highlight the line in the input panel for better visibility
+                self.input_text.tag_remove("highlight", "1.0", tk.END)
+                self.input_text.tag_add("highlight", f"{line_num}.0", f"{line_num}.end")
+                
+                # Remove the highlight after 2 seconds
+                self.master.after(2000, lambda: self.input_text.tag_remove("highlight", "1.0", tk.END))
+        except tk.TclError:
+            # This can happen if the user clicks on an empty area of the log widget
+            pass
 
     def on_mouse_wheel(self, event):
         # This function is called when the mouse wheel is used.
