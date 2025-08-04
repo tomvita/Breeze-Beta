@@ -1,4 +1,5 @@
 #include "action.hpp"
+#include "gameinfo.hpp"
 #include <cstring>
 enum class actions_id_t {
     Touch_handle,
@@ -10,6 +11,7 @@ enum class actions_id_t {
     ButtonDemo,
     Jump,
     ToggleWifi,
+    TestGameInfo,
 };
 
 #define ID (u32) actions_id_t::
@@ -32,6 +34,7 @@ namespace air {
             {"Select", ID Select, HidNpadButton_X},
             {"loop this menu", ID LoopMenu, HidNpadButton_Y},
             {"Write info to file", ID WriteInfo, HidNpadButton_Plus},
+            {"Test GameInfo", ID TestGameInfo, HidNpadButton_Minus},
             // {"testing", 4, HidNpadButton_StickL},
             // {"Hex mode", 5, HidNpadButton_StickR},
             // {"Toggle Cheat", 6, HidNpadButton_L},
@@ -62,7 +65,7 @@ namespace air {
     void Newmenu::menu_action(u32 buttonid, u32 index) {
         switch (buttonid) {
             case 1000:{
-                populate_list(m_offset); // always refresh the list;
+                // populate_list(m_offset); // always refresh the list;
                 // Result nifmSetWirelessCommunicationEnabled(bool enable);
                 // Result nifmIsWirelessCommunicationEnabled(bool* out);
                 bool is_enabled = false;
@@ -126,6 +129,29 @@ namespace air {
                     fclose(fp);
                     air::ChangeMenu(std::make_shared<MessageMenu>(get_current_menu(), "Save to file", "written to " GAMEINFO_FILE));
                 };
+                return;
+            }
+            case ID TestGameInfo:
+            {
+                this->menu->m_data_entries.clear();
+                GameInfo::Initialize();
+
+                this->menu->m_data_entries.push_back(logtext("Title: %s", GameInfo::GetTitleName().c_str()));
+                this->menu->m_data_entries.push_back(logtext("Build ID: %s", GameInfo::GetBuildId().c_str()));
+                
+                char tid_str[17];
+                sprintf(tid_str, "%016lX", GameInfo::GetTitleId());
+                this->menu->m_data_entries.push_back(logtext("Title ID: %s", tid_str));
+                
+                this->menu->m_data_entries.push_back(logtext("Path Name: %s", GameInfo::GetTitleNamePath().c_str()));
+                this->menu->m_data_entries.push_back(logtext("Legacy Name: %s", GameInfo::GetLegacySanitizedTitleName().c_str()));
+                this->menu->m_data_entries.push_back(logtext("Cheat Dirs:"));
+
+                for(const auto& dir : GameInfo::GetCheatDirectories()){
+                    this->menu->m_data_entries.push_back(logtext("  %s", dir.c_str()));
+                }
+
+                GameInfo::Exit();
                 return;
             }
             default:
