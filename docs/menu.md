@@ -168,6 +168,7 @@ This menu allows for direct editing of cheat codes.
 | Expand Menu | ZR + ZL | Show more buttons. |
 | Add loop | + + ZL | Assistant to create loop code. |
 | Add ASM | D-Pad Up + ZL | Assemble ARM code into a cheat. |
+| Extract ASM | StickRDown + ZL | Extracts embedded assembly code from a cheat, generating labels for memory addresses and saving it to `{cheat_name}_extract.txt`. |
 | Load register | D-Pad Down + ZL | Insert cheat code to load a register. |
 | Alt ASM | Right Stick + ZL | Toggle where to place the code cave. |
 | Add utility codes | D-Pad Left + ZL | Create utility cheat codes. |
@@ -188,6 +189,8 @@ This menu allows for direct editing of cheat codes.
 | Line 2 Cheat | Left Stick Left + ZR | Make a cheat code from the selected line of code. |
 | R1=... | Left Stick Down + ZL + ZR | Display the base address of the module. |
 | 4,6 to 0 | Left Stick Down + ZL | Convert type 4 and type 6 cheats into type 0 cheats. |
+| type0 expand | (none) | Sorts type 0 codes by address and expands them to width 4 for better ASM visibility. |
+| type0 condense | (none) | Condenses type 0 codes to width 8 for a more compact representation. |
 
 ## Asm Composer Menu
 
@@ -206,9 +209,11 @@ The Asm Composer equips both novices and experts with the essential tools to bui
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
+| {dynamic} | Left + ZL | Multipurpose insert template that now supports dynamic button labels (e.g., "Cycle Data Type," "Stack Template"). |
 | Edit | X | Edit the selected line of assembly. |
 | Load file | R | Load an assembly file from `/switch/breeze`. |
 | Load file(game dir) | R + ZL | Load an assembly file from `/switch/breeze/cheats/{game dir}`. |
+| Load extract | StickRDown + ZL | Loads a `_extract.txt` file directly into the composer for editing. If no ASM file exists, the extracted ASM will be loaded automatically when entering via the "Extract ASM" button. |
 | Load | L | Reload from file (unsaved changes will be lost). |
 | Save | L + ZL | Save the current assembly to file. |
 | Check ASM | Y + ZR | Validate the assembly code and add comments for issues. |
@@ -220,7 +225,6 @@ The Asm Composer equips both novices and experts with the essential tools to bui
 | MergeNext | Right + ZL | Append the next line into the current one. |
 | ldr_str | Up + ZL | Multipurpose modification of ldr and str instructions. |
 | mov_fmov | Down + ZL | Change between mov and fmov instructions. |
-| data_value | Left + ZL | Multipurpose insert template. |
 | X30_cmp | Right Stick | Not needed, use gen2 menu to create full script. |
 | paste A | Left Stick | Paste the value of A. |
 | Cut the rest | - + ZL | Cut all lines below the cursor. |
@@ -231,7 +235,7 @@ The Asm Composer equips both novices and experts with the essential tools to bui
 | toggle comment | B + ZL | Comment/uncomment the current line. |
 | clear copy stack | + + ZR | Empty the copy stack (inserts blank line if stack is empty). |
 | Go to memory | Right Stick Up + ZL | Go to memory explorer if on a defined address. |
-| Set GrabA | Right Stick Down + ZL | Set data define as GrabA target. |
+| Set GrabA | Left Stick Down + ZR | Set data define as GrabA target. |
 | Save & Back | B | Save changes and return to the previous menu. |
 
 ## Search Setup Menu

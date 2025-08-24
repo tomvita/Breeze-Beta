@@ -13,11 +13,11 @@ This project started as a rewrite of the features implemented in EdiZon SE. Over
 
 ## Features
 -   **Cheat Code Management**: Toggle, edit, and manage cheats from multiple sources.
--   **Cheat Code Editor**: Integrated disassembler, assembler, and loop creator.
+-   **Cheat Code Editor**: Integrated disassembler, assembler, and loop creator. Extract ASM from existing cheats, edit in the integrated ASM Composer.
 -   **ARM64 Instruction Support**: Assemble and disassemble ARM64 instructions.
 -   **Memory Tools**: Search, edit, freeze, and bookmark memory with static offsets or pointer chains.
 -   **Advanced Debugging**: Set memory breakpoints and watch instructions.
--   **ASM Composer**: Build ASM cheats efficiently.
+-   **ASM Composer**: Build ASM cheats efficiently. One-click templates for common hacks.
 -   **Auto-Update**: Keep the app and database up to date automatically.
 -   **Consistent UI**: A user-friendly interface designed for seamless navigation.
 

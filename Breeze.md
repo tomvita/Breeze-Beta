@@ -80,8 +80,10 @@ Breeze offers a comprehensive set of tools for cheat management, memory hacking,
     -   Monitor instructions for memory access patterns.
     -   Capture caller, register state, and memory target information.
     -   Support parallel use of external debuggers like IDA Pro for instruction tracing.
--   **ASM Composer**:
-    -   Build ARM assembly-based cheats.
+-   **Advanced ASM Workflow**:
+    -   **Extract ASM**: Extract assembly code from existing cheats for analysis and modification.
+    -   **ASM Composer**: A dedicated IDE for writing and editing assembly, with templates for common hacks.
+    -   **Easy Hack Automation**: Automatically generate common `LDR`/`STR` based cheats.
 -   **Auto-Update**:
     -   Automatically update the app and cheat database.
 -   **Consistent UI**:
@@ -230,9 +232,32 @@ Breeze uses a file-based search system. Each search or diff creates a new file (
 
 ---
 
-## Advanced Techniques
+## Enhanced ASM Workflow
 
-### Memory Breakpoints and Watches (Gen2 Menu)
+Breeze now includes a powerful, streamlined workflow for creating and editing assembly-based cheats, making advanced cheat development more accessible than ever.
+
+### Creating ASM cheat from identified game code
+1. Add from **ASM Explorer** using `Add to Cheat` button
+2. Compose cheats with various template to ease the cheat making process.
+3. **Easy Template**: For simple `LDR` or `STR` based cheats, the **"Easy Template"** option will automatically generate a complete hack for you.
+
+### Extracting and Editing ASM
+
+1.  **Extract ASM**: In the **Advance Cheat Menu**, select a cheat and use the **"Extract ASM"** button (found in the **Edit Cheat Menu**) to decompile it into a human-readable assembly file (`_extract.txt`). This automatically generates labels for memory addresses, making the code easy to relocate.
+2.  **Load into Composer**: Go to the **Asm Composer Menu** and use the **"Load extract"** button to open the `_extract.txt` file. The composer provides an IDE-like environment for editing the assembly. If there isn't an existing asm file **Extract ASM** would load it automatically. 
+3.  **Re-assemble**: Once your edits are complete, you can re-assemble the code back into a cheat using the **"Add ASM"** button in the **Edit Cheat Menu**.
+
+### Type 0 Code Management
+
+For better readability and management of `type 0` codes, the **Edit Cheat Menu** now includes:
+-   **type0 expand**: Sorts codes by address and expands them to width 4 for better ASM visibility.
+-   **type0 condense**: Sorts codes by address and condenses codes to width 8 for a more compact representation.
+
+---
+ 
+ ## Advanced Techniques
+ 
+ ### Memory Breakpoints and Watches (Gen2 Menu)
 
 1.  In the memory explorer, point to an address and press **SetBreakPoint**.
 2.  In the Gen2 menu, use **Gen2Attach** then **Execute Watch**.
