@@ -239,7 +239,7 @@ Breeze now includes a powerful, streamlined workflow for creating and editing as
 ### Creating ASM cheat from identified game code
 1. Add from **ASM Explorer** using `Add to Cheat` button
 2. Compose cheats with various template to ease the cheat making process.
-3. **Easy Template**: For simple `LDR` or `STR` based cheats, the **"Easy Template"** option will automatically generate a complete hack for you.
+3. **Easy Template**: For simple `ld` (load) or `st` (store) based cheats, the **"Easy Template"** option will automatically generate a complete hack for you. It supports all variants of these instructions.
 
 ### Extracting and Editing ASM
 

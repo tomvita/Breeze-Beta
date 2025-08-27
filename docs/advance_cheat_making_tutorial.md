@@ -76,6 +76,8 @@ A frequent challenge is dealing with instructions that modify the registers they
 
 5.  **Save and Assemble**: Use the `Save & Back` button from the Asm Composer. Back in the [**Edit Cheat Menu**](menu.md#edit-cheat-menu), use the `Add ASM` button to generate the final cheat code, then `Save` to return to the cheat list.
 
+6.  **Using the "Easy Template"**: For any simple `ld` (load) or `st` (store) instruction, you can use the "Easy Template" in the **Asm Composer Menu** to automatically generate a complete hack. This is a quick way to create cheats without manually writing the assembly.
+
 ### Step 3: Testing
 
 With the cheat active, go back to the game and test if your changes have the desired effect. You can place watch on instruction in the cheat to debug it.

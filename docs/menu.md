@@ -38,11 +38,11 @@ The buttons listed below are enabled via the "Extra Button" option in the Settin
 | -> Normal mode / Normal[?] / -> Focus mode / Focus[?] | (none) | Switches between Focus mode (showing only your selected buttons) and Normal mode (showing all buttons). The label indicates the mode you will switch to, or, if there are more buttons than fit on one screen, displays as Normal[?] or Focus[?] (e.g., Normal[34]) to show how many buttons are available on the next page(s). In either mode, pressing this button will move to the next page of buttons if necessary. |
 | default shortcuts | (none) | Resets all custom shortcuts for the current menu back to their default values. |
 | Focus menu | (none) | Open the Focus Manager Menu. Let you save/load focus list |
-| Focus edit | (none) | Toggles Focus Edit mode. When enabled, pressing any button will add it to the focus list for the current menu. You can remove a button from the focus list by using the "Focus Mode Erase Key" shortcut defined in settings. |
+| Focus edit | (none) | Toggles Focus Edit mode. When enabled, you can rearrange buttons. Pressing any button will add it to the focus list. Use the `FocusMode_Erase` key to add a button to a temporary stack (this still removes it from the focus menu). Press `ZR` + `+` to insert the last removed button from the stack. |
 
 ## Focus Manager Menu
 
-Manage your Focus Mode configurations by saving and loading different sets of focused buttons. This is useful for quickly switching between different workflows or tasks.
+The Focus Manager is your hub for customizing the UI. You can save and load different button layouts, and enter "Focus Edit" mode to rearrange buttons to your liking. The "Focus Mode" toggle key now opens this menu directly.
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
