@@ -1,59 +1,59 @@
 # Breeze: Quick Start Guide
 
-This guide will get you up and running with Breeze, covering the most common use case: loading and using existing cheats.
+This guide covers the fastest way to get cheats running with Breeze.
 
-## Step 1: Installation
+---
 
-1.  Download the latest `Breeze.zip` from the [releases page](https://github.com/tomvita/Breeze-Beta/releases).
-2.  Copy the contents of the `.zip` file to the root of your SD card.
+### 1. Installation & First Launch
 
-## Step 2: Launching Breeze
-
-1.  Start the game you want to use cheats with.
-2.  From the Switch's HOME Menu, open the **hbmenu** (Album).
-3.  Launch **Breeze**.
-4.  To return to your game, press the **Home** button twice.
+1.  **Download**: Get the latest `Breeze.zip` from the [releases page](https://github.com/tomvita/Breeze-Beta/releases).
+2.  **Install**: Copy the `.zip` contents to the root of your SD card.
+3.  **Launch Game**: Start the game you want to use cheats with.
+4.  **Launch Breeze**: Open the **hbmenu** (Album) from the HOME Menu and launch **Breeze**.
+5.  **Return to Game**: Press the **Home** button twice.
 
 > **Pro-Tip**: For faster access, go to **Settings > Profile shortcut** in Breeze and enable it. You can then launch Breeze directly from your game by pressing **Home -> Up -> A**.
 
-## Step 3: Loading and Using Cheats
+---
 
-Breeze makes it easy to find and apply cheats.
+### 2. Loading & Using Cheats
 
-1.  From the Main Menu, select either **Cheats** (for the simple menu) or **Cheat Menu** (for the advanced menu).
-2.  Upon entering a cheat menu, Breeze will automatically search for cheats for your running game from its online database.
-3.  If cheats are found, they will be displayed in a list.
-4.  Use the D-Pad or Left Stick to navigate the list.
-5.  Press `X` to **Toggle Cheat** on or off. A solid square (`■`) means the cheat is active.
+Breeze automatically finds cheats for your running game from its online database.
 
-That's it! The cheat is now running.
+**UI Navigation:**
+*   **Left Panel (Data)**: Use the **D-Pad**.
+*   **Right Panel (Actions)**: Use the **Left Stick**. It moves one step at a time by default, there is also the radial mode which you can activate by the radial mode toggle key (default ZL) which let you navigate the button pannel quickly.
+*   **Activate**: Press **A**.
 
-## What If No Cheats Are Found?
+**Activating a Cheat:**
+1.  From the Main Menu, select **Cheat Menu**.
+2.  If cheats are found, they will appear in the left panel.
+3.  Use the **D-Pad** to highlight a cheat.
+4.  Press the "Toggle Cheat" button to turn it on or off. A solid square (`■`) means it's active.
 
-If Breeze doesn't find cheats automatically, you can download the community cheat database:
+---
+
+### 3. Troubleshooting: No Cheats Found?
+
+If no cheats appear automatically, try these steps in order.
+
+#### Method 1: Download the Community Cheat Database
+
 1.  From the Main Menu, go to the **Download** menu.
 2.  Select **Check for Cheat Database Update**, then **Install Cheat Database Update**.
-3.  Go to the **[Advance Cheat Menu](docs/menu.md#advance-cheat-menu)**.
-4.  Press **Load from DB** to load the cheats for your game from the database you just installed.
+3.  Navigate to the **Cheat Menu**.
+4.  Press **Load from DB** to load cheats from the database.
 
-## Still No Cheats? Manual Installation
+#### Method 2: Manual Installation
 
-If the above methods fail, you can always find and install cheat files manually from the internet. You will need to find the correct cheat file for your game's Title ID and Build ID.
+If the database has no cheats for your game, you can install cheat files manually. You will need to find a cheat file matching your game's **Title ID** and **Build ID**.
 
-For detailed instructions on file paths and how to find your game's IDs, please refer to the **[Manual Cheat Files](Breeze.md#manual-cheat-files)** section in our main User Manual.
+For detailed instructions, see the **[Manual Cheat Files](Breeze.md#manual-cheat-files)** section in the main User Manual.
 
-## Basic Customization
+---
 
-Want to change a cheat?
-- From the `Simple Cheat Menu`, press `ZL` to go to the **[Advance Cheat Menu](docs/menu.md#advance-cheat-menu)**.
-- Here you can:
-    - **Edit Cheat**: Change its name or the value it uses.
-    - **Add conditional key**: Make a cheat activate only when you press a specific button combo.
+### 4. Next Steps
 
-## Creating Your Own Cheats
-
-Feeling adventurous? Creating your own cheats from scratch is a powerful feature of Breeze. The process involves searching for memory values, identifying the correct address, and creating a cheat to modify it.
-
-For a full walkthrough, check out the **[Basic Cheat Making Tutorial](basic_cheat_making_tutorial.md)**.
-
-For more advanced ASM cheat creation, see the **[Advance Cheat Making Tutorial](docs/advance_cheat_making_tutorial.md)**.
+*   **Customize Cheats**: In the **[Advance Cheat Menu](docs/menu.md#advance-cheat-menu)**, you can edit cheats or add button combos to activate them.
+*   **Create Your Own**: Learn to make cheats with the **[Basic Cheat Making Tutorial](basic_cheat_making_tutorial.md)**.
+*   **Advanced Creation**: For ASM cheats, see the **[Advance Cheat Making Tutorial](docs/advance_cheat_making_tutorial.md)**.
