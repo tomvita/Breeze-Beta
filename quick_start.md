@@ -18,6 +18,8 @@ This guide covers the fastest way to get cheats running with Breeze.
 
 ### 2. Loading & Using Cheats
 
+On main menu select **Simple Menu** to get rid of items that may be confusing for beginner, you can select full menu when you want to see the default menu again
+
 Breeze automatically finds cheats for your running game from its online database.
 
 **UI Navigation:**
