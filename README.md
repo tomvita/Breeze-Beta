@@ -33,6 +33,7 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[Advance Cheat Making Tutorial](docs/advance_cheat_making_tutorial.md)**: A step-by-step guide to creating advanced ASM cheat.
 -   **[UI Reference (menu.md)](docs/menu.md)**: A complete reference for every button and menu in the UI.
 -   **[Technical Cheat Details (cheats.md)](docs/cheats.md)**: Advanced documentation on the cheat code format and CheatVM instructions.
+-   **[Dynamic Modules](docs/dynamic_module.md)**: An explanation of how dynamic modules work.
 -   **[Community Wiki](https://github.com/tomvita/Breeze-Beta/wiki)**: For other tutorials and community-contributed guides.
 
 ---
