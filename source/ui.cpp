@@ -342,8 +342,8 @@ namespace air {
 
     Button *Menu::GetPointedButton() {
         auto k_stick = padGetStickPos(&g_pad, 0);
-        // if (!(padGetButtons(&g_pad) & options.radial_toggle_keycode))
-        //     return nullptr;
+        if (!(padGetButtons(&g_pad) & options.radial_toggle_keycode))
+            return nullptr;
         float x, y, x_max, x_min, y_max, y_min;
         bool first = true;
         for (auto &button : m_buttons) {

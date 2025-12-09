@@ -572,7 +572,7 @@ namespace air {
         bool help_toggle = true;
         HidNpadButton help_toggle_keycode = (HidNpadButton)(HidNpadButton_L + HidNpadButton_ZR);
         u16 max_pointer_per_node = 10000;
-        HidNpadButton radial_toggle_keycode = (HidNpadButton)(0);
+        HidNpadButton radial_toggle_keycode = (HidNpadButton)(HidNpadButton_ZL);
         // char AppVersion[20] = "";
     };
     // void start_action();
