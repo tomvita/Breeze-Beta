@@ -27,30 +27,40 @@ Whether you're a new user getting acquainted with the application or an experien
 - [Setting Menu](#setting-menu)
 
 ## Focus Mode / Normal Mode
-Focus Mode simplifies menu navigation by showing only your favorite or most frequently used buttons, reducing clutter for a faster and more focused experience. You can switch between Focus Mode and Normal Mode using a dedicated extra button or by assigning a shortcut key in the Settings Menu.
+Focus Mode simplifies menu navigation by showing only your favorite or most frequently used buttons, reducing clutter for a faster and more focused experience. You can switch between Focus Mode and Normal Mode using a dedicated extra button or by assigning a Focus Manager key in the Settings Menu.
 
-## Extra buttons
+## Global Navigation Buttons
 
-The buttons listed below are enabled via the "Extra Button" option in the Settings menu and will be available across all menus. You can enable up to four extra buttons, which are activated in the order shown in the table. The first extra button is the most important: if there are more buttons than can fit on a single screen, this button provides access to additional (overflow) buttons, making it the only way to reach otherwise inaccessible controls. 
+The following buttons are available across various menus to assist with navigation and focus mode.
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
+
 | -> Normal mode / Normal[?] / -> Focus mode / Focus[?] | (none) | Switches between Focus mode (showing only your selected buttons) and Normal mode (showing all buttons). The label indicates the mode you will switch to, or, if there are more buttons than fit on one screen, displays as Normal[?] or Focus[?] (e.g., Normal[34]) to show how many buttons are available on the next page(s). In either mode, pressing this button will move to the next page of buttons if necessary. |
 | default shortcuts | (none) | Resets all custom shortcuts for the current menu back to their default values. |
-| Focus menu | (none) | Open the Focus Manager Menu. Let you save/load focus list |
-| Focus edit | (none) | Toggles Focus Edit mode. When enabled, you can rearrange buttons. Pressing any button will add it to the focus list. Use the `FocusMode_Erase` key to add a button to a temporary stack (this still removes it from the focus menu). Press `ZR` + `+` to insert the last removed button from the stack. |
+| Focus menu | (none) | Opens the Focus Manager Menu directly. |
+| Focus edit | L | Toggles Focus Edit mode. When enabled, you can rearrange buttons. Pressing any button in Normal mode will add it to the focus list. Use the `FocusMode_Erase` key to remove a button from the focus list. |
 
 ## Focus Manager Menu
 
-The Focus Manager is your hub for customizing the UI. You can save and load different button layouts, and enter "Focus Edit" mode to rearrange buttons to your liking. The "Focus Mode" toggle key now opens this menu directly.
+The Focus Manager is your hub for customizing the UI. It allows you to save and load different button layouts (focus profiles). You can also enter "Focus Edit" mode here to rearrange buttons. 
+
+> [!NOTE]
+> Loading a focus profile will restart the application to apply the new button layout.
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
-| Load focus | Y | Loads a previously saved focus setup, replacing the current one. |
-| Save focus | X | Saves the current set of focused buttons for all menus to a named profile. |
+| Load focus | Y | Loads a previously saved focus setup. The application will restart to apply the changes. |
+| Focus edit=X | L | Toggles Focus Edit mode. |
+| Normal/Focus toggle | L + ZR | Opens this Focus Manager Menu from other menus (this is the **Focus Manager key**). |
+| Save focus | X | Saves the current set of focused buttons for all menus to an existing focus profile. |
 | Rename | (none) | Renames the selected focus file. |
-| New focus | + | Creates a new focus file. |
-| Lock focus | (none) | Toggles whether the focus configuration is locked. When unlocked, using any button in Normal mode will add that button to the focus list. |
+| New focus | + | Creates a new focus file with the current layout. |
+| Delete file | - | Deletes the selected focus file. |
+| Reset all shortcuts | Left Stick Click | Resets all shortcuts to their factory defaults. |
+| Clear all shortcuts | Right Stick Click | Removes all custom shortcuts. |
+| Clear focus | (none) | Removes all buttons from the focus list for all menus. |
+| Lock focus=X | (none) | Toggles whether the focus configuration is locked. When unlocked, using any button in Normal mode will automatically add that button to the focus list. |
 | Back | B | Returns to the previous menu. |
 
 ## Main Menu
@@ -661,37 +671,28 @@ The settings menu allows users to configure various aspects of Breeze's behavior
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
-| Sysmodule Manager | X | Access and manage sysmodules.
-| Profile Shortcut | Y | Toggle a shortcut to launch Breeze via a profile.
-| Extra Button | (none) | Add utility buttons to assist menu navigation.
-| Jump to Last Menu | R | Toggles whether to start at the main menu or the last menu visited.
-| Combo Keys | (none) | Sets the number of key presses expected for a combo key definition; can press the same key more than once.
-| Use Title ID | Right Stick Up | Toggles whether to use the title ID or game name for the Breeze cheat directory.
-| Custom Shortcuts | Left Stick | Toggles whether to define your own shortcuts or use default shortcuts.
-| Use Starfield | + | Toggles whether to use a starfield as the background or the game screen as the background.
-| Use Dpad for Left Panel Item Select | (none) | Toggles whether Dpad is used for left panel control and left stick for right panel control, or to flip the choice.
-| Shortcut Program Key | (none) | Define the key combo that lets you program a custom shortcut (number of keys in the combo is defined by "Combo keys").
-| Shortcut Erase Key | (none) | Remove a shortcut if you are using Custom Shortcuts.
-| Alpha Toggle Key | (none) | This key allows you to adjust the alpha transparency, revealing more or less of the background.
-| Focus Mode Erase Key | (none) | This key allows you to remove the button in focus mode.
-| Focus Mode Toggle Key | (none) | This key allows you to toggle between focus and normal mode.
-| Radial Mode Key | (none) | This key allows you to enter radial mode for the left stick; this key can no longer be used with any shortcut.
-| Theme | (none) | Select the light or dark theme of Breeze.
-| Use Alt Color | (none) | Toggles whether to use an alternate color for Breeze's font.
-| Save Setting | B | Save changes and exit this menu.
-| Gen2 Fork | - | Toggles installation of the custom sysmodule needed to capture data for ASM cheat creation.
-| Noexes Fork | (none) | Toggles installation of the custom sysmodule for JNoexs and PointerSearchSE.
-| Search Code Segment | (none) | Toggles whether to search for code in the code segment.
-| Search Main Only | (none) | Toggles whether to only search the main segment (if you already know that your target is there).
-| Dmnt Fork | (none) | Toggles installation of the custom version of CheatVM.
-| Export B8 Only | (none) | Toggles whether to only export as text the bookmarks that have B8 as the second offset (Unity often, but not always, has this).
-| ASM Type | (none) | Cycle between ARM32, ARM64, and THUMB assembly types.
-| Use Titlename2 | (none) | Toggles whether to use the second title name for games that have one.
-| Enable Two Register | (none) | Toggles whether to capture the data of one register or the register indirect address of code that makes use of two registers.
-| Replace Space | (none) | Toggles whether to replace space with '_' when the game name contains a space.
-| Log Button Press | (none) | Toggles whether to log your button presses to a file.
-| Visible Only | (none) | Toggles whether shortcuts can activate buttons that are not visible.
-| Reset Options | (none) | Reset all options to default.
-| Backup Focus Mode and Custom Shortcuts | (none) | Backup focus mode and custom shortcuts to a file. Your current custom keys and focus menu will become the new defaults when you use the reset options button.
-| Use Module Name | (none) | Toggles whether to use the module name for cheats.
-| Module Loaded Cheats Only | (none) | Toggles whether to only display cheats for currently loaded modules.
+| Save Setting | B | Save changes and exit this menu. |
+| Gen2 Fork | - | Toggles installation of the custom sysmodule needed to capture data for ASM cheat creation. |
+| Noexes Fork | (none) | Toggles installation of the custom sysmodule for JNoexs and PointerSearchSE. |
+| Search Code Segment | (none) | Toggles whether to search for code in the code segment. |
+| Search Main Only | (none) | Toggles whether to only search the main segment (if you already know that your target is there). |
+| Dmnt Fork | (none) | Toggles installation of the custom version of CheatVM. |
+| Export B8 Only | (none) | Toggles whether to only export as text the bookmarks that have B8 as the second offset (Unity often, but not always, has this). |
+| ASM Type | (none) | Cycle between ARM32, ARM64, and THUMB assembly types. |
+| Use Titlename2 | (none) | Toggles whether to use the second title name for games that have one. |
+| Enable Two Register | (none) | Toggles whether to capture the data of one register or the register indirect address of code that makes use of two registers. |
+| Replace Space | (none) | Toggles whether to replace space with '_' when the game name contains a space. |
+| Log Button Press | (none) | Toggles whether to log your button presses to a file. |
+| Visible Only | (none) | Toggles whether shortcuts can activate buttons that are not visible. |
+| Reset Options | (none) | Reset all options to default. |
+| Backup Focus Mode and Custom Shortcuts | (none) | Backup focus mode and custom shortcuts to a file. Your current custom keys and focus menu will become the new defaults when you use the reset options button. |
+| Use Module Name | (none) | Toggles whether to use the module name for cheats. |
+| Module Loaded Cheats Only | (none) | Toggles whether to only display cheats for currently loaded modules. |
+| ShortcutProgrameKey | (none) | Define the key combo that lets you program a custom shortcut. |
+| ShortcutEraseKey | (none) | Remove a shortcut if you are using Custom Shortcuts. |
+| alpha_toggleKey | (none) | Adjust the alpha transparency of the UI. |
+| FocusMode_EraseKey | (none) | Remove a button from the focus list while in Focus Mode. |
+| Focus Manager key | (none) | Toggle between focus and normal mode (opens the Focus Manager). |
+| radial_modeKey | (none) | Enter radial mode for the left stick. |
+| Theme | (none) | Select the light or dark theme. |
+| Use Alt Color | (none) | Toggles whether to use an alternate color for the font. |
