@@ -48,6 +48,30 @@ Breeze uses a dual-panel interface for efficient navigation:
 -   **Touch Support**:
     -   Scroll through data by dragging your finger.
     -   Tap to select data or activate buttons.
+-   **Radial Selection**:
+    -   Hold **ZL** and use the **Left Stick** to quickly point to and select a button in the right panel.
+    -   Buttons are mapped to stick directions for rapid access.
+
+## Focus Mode & Customization
+
+Focus Mode is a powerful feature designed to simplify your experience by showing only the buttons you need. This reduces clutter and speeds up navigation.
+
+### Switching Modes
+-   Use the **Focus Manager Key** (configurable in Settings) to call up the Focus Manager menu and use **Normal/Focus toggle** to switch between Focus and Normal mode.
+
+### Customizing Your Layout
+Breeze allows you to create a personalized button layout for *every* menu.
+
+1.  **Enter Focus Edit Mode**: Use the **Focus Manager Key** to open the Focus Manager menu and set Lock focus = 0 and Set Focus edit = 1
+2.  **Add Buttons**: While in Focus Edit mode, browse any menu in **Normal Mode**. Simply pressing a button will add it to your **Focus Mode** list for that specific menu.
+3.  **Rearrange / Remove**:
+    -   Use the **Focus Mode Erase Key** to remove buttons from your focus list.
+    -   Removed buttons are pushed to a temporary stack; press `ZR + +` to re-insert the last removed button at your current position.
+4.  **Manage Profiles**: Open the **Focus Manager Menu** to:
+    -   **Save/Load** different focus profiles for different use cases.
+    -   **Lock Focus**: Prevent accidental changes to your layout when using Normal mode.
+
+For a full list of buttons and their functions in the Focus Manager, see the **[UI Reference (menu.md)](docs/menu.md#focus-manager-menu)**.
 
 ---
 
@@ -64,7 +88,9 @@ Breeze offers a comprehensive set of tools for cheat management, memory hacking,
 -   **Cheat Code Editor**:
     -   Edit cheats directly in the app.
     -   Show cheat opcode in disassembled mode.
-    -   Interactive opcode assembly.
+    -   Interactive opcode assembly with **Assemble GUI**.
+    -   Highlight any line with an error in the Assemble GUI for quick fixing.
+    -   Tandem scrolling in the Assemble GUI to keep code and data in sync.
     -   Show ASM cheats in ARM assembly instruction.
     -   Directly edit ARM assembly instruction.
     -   Shortcuts to facilitate cheat code composition.
@@ -237,9 +263,10 @@ Breeze uses a file-based search system. Each search or diff creates a new file (
 Breeze now includes a powerful, streamlined workflow for creating and editing assembly-based cheats, making advanced cheat development more accessible than ever.
 
 ### Creating ASM cheat from identified game code
-1. Add from **ASM Explorer** using `Add to Cheat` button
-2. Compose cheats with various template to ease the cheat making process.
+1. Add from **ASM Explorer** using `Add to Cheat` button.
+2. Compose cheats with various templates to ease the cheat making process.
 3. **Easy Template**: For simple `ld` (load) or `st` (store) based cheats, the **"Easy Template"** option will automatically generate a complete hack for you. It supports all variants of these instructions.
+4. **Dynamic Modules Support**: When game code resides in a dynamic module, Breeze automatically generates **master code** using the `R1` register. The `R1` register stores the offset (Main + R1 = module Main), allowing cheats to remain stable across game reloads.
 
 ### Extracting and Editing ASM
 

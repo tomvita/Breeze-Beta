@@ -19,7 +19,7 @@ This project started as a rewrite of the features implemented in EdiZon SE. Over
 -   **Advanced Debugging**: Set memory breakpoints and watch instructions.
 -   **ASM Composer**: Build ASM cheats efficiently. One-click templates for common hacks.
 -   **Auto-Update**: Keep the app and database up to date automatically.
--   **Consistent UI**: A user-friendly interface designed for seamless navigation.
+-   **Consistent UI**: A user-friendly interface designed for seamless navigation. Includes **Radial Selection** (hold ZL and use stick) for quick action activation.
 
 ---
 
@@ -34,6 +34,9 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[UI Reference (menu.md)](docs/menu.md)**: A complete reference for every button and menu in the UI.
 -   **[Technical Cheat Details (cheats.md)](docs/cheats.md)**: Advanced documentation on the cheat code format and CheatVM instructions.
 -   **[Dynamic Modules](docs/dynamic_module.md)**: An explanation of how dynamic modules work.
+-   **[Pointer Search Method](docs/pointer search.md)**: Detailed explanation of the pointer search algorithm.
+-   **[x30 Match Example](docs/x30 match example.md)**: A practical example of using x30 match.
+-   **[Changelog](CHANGELOG.md)**: A history of recent changes and milestones.
 -   **[Community Wiki](https://github.com/tomvita/Breeze-Beta/wiki)**: For other tutorials and community-contributed guides.
 
 ---
