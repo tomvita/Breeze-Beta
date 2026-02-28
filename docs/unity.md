@@ -1,6 +1,7 @@
 # Unity / IL2CPP Support in Breeze
 
 This document describes what Breeze currently supports for Unity IL2CPP targets and how each feature operates.
+Last reviewed against code: 2026-02-27 (`HEAD` `483d1f6`), compared to previous `unity.md` commit on 2026-02-24 (`b3110b1`).
 
 ## Unity Game Support overview
 Unity games are now first-class targets in Breeze. With IL2CPP-aware `dump.cs` indexing, live Field View inspection, pointer-chain-aware restore, and one-click cheat generation, Breeze delivers a faster path from structure discovery to working in-game results. You can move from class lookup to verified live values, persist your setup across sessions, and jump between Field View, Memory Explorer, and `dump.cs` without losing context.
@@ -73,3 +74,25 @@ Unity games are now first-class targets in Breeze. With IL2CPP-aware `dump.cs` i
 ## Notes
 - `Pin pointer offset` was removed.
 - Pointer chain is treated as supplemental restore data, not a blind override of live source.
+
+## Changes Since 2026-02-24 (`b3110b1`)
+- Field pinning and pointer-chain reliability:
+  - Fixed a pin-address regression where pinning only worked once.
+  - Fixed non-static-field pointer-chain handling.
+  - Improved pointer-link restoration and save/load behavior for Field View records.
+- Static and collection handling:
+  - Added static-field support in Field View parsing/selection.
+  - Updated collection handling so collection expansion works with pointer-chain context.
+  - Improved static-field identification.
+- Navigation and jump-back:
+  - Added jump-back flow between related views.
+  - Added/expanded Class Link integration into jump-back results.
+  - Reworked Memory Explorer handoff path to avoid a reverted candidate-side path and use the alternative flow.
+- UX and performance:
+  - Reduced cost for heavy ASM Explorer menu case paths (case `1000`).
+  - Fixed Field View/class-field scrolling behavior in multiple places.
+  - Ensured function up/down navigation refreshes left-panel status consistently.
+  - Limited row-jump restore to true "go back" scenarios.
+- Config compatibility:
+  - Fixed `SEconfig` write path and file-open mode issues.
+  - Added directory creation/fallback handling for `/switch/EdiZon` and `/switch/edizon`.
