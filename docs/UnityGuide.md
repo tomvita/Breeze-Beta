@@ -55,6 +55,8 @@ Get from here: <https://github.com/tomvita/Il2CppDumper/releases/latest>
 
 - Main Menu: `Load field view`
 - Purpose: open saved Field View entries and resume previous class-analysis sessions.
+- Main Menu: `Launch dumptool`
+- Purpose: launch `nxdumptool` to extract `main` and `global-metadata.dat` into `sdmc:/switch/breeze/cheats/<TITLE_ID>/`.
 - Memory Explorer: `Load field view` (`StickLUp + ZR`)
 - Purpose: use current cursor context as source input for Field View pinning workflow.
 - Memory Explorer: `SetBreakPoint` (`Up + ZL`)
