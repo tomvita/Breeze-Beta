@@ -18,6 +18,8 @@ This project started as a rewrite of the features implemented in EdiZon SE. Over
 -   **Memory Tools**: Search, edit, freeze, and bookmark memory with static offsets or pointer chains.
 -   **Advanced Debugging**: Set memory breakpoints and watch instructions.
 -   **ASM Composer**: Build ASM cheats efficiently. One-click templates for common hacks.
+-   **Unity (IL2CPP) Analysis Workflow**: Explore `dump.cs`, inspect live class fields, follow class links, and generate cheats from valid linked targets.
+-   **Class Field View & Persistence**: Pin live instance offsets, navigate class relationships, and save/load field-view sessions.
 -   **Auto-Update**: Keep the app and database up to date automatically.
 -   **Consistent UI**: A user-friendly interface designed for seamless navigation. Includes **Radial Selection** (hold ZL and use stick) for quick action activation.
 
@@ -29,6 +31,7 @@ For detailed information, please refer to our comprehensive documentation:
 
 -   **[Quick Start Guide](quick_start.md)**: For new users who want to get started with basic cheat usage right away.
 -   **[User Manual (Breeze.md)](Breeze.md)**: The main guide for installation, usage, and all features.
+-   **[Unity Guide](docs/UnityGuide.md)**: Unity-specific workflow for ASM Explorer, `dump.cs` navigation, Field View, and class-link based cheat building.
 -   **[Basic Cheat Making Tutorial](basic_cheat_making_tutorial.md)**: A step-by-step guide to creating your first cheat.
 -   **[Advance Cheat Making Tutorial](docs/advance_cheat_making_tutorial.md)**: A step-by-step guide to creating advanced ASM cheat.
 -   **[UI Reference (menu.md)](docs/menu.md)**: A complete reference for every button and menu in the UI.
