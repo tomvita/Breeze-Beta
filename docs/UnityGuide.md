@@ -202,7 +202,14 @@ Goal: find a live player-health instance, verify it, then keep it for reuse.
 6. Confirm behavior while in-game value changes; if stable, press `Save field view` (`StickR + ZR`).
 7. Optional: press `Make cheat` (`+ + ZR`) when the linked result is valid for cheat generation.
 
-Result: this button sequence converts a visible gameplay value into a reusable class-instance view.
+Result: this button sequence converts a visible gameplay value into a class-instance view.
+
+Alternative faster path (new button):
+
+1. In Memory Explorer, locate a candidate health address that changes in-game.
+2. Press `SetBreakPoint` (`Up + ZL`) to capture code touching that address.
+3. In `Gen2 Menu`, press `Class field` (`Y + ZR`) on captured data row to jump directly to Field View live instance pinned to that selected address.
+4. Confirm value behavior in-game and save with `Save field view` (`StickR + ZR`).
 
 ## Make cheat notes (pointer-chain driven)
 
