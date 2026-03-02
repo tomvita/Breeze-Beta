@@ -11,7 +11,7 @@ See also: [class_primer.md](./class_primer.md) for class/instance fundamentals a
   - `Class Link` to find parent/up links.
 - Enhanced class-link resolution so discovering one instance can lead to many related instances for exploration.
 - Save/load for class views, including instance links when the address is still valid.
-- Cheat generation support when linked addresses resolve from valid `main`-region targets.
+- Cheat generation support when linked addresses start from `main`-region.
 
 ## Focus and shortcut notes
 
