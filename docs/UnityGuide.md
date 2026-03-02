@@ -163,6 +163,19 @@ Offset tip from ASM:
 - `Pin gen2 offset` (`ZR`) uses that instruction-derived offset to attach Field View quickly, without requiring manual offset lookup/re-entry each time.
 - This is especially helpful when inspecting many instances in the same structure because one offset pattern can be reused across that whole group.
 
+### Gen2 `Class field` button
+
+- In `Gen2 Menu`, `Class field` (`Y + ZR`) is a direct bridge from selected Gen2 entry to class Field View.
+- This flow expects register-watch style entry data (base-like rows), not instruction-watch (`read/write`) rows.
+- Breeze uses the selected Gen2 base and tries to resolve class name with:
+- `class_info = [base]`
+- `class_name = [[base] + 0x10]` (c-string)
+- If `dump.cs` index has that class, Breeze opens its Field View and pins using current `gen2 offset`.
+- Pin relation used is:
+- `pin_source = base + gen2_offset`
+- `instance_base = pin_source - gen2_offset` (same selected base)
+- On success, Field View cursor is moved to the row matching `gen2 offset` when that offset exists in the class layout.
+
 ## Practical examples
 
 ### Example A: `View class` usage
