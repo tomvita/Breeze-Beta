@@ -1,6 +1,6 @@
 Unity metadata support and class-exploration workflow.
 
-See also: [class_primer.md](./class_primer.md) for class/instance fundamentals and practical discovery mindset.
+See also: [class_primer.md](class_primer.md) for class/instance fundamentals and practical discovery mindset.
 
 ## Feature guide
 
@@ -11,7 +11,7 @@ See also: [class_primer.md](./class_primer.md) for class/instance fundamentals a
   - `Class Link` to find parent/up links.
 - Enhanced class-link resolution so discovering one instance can lead to many related instances for exploration.
 - Save/load for class views, including instance links when the address is still valid.
-- Cheat generation support when linked addresses start from `main`-region.
+- Cheat generation support when linked addresses resolve from valid `main`-region targets.
 
 ## Focus and shortcut notes
 
@@ -206,6 +206,7 @@ Result: this button sequence converts a visible gameplay value into a reusable c
 
 2. ASM-hook-driven base:
 - Capture/set the starting chain address from a reliable ASM hook context, then store that start in `main` area.
+Reference guide: [base pointer illustration.md](./base%20pointer%20illustration.md)
 
 ### Important dependency for ASM-hook base
 
