@@ -9,6 +9,8 @@ See also: [class_primer.md](class_primer.md) for class/instance fundamentals and
 - Class navigation tools:
   - `View class` to follow field types.
   - `Class Link` to find parent/up links.
+- Memory Explorer bridge:
+  - `Class view` (`Y + ZR + ZL`, label may appear as `Class field` in some builds) to jump directly from cursor address into class Field View resolution flow.
 - Enhanced class-link resolution so discovering one instance can lead to many related instances for exploration.
 - Save/load for class views, including instance links when the address is still valid.
 - Cheat generation support when linked addresses resolve from valid `main`-region targets.
@@ -30,6 +32,20 @@ See also: [class_primer.md](class_primer.md) for class/instance fundamentals and
 You need to generate required files with helper for new Unity-specific features to work.
 
 Get from here: <https://github.com/tomvita/Il2CppDumper/releases/latest>
+
+### No-PC (Switch-only) workflow
+
+- You can prepare IL2CPP files directly on Switch from Main Menu (`IL2CPP` / `Launch dumptool`) without using a PC.
+- Processing on Switch is much slower. Expect around 5 minutes (sometimes more) depending on game size.
+- Some games need more memory for this step. If it fails or stops early, run Breeze in title takeover mode (high-memory applet replacement) and retry.
+
+### Compatibility notes (`main` vs `main.elf`)
+
+- Some very old Unity/IL2CPP titles may fail with the Switch-side workflow.
+- For those cases, use the PC Il2CppDumper workflow instead.
+- On PC:
+- Use `main` for better compatibility with older games.
+- Use `main.elf` for better compatibility with newer games.
 
 ## Views guide
 
@@ -110,10 +126,14 @@ What to try:
 
 - Main Menu: `Load field view`
 - Purpose: open saved Field View entries and resume previous class-analysis sessions.
+- Main Menu: `IL2CPP` / `Launch dumptool`
+- Purpose: run on-device IL2CPP prep and extraction flow (creates files under `sdmc:/switch/breeze/cheats/<TITLE_ID>/`).
 - Main Menu: `Launch dumptool`
 - Purpose: launch `nxdumptool` to extract `main` and `global-metadata.dat` into `sdmc:/switch/breeze/cheats/<TITLE_ID>/`.
 - Memory Explorer: `Load field view` (`StickLUp + ZR`)
 - Purpose: use current cursor context as source input for Field View pinning workflow.
+- Memory Explorer: `Class view` / `Class field` (`Y + ZR + ZL`)
+- Purpose: resolve class from cursor base (with aligned fallback scan down to `-0x2000`) and open pinned Field View directly.
 - Memory Explorer: `SetBreakPoint` (`Up + ZL`)
 - Purpose: set watch/breakpoint on validated address to capture code that accesses it.
 
@@ -167,9 +187,10 @@ Offset tip from ASM:
 
 - In `Gen2 Menu`, `Class field` (`Y + ZR`) is a direct bridge from selected Gen2 entry to class Field View.
 - This flow expects register-watch style entry data (base-like rows), not instruction-watch (`read/write`) rows.
-- Breeze uses the selected Gen2 base and tries to resolve class name with:
-- `class_info = [base]`
-- `class_name = [[base] + 0x10]` (c-string)
+- Breeze uses the selected Gen2 base and resolves class name with aligned fallback scanning:
+- start at aligned `base`, then scan smaller addresses down to `base - 0x2000`
+- check `class_info = [candidate_base]`
+- check `class_name = [[candidate_base] + 0x10]` (c-string)
 - If `dump.cs` index has that class, Breeze opens its Field View and pins using current `gen2 offset`.
 - Pin relation used is:
 - `pin_source = base + gen2_offset`
