@@ -27,6 +27,31 @@ From the Unreal menu, Breeze currently exposes:
 - `Function Explorer`: reads `ue_function_map.txt` and browses function rows.
 - `UWorld Explorer`: browses resolved runtime chain state.
 
+## UE Class Field View (Memory Explorer / Gen2)
+
+`Class field` opens runtime UE field-chain view from an address context.
+
+Entry points:
+- `Memory Explorer -> Class field` (shortcut shown in UI as `Y + ZR + ZL`).
+- `Gen2 Menu -> Class field` (`Y + ZR`) from a selected captured row.
+
+What it does:
+1. Takes the selected address context.
+2. Tries to recover a nearby UObject base.
+3. Opens `UE field chain` and shows rows as:
+   - `offset type name (address) = value`
+4. If `gen2 offset` is present, Breeze tries to focus the matching row automatically.
+
+### Important UE offset caveat
+
+UE fields can have very large offsets from object base (for example `0x3000+`).
+If you enter from Memory Explorer at a location that is too far from the true UObject header, automatic base recovery may fail because the probe window is limited.
+
+Practical guidance:
+- Prefer `Gen2 -> Class field` when possible (it carries stronger context from the captured access path).
+- If using Memory Explorer, move to a pointer/object address closer to the actual UObject base before pressing `Class field`.
+- If the open fails or lands on wrong data, re-open from a better anchor (controller/pawn/object pointer row), then retry.
+
 ## Function map export pipeline
 
 The exporter (`run_ue_export_function_map`) does roughly this:
