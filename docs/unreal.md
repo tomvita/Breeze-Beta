@@ -20,7 +20,7 @@ Primary output:
 ## Main Unreal menu actions
 
 From the Unreal menu, Breeze currently exposes:
-- `Scan UE Profile`: scans and writes UE profile offsets/config.
+- `Scan UE Profile`: scans and writes UE profile offsets/config. If the current profile is still valid, the first press skips scanning (fast path). Press again immediately to force a full rescan.
 - `UE Root Chain (profile)`: resolves chain from profile and enables Explorer.
 - `Export UE Func Map`: fast function map export.
 - `Export UE Func Map (Extended)`: slower fallback scan path for more coverage.
@@ -86,6 +86,14 @@ Breeze relies on UE runtime semantics directly:
 - Pawn / movement-related objects
 
 When resolution succeeds, `UWorld Explorer` can inspect these objects and related fields.
+
+### Chain Node Picker (L button)
+
+If the auto-detected chain offsets are wrong (e.g., GameInstance resolved to the wrong object), press **L** on a chain summary row in UWorld Explorer to open a context-sensitive picker. The picker:
+- Lists all candidate objects at known offsets for that chain level
+- Scores each by how many downstream chain levels resolve from it
+- Shows class name (via UClass or object FName fallback) and current marker
+- On selection, re-probes all downstream offsets and updates `ue_profile.ini`
 
 ## Pawn resolution details
 
