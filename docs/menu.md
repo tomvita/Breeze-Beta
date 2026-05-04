@@ -294,8 +294,8 @@ Configure advanced memory searches with more data types and conditions.
 | Hex | - | Change to hexadecimal format. |
 | Dec | Right Stick Up | Change to decimal format. |
 | != | Right Stick Right | Search for values not equal to a specified value. |
-| [A,B] | (none) | Search for values that match A, followed by B in sequence. |
-| [A,,B] | (none) | Search for A and B within a specified distance to each other. |
+| [A,B] | (none) | Search for value A immediately followed by value B (B in the very next element after A). |
+| [A,,B] | (none) | Search for A with B located within the configured distance on either side of A (B can be before or after A). |
 | ++Val | (none) | Search for values incremented by a specified amount from previous values. |
 | --Val | (none) | Search for values decremented by a specified amount from previous values. |
 | STRING | (none) | Search for string values. |
@@ -304,7 +304,7 @@ Configure advanced memory searches with more data types and conditions.
 | B++ | (none) | Search for values that have increased compared to the previously stored values in the file marked as B. |
 | B-- | (none) | Search for values that have decreased compared to the previously stored values in the file marked as B. |
 | NotAB | (none) | Search for values that are different from both this file and file marked as B. |
-| [A.B.C] | (none) | Search for values that match A, followed by B, and then C in sequence. |
+| [A.B.C] | (none) | Search for A with both B and C located within the configured distance of A. B and C can each be on either side of A (not required to be in sequence), and must be at distinct positions. Uses the same distance setting as [A,,B]. |
 | A bflip B | (none) | Search for bit-flipping identical to bit-flipping between A and B. |
 | Back | B | Go back to the previous menu. |
 
@@ -364,7 +364,7 @@ The specific search mode you select will determine how these values are used. Fo
 | Edit String | Right Stick Left + ZR | Setup a string search. |
 | Make64Bpair/Toggle Hex mode | Right Stick Right + ZR | When the string is taking up 128bit space with trailing zero/Toggle between hex and decimal display modes. |
 | Main only | X + ZR | Save time, if you know it is in main then only search main. |
-| A,,B distance | (none) | Set the distance between A and B when making search for A and B near each other. |
+| A,,B distance | (none) | Set the maximum distance (in elements) between A and the other value(s) for proximity searches [A,,B] and [A.B.C]. The window extends this many elements on both sides of A. |
 | Help_toggle | (none) | Toggle whether help text is displayed. |
 | AutoContinue | (none) | Automatic naming based on the filename of the previous file. |
 | AutoStart | (none) | Choose the smallest available number when you start a new search. |
