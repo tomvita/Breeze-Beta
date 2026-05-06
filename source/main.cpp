@@ -23,6 +23,8 @@
 #include "dmntcht.h"
 extern "C" {
 
+    u32 __nx_applet_type = AppletType_LibraryApplet;
+
     void userAppInit(void) {
         Result rc = 0;
 

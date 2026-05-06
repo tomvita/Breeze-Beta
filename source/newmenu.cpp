@@ -11,6 +11,9 @@ enum class actions_id_t {
     ButtonDemo,
     Jump,
     ToggleWifi,
+    PlayerSelect,
+    ControllerMenu,
+    AlbumApplet,
     TestGameInfo,
 };
 
@@ -31,6 +34,9 @@ namespace air {
         // u32 actions_id;
         menu.actions = {
             {"Toggle wifi", ID ToggleWifi, HidNpadButton_R},
+            {"Player select", ID PlayerSelect, HidNpadButton_StickL},
+            {"Controller menu", ID ControllerMenu, HidNpadButton_StickR},
+            {"Album", ID AlbumApplet, HidNpadButton_L},
             {"Select", ID Select, HidNpadButton_X},
             {"loop this menu", ID LoopMenu, HidNpadButton_Y},
             {"Write info to file", ID WriteInfo, HidNpadButton_Plus},
@@ -103,6 +109,54 @@ namespace air {
                 } else {
                     nifmSetWirelessCommunicationEnabled(!is_enabled);
                 };
+                return;
+            };
+            case ID PlayerSelect: {
+                FILE *lf = fopen(LOG_FILE, "a");
+                if (lf) { fprintf(lf, "[psel] before call\n"); fflush(lf); }
+                this->menu->m_data_entries.push_back(logtext("[psel] before call"));
+                appletSetFocusHandlingMode(AppletFocusHandlingMode_SuspendHomeSleepNotify);
+                PselUserSelectionSettings settings = {};
+                AccountUid out_uid = {};
+                Result rc = pselShowUserSelector(&out_uid, &settings);
+                appletSetFocusHandlingMode(AppletFocusHandlingMode_NoSuspend);
+                if (lf) { fprintf(lf, "[psel] rc=0x%x uid=%016lX%016lX\n", rc, out_uid.uid[1], out_uid.uid[0]); fclose(lf); }
+                this->menu->m_data_entries.push_back(logtext("[psel] rc=0x%x", rc));
+                this->menu->m_data_entries.push_back(logtext("[psel] uid=%016lX%016lX", out_uid.uid[1], out_uid.uid[0]));
+                return;
+            };
+            case ID ControllerMenu: {
+                FILE *lf = fopen(LOG_FILE, "a");
+                if (lf) { fprintf(lf, "[hidla] before call\n"); fflush(lf); }
+                this->menu->m_data_entries.push_back(logtext("[hidla] before call"));
+                HidLaControllerSupportArg arg;
+                hidLaCreateControllerSupportArg(&arg);
+                // Defaults from hidLaCreateControllerSupportArg:
+                //   player_count_min=0, player_count_max=4,
+                //   enable_take_over_connection=1, enable_left_justify=1,
+                //   enable_permit_joy_dual=1
+                // Override only what we need:
+                arg.hdr.player_count_min = 0;
+                arg.hdr.player_count_max = 4;
+                arg.hdr.enable_single_mode = 0;          // no sideways-single-joycon
+                HidLaControllerSupportResultInfo result_info = {};
+                appletSetFocusHandlingMode(AppletFocusHandlingMode_SuspendHomeSleepNotify);
+                Result rc = hidLaShowControllerSupportForSystem(&result_info, &arg, true);
+                // Result rc = hidLaShowControllerSupport(&result_info, &arg);
+                appletSetFocusHandlingMode(AppletFocusHandlingMode_NoSuspend);
+                if (lf) { fprintf(lf, "[hidla] rc=0x%x players=%d\n", rc, result_info.player_count); fclose(lf); }
+                this->menu->m_data_entries.push_back(logtext("[hidla] rc=0x%x players=%d", rc, result_info.player_count));
+                return;
+            };
+            case ID AlbumApplet: {
+                FILE *lf = fopen(LOG_FILE, "a");
+                if (lf) { fprintf(lf, "[album] before call\n"); fflush(lf); }
+                this->menu->m_data_entries.push_back(logtext("[album] before call"));
+                appletSetFocusHandlingMode(AppletFocusHandlingMode_SuspendHomeSleepNotify);
+                Result rc = albumLaShowAllAlbumFiles();
+                appletSetFocusHandlingMode(AppletFocusHandlingMode_NoSuspend);
+                if (lf) { fprintf(lf, "[album] rc=0x%x\n", rc); fclose(lf); }
+                this->menu->m_data_entries.push_back(logtext("[album] rc=0x%x", rc));
                 return;
             };
             case ID LoopMenu: {
