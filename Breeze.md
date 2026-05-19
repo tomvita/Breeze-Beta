@@ -156,7 +156,7 @@ Breeze supports multiple methods to load cheats:
 ### CheatVM Operation
 
 The CheatVM runs at a fixed frequency, performing these steps:
-1.  Clears the 15 cheat registers.
+1.  Clears the 16 cheat registers.
 2.  Assembles the opcodes to be executed, starting with the master code, followed by any enabled cheat sections.
 3.  Executes the assembled opcodes.
 
