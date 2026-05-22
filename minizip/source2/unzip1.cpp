@@ -67,13 +67,15 @@ int _extractFile(const char * path, unzFile unz, unz_file_info_s * fileInfo) {
         return -2;
     
     char folderPath[strlen(path) + 1];
-    strcpy(folderPath, path);
+    strncpy(folderPath, path, strlen(path) + 1);
     char * pos = strrchr(folderPath, '/');
     if (pos != NULL) {
         *pos = '\0';
         _makeDirectoryParents(std::string(folderPath));
     }
     
+    if (fileInfo->uncompressed_size > 256 * 1024 * 1024)
+        return -5;
     u32 blocksize = 0x8000;
     u8 * buffer = (u8*) malloc(blocksize);
     if (buffer == NULL)
