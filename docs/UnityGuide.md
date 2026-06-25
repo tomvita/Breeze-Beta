@@ -17,7 +17,7 @@ See also: [class_primer.md](class_primer.md) for class/instance fundamentals and
 
 ## Focus and shortcut notes
 
-- If you are using Focus mode and some new buttons are not visible, apply the newer `default.focus` included in later releases.
+- If you are using Focus mode and some new buttons are not visible, apply the newer `default.focus` included in later releases. See the [Focus Mode Guide](focus%20mode.md) for details.
 - You can open Focus Manager directly with `FocusManager_key` (default: `L + ZR`).
 - `default.focus` is applied when:
 - you activate the "Full Menu" button in Main Menu, or

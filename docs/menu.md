@@ -27,7 +27,7 @@ Whether you're a new user getting acquainted with the application or an experien
 - [Setting Menu](#setting-menu)
 
 ## Focus Mode / Normal Mode
-Focus Mode simplifies menu navigation by showing only your favorite or most frequently used buttons, reducing clutter for a faster and more focused experience. You can switch between Focus Mode and Normal Mode using a dedicated extra button or by assigning a Focus Manager key in the Settings Menu.
+Focus Mode simplifies menu navigation by showing only your favorite or most frequently used buttons, reducing clutter for a faster and more focused experience. You can switch between Focus Mode and Normal Mode using a dedicated extra button or by assigning a Focus Manager key in the Settings Menu. For a comprehensive walkthrough of configuring, using, and resetting focus configurations, see the **[Focus Mode Guide](focus%20mode.md)**.
 
 ## Global Navigation Buttons
 

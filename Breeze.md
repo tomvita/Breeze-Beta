@@ -71,6 +71,7 @@ Breeze allows you to create a personalized button layout for *every* menu.
     -   **Save/Load** different focus profiles for different use cases.
     -   **Lock Focus**: Prevent accidental changes to your layout when using Normal mode.
 
+For a detailed guide on configuring and using this feature, see the **[Focus Mode Guide (focus mode.md)](docs/focus%20mode.md)**.
 For a full list of buttons and their functions in the Focus Manager, see the **[UI Reference (menu.md)](docs/menu.md#focus-manager-menu)**.
 
 ---
