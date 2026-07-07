@@ -107,6 +107,7 @@ Breeze offers a comprehensive set of tools for cheat management, memory hacking,
     -   Monitor instructions for memory access patterns.
     -   Capture caller, register state, and memory target information.
     -   Support parallel use of external debuggers like IDA Pro for instruction tracing.
+    -   For a comprehensive guide on hardware watchpoint tracing and overlay integration, see the **[Break and Trace Guide (break and trace.md)](docs/break%20and%20trace.md)**.
 -   **Advanced ASM Workflow**:
     -   **Extract ASM**: Extract assembly code from existing cheats for analysis and modification.
     -   **ASM Composer**: A dedicated IDE for writing and editing assembly, with templates for common hacks.
