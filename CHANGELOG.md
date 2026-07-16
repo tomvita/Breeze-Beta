@@ -1,5 +1,23 @@
 # Changelog
 
+## [Beta 108.7c] - 2026-07-16
+
+### Changed
+
+- Renamed the simplified and complete action views to **Focused Actions** and **All Actions**.
+- Reworked the Focused Actions manager so all management controls are always visible. **Switch action view** is now the top-left and initially selected control.
+- Added four-column, full-screen customization with `A` toggle, `-` cut, `+` paste, and `B` finish controls.
+- Added optional Training mode for learning actions as they are used without clearing or switching the current view.
+- Made layout saving and focus clearing operate on only the menu currently being managed.
+- Split top status information from bottom contextual help and removed the obsolete Help toggle.
+
+### Fixed
+
+- Menus now fall back to the lower-right page button when their configured initial action is absent from Focused Actions.
+- Any normal action can be removed without causing menu initialization crashes.
+- Reset All Shortcuts now restores the Focused Actions manager defaults as well as Search Manager defaults.
+- The Focused Actions shortcut is ignored during customization, preventing a crash caused by re-entering the manager.
+
 ## [Beta 99s] - 2026-01-25
 ### Added
 - **Radial Selection**: Hold `ZL` and use the stick to quickly select buttons in the right panel.

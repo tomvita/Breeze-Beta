@@ -52,27 +52,28 @@ Breeze uses a dual-panel interface for efficient navigation:
     -   Hold **ZL** and use the **Left Stick** to quickly point to and select a button in the right panel.
     -   Buttons are mapped to stick directions for rapid access.
 
-## Focus Mode & Customization
+## Focused Actions & Customization
 
-Focus Mode is a powerful feature designed to simplify your experience by showing only the buttons you need. This reduces clutter and speeds up navigation.
+**Focused Actions** simplifies busy menus by showing only the actions you need. **All Actions** shows every available action.
 
-### Switching Modes
--   Use the **Focus Manager Key** (configurable in Settings) to call up the Focus Manager menu and use **Normal/Focus toggle** to switch between Focus and Normal mode.
+### Switching action views
 
-### Customizing Your Layout
-Breeze allows you to create a personalized button layout for *every* menu.
+-   Press the configurable **Focused Actions key** (`L + ZR` by default) to open layout management.
+-   **Switch action view** is the top-left and initially selected button. Use it to switch the previous menu between Focused and All Actions.
+-   The manager itself is never filtered, so all management controls remain available.
 
-1.  **Enter Focus Edit Mode**: Use the **Focus Manager Key** to open the Focus Manager menu and set Lock focus = 0 and Set Focus edit = 1
-2.  **Add Buttons**: While in Focus Edit mode, browse any menu in **Normal Mode**. Simply pressing a button will add it to your **Focus Mode** list for that specific menu.
-3.  **Rearrange / Remove**:
-    -   Use the **Focus Mode Erase Key** to remove buttons from your focus list.
-    -   Removed buttons are pushed to a temporary stack; press `ZR + +` to re-insert the last removed button at your current position.
-4.  **Manage Profiles**: Open the **Focus Manager Menu** to:
-    -   **Save/Load** different focus profiles for different use cases.
-    -   **Lock Focus**: Prevent accidental changes to your layout when using Normal mode.
+### Customizing your layout
 
-For a detailed guide on configuring and using this feature, see the **[Focus Mode Guide (focus mode.md)](docs/focus%20mode.md)**.
-For a full list of buttons and their functions in the Focus Manager, see the **[UI Reference (menu.md)](docs/menu.md#focus-manager-menu)**.
+1.  Open the manager from the menu you want to change and choose **Customize actions**.
+2.  The action panel expands to four columns and hides the left panel.
+3.  Press `A` to include or remove an action, `-` to cut it to a stack, and `+` to paste the last cut action at the cursor.
+4.  Press `B` to finish. The cursor stays at the same grid position while editing, and the manager shortcut is ignored until customization ends.
+
+Any action can be removed. If the usual initial action is absent, selection safely starts on the lower-right page button.
+
+Set **Training mode=1** to learn actions as you use them without clearing the existing layout or changing the current action view. **Save layout** updates only the menu being managed, and **Clear focus for this menu** leaves all other menus unchanged.
+
+For a detailed guide, see the **[Focused Actions Guide](docs/focus%20mode.md)**. For the full button reference, see the **[UI Reference](docs/menu.md#focused-actions-menu)**.
 
 ---
 

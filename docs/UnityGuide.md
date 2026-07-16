@@ -17,8 +17,8 @@ See also: [class_primer.md](class_primer.md) for class/instance fundamentals and
 
 ## Focus and shortcut notes
 
-- If you are using Focus mode and some new buttons are not visible, apply the newer `default.focus` included in later releases. See the [Focus Mode Guide](focus%20mode.md) for details.
-- You can open Focus Manager directly with `FocusManager_key` (default: `L + ZR`).
+- If a new button is not visible in Focused Actions, use **Switch action view** to open All Actions or customize that menu. See the [Focused Actions Guide](focus%20mode.md) for details.
+- Open Focused Actions management with `FocusedActions_key` (default: `L + ZR`).
 - `default.focus` is applied when:
 - you activate the "Full Menu" button in Main Menu, or
 - it is loaded directly in Focus Menu.

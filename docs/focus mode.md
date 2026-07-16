@@ -1,55 +1,51 @@
-# Focus Mode Guide
+# Focused Actions Guide
 
-Focus Mode is a powerful interface customization feature in Breeze designed to streamline your workspace and boost efficiency. 
+Focused Actions reduces visual clutter by showing a smaller, per-menu set of frequently used actions. **All Actions** shows every action available in the current menu.
 
-By hiding unnecessary or advanced buttons and displaying only the actions you use most, Focus Mode reduces visual clutter so you can focus entirely on the task at hand.
+## Opening the Focused Actions manager
 
----
+Press `L + ZR` by default. The shortcut can be changed with `FocusedActions_key` in Settings.
 
-## 🎯 Purpose of Focus Mode
+The manager always shows all of its controls; it does not have its own Focused/All state. **Switch action view** is its top-left and initially selected button. Contextual help appears at the top of this screen.
 
-As Breeze has evolved, many advanced menus have grown to include numerous buttons and options. Focus Mode lets you:
-- **Reduce Cognitive Load**: Limit the buttons shown to only those relevant to your current workflow.
-- **Speed Up Navigation**: Access your most frequent actions quickly without scanning through complex options.
-- **Personalize Every Screen**: Customize the button layout for *each individual menu* in the application.
+Choose **Switch action view** to change the menu you came from between Focused Actions and All Actions.
 
----
+## Customizing a menu
 
-## 🛠️ The Focus Manager
+1. Open the Focused Actions manager from the menu you want to change.
+2. Choose **Customize actions**.
+3. The action panel expands to four columns and the left panel is hidden.
+4. Use the following controls:
+   - `A`: include or remove the action at the cursor.
+   - `-`: cut an included action and push it onto the temporary stack.
+   - `+`: pop the last cut action and insert it at the cursor, pushing later actions down.
+   - `B`: finish customization and return to Focused Actions.
 
-The **Focus Manager** is your control center for managing, customizing, saving, and loading focus profiles.
+The cursor stays at the same grid position after `A`, cut, and paste. The Focused Actions shortcut is ignored during customization, preventing accidental re-entry into the manager.
 
-### How to Access the Focus Manager and toggle between Focus Mode and Normal Mode
-1. **Shortcut Key**: By default, press **`L + ZR`** (the **Focus Manager key**) from any menu to open the Focus Manager Menu directly.
-   > [!TIP]
-   > You can customize this shortcut under the **Settings Menu** by remapping the **Focus Manager key**.
-2. **Mode Toggle**: You can use the **`Normal/Focus toggle`** button which has the same default keys that calls up Focus Manager to switch between focus mode and normal mode. Normal mode let you see all the buttons available.
+Any normal action can be removed, including a menu's usual default or Back action. If the configured initial action is not present, selection safely starts on the lower-right page button.
 
----
+## Training mode
 
-## ✍️ Customizing Your Buttons: The Magic of `Lock focus = 0`
+Set **Training mode=1** to add actions to Focused Actions as you use them. Enabling training does not clear the existing focused set and does not change the current Focused/All view. Set it to `0` to stop learning new actions.
 
-Breeze makes defining your focus layout incredibly simple. Instead of selecting buttons from a tedious list, you can add them dynamically by simply using them.
+## Layout files
 
-> [!IMPORTANT]
-> When **`Lock focus = 0`** (unlocked), using or pressing any button in **Normal Mode** will automatically add that button to your focus list for that specific menu.
+- **Save layout** updates only the menu you are currently managing. Other menu layouts in the same file are preserved.
+- **New layout** saves the current configuration as a new named layout.
+- **Load layout** loads a saved layout and restarts Breeze to apply it.
+- **Clear focus for this menu** clears only the menu you are currently managing and leaves every other menu unchanged.
 
-### Step-by-Step Guide to Customizing Your Layout:
-1. Open the Focus Manager by pressing **`L + ZR`**.
-2. Set **`Lock focus = 0`** (unlocked) and **`Focus edit = 1`** (edit mode enabled).
-3. Return to the menu you want to customize and switch to **Normal Mode** (so you can see all available buttons).
-4. **Press/Activate the buttons** you wish to include in your Focus Mode list. Because `Lock focus` is set to `0`, simply using these buttons adds them to the list!
-5. To remove any button, highlight it and press the **`FocusMode_EraseKey`** (configurable in Settings), or toggle **`Focus edit`** to delete unwanted items.
-6. Once satisfied, return to the Focus Manager and set **`Lock focus = 1`** to lock your layout and prevent accidental modifications.
-7. Save your layout using **`Save focus`** (to update your current profile) or **`New focus`** (to save as a new file).
+## Shortcuts
 
----
+- **Reset all shortcuts** restores factory shortcuts, including both the Focused Actions manager and Search Manager controls that share the same internal menu ID.
+- **Clear all shortcuts** removes custom action shortcuts.
+- The lower-right page button footer shows the configured Focused Actions shortcut.
 
-## 🔄 Resetting to Defaults (Tutorial Troubleshooting)
+## Status and help text
 
-If you are following a tutorial (such as the *Basic* or *Advanced Cheat Making Tutorials*) and cannot find a button mentioned in the instructions, you may have hidden it in Focus Mode or configured custom layouts.
+For normal action menus, status or search information remains below the panel title while contextual help appears separately below the action buttons. Help is always enabled, so there is no Help toggle. Customization hints and lower-right page-button hints take priority in the footer when applicable.
 
-> [!WARNING]
-> To ensure all buttons are visible and match the tutorial screenshots/steps, reset your layout to the factory default.
->
-> To do this, open the **Focus Manager Menu** and select **`Clear focus`**. This will clear all custom button lists and return every menu to its default configuration.
+## Finding a missing action
+
+Open the manager and choose **Switch action view** to show All Actions, or choose **Clear focus for this menu** to rebuild only the current menu's focused set.

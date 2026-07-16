@@ -5,9 +5,9 @@ The menus are designed to be intuitive, but the extensive features mean there ar
 Whether you're a new user getting acquainted with the application or an experienced user looking for a specific function, this documentation will serve as your go-to reference for all controls.
 
 ## Table of Contents
-- [Focus Mode / Normal Mode](#focus-mode--normal-mode)
+- [Focused Actions / All Actions](#focused-actions--all-actions)
 - [Extra buttons](#extra-buttons)
-- [Focus Manager Menu](#focus-manager-menu)
+- [Focused Actions Menu](#focused-actions-menu)
 - [Main Menu](#main-menu)
 - [Simple Cheat Menu](#simple-cheat-menu)
 - [Advance Cheat Menu](#advance-cheat-menu)
@@ -26,41 +26,50 @@ Whether you're a new user getting acquainted with the application or an experien
 - [Gen2 Extra Menu](#gen2-extra-menu)
 - [Setting Menu](#setting-menu)
 
-## Focus Mode / Normal Mode
-Focus Mode simplifies menu navigation by showing only your favorite or most frequently used buttons, reducing clutter for a faster and more focused experience. You can switch between Focus Mode and Normal Mode using a dedicated extra button or by assigning a Focus Manager key in the Settings Menu. For a comprehensive walkthrough of configuring, using, and resetting focus configurations, see the **[Focus Mode Guide](focus%20mode.md)**.
+## Focused Actions / All Actions
+
+Focused Actions shows a smaller set of frequently used actions. All Actions shows every action available in the current menu. Open **Focused Actions** management with the configured key (default `L + ZR`) and choose **Switch action view** to change between them.
+
+Choose **Customize actions** to edit the focused set. Breeze opens the action panel full screen in four columns and hides the left panel while editing. Press `A` to include or remove any action, `-` to cut an included action to the stack, and `+` to pop the last cut action into the position at the cursor. Press `B` or choose **Finish customizing** to save the changes and return to Focused Actions. The Focused Actions menu shortcut is ignored while customization is active. If a menu's usual selected action is not included, selection starts on the lower-right page button instead.
+
+Status and other menu information remain below the panel title. Help for the selected action is always shown separately in the footer below the action buttons. The same footer shows customization key hints and the shortcut for the lower-right page button when applicable.
+
+**Training mode=1** provides the learn-by-use workflow. Turning it on leaves the existing focused set and action view unchanged, then adds actions to Focused Actions as you use them. Set it back to `0` to stop learning new actions.
+
+For a complete walkthrough, see the **[Focused Actions Guide](focus%20mode.md)**.
 
 ## Global Navigation Buttons
 
-The following buttons are available across various menus to assist with navigation and focus mode.
+The following buttons are available across various menus to assist with navigation and Focused Actions.
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
 
-| -> Normal mode / Normal[?] / -> Focus mode / Focus[?] | (none) | Switches between Focus mode (showing only your selected buttons) and Normal mode (showing all buttons). The label indicates the mode you will switch to, or, if there are more buttons than fit on one screen, displays as Normal[?] or Focus[?] (e.g., Normal[34]) to show how many buttons are available on the next page(s). In either mode, pressing this button will move to the next page of buttons if necessary. |
+| Focused X/Y → Z/Y / All X/Y → Z/Y | (none) | Shows the current action view and page. Press to advance to the indicated next page. When selected, the footer shows the configured Focused Actions menu shortcut. |
 | default shortcuts | (none) | Resets all custom shortcuts for the current menu back to their default values. |
-| Focus menu | (none) | Opens the Focus Manager Menu directly. |
-| Focus edit | L | Toggles Focus Edit mode. When enabled, you can rearrange buttons. Pressing any button in Normal mode will add it to the focus list. Use the `FocusMode_Erase` key to remove a button from the focus list. |
+| Manage layouts | (none) | Opens Focused Actions management directly. |
+| Customize actions / Finish customizing | L | Starts or finishes four-column, full-screen customization. Use `A` to toggle, `-` to cut, `+` to paste at the cursor, and `B` to finish. |
 
-## Focus Manager Menu
+## Focused Actions Menu
 
-The Focus Manager is your hub for customizing the UI. It allows you to save and load different button layouts (focus profiles). You can also enter "Focus Edit" mode here to rearrange buttons. 
+This menu manages the actions shown in Focused Actions and lets you save or load named layouts. The manager itself is never filtered, so every management button remains visible. **Switch action view** is the top-left button and is selected when the menu opens. Help appears at the top for better visibility.
 
 > [!NOTE]
-> Loading a focus profile will restart the application to apply the new button layout.
+> Loading a layout will restart the application to apply it.
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
-| Load focus | Y | Loads a previously saved focus setup. The application will restart to apply the changes. |
-| Focus edit=X | L | Toggles Focus Edit mode. |
-| Normal/Focus toggle | L + ZR | Opens this Focus Manager Menu from other menus (this is the **Focus Manager key**). |
-| Save focus | X | Saves the current set of focused buttons for all menus to an existing focus profile. |
-| Rename | (none) | Renames the selected focus file. |
-| New focus | + | Creates a new focus file with the current layout. |
-| Delete file | - | Deletes the selected focus file. |
-| Reset all shortcuts | Left Stick Click | Resets all shortcuts to their factory defaults. |
+| Switch action view | L + ZR | Switches the previous menu between Focused and All Actions. The configured key opens this menu from elsewhere. |
+| Load layout | Y | Loads a previously saved action layout. The application will restart to apply the changes. |
+| Customize actions / Finish customizing | L | Opens All Actions for editing, or finishes editing and returns to Focused Actions. |
+| Training mode=0/1 | (none) | `1` learns actions as you use them without clearing or changing the current focus state. `0` stops learning new actions. |
+| Save layout | X | Updates only the menu you were working on in the selected layout. Other menu layouts in the file remain unchanged. |
+| Rename layout | (none) | Renames the selected layout file. |
+| New layout | + | Creates a named layout from the current configuration. |
+| Delete layout | - | Deletes the selected layout file. |
+| Reset all shortcuts | Left Stick Click | Restores factory shortcuts, including the Focused Actions manager and Search Manager shortcuts that share the same internal menu. |
 | Clear all shortcuts | Right Stick Click | Removes all custom shortcuts. |
-| Clear focus | (none) | Removes all buttons from the focus list for all menus. |
-| Lock focus=X | (none) | Toggles whether the focus configuration is locked. When unlocked, using any button in Normal mode will automatically add that button to the focus list. |
+| Clear focus for this menu | (none) | Clears Focused Actions only for the menu you were working on and shows All Actions there. Other menus are unchanged. |
 | Back | B | Returns to the previous menu. |
 
 ## Main Menu
@@ -365,7 +374,6 @@ The specific search mode you select will determine how these values are used. Fo
 | Make64Bpair/Toggle Hex mode | Right Stick Right + ZR | When the string is taking up 128bit space with trailing zero/Toggle between hex and decimal display modes. |
 | Main only | X + ZR | Save time, if you know it is in main then only search main. |
 | A,,B distance | (none) | Set the maximum distance (in elements) between A and the other value(s) for proximity searches [A,,B] and [A.B.C]. The window extends this many elements on both sides of A. |
-| Help_toggle | (none) | Toggle whether help text is displayed. |
 | AutoContinue | (none) | Automatic naming based on the filename of the previous file. |
 | AutoStart | (none) | Choose the smallest available number when you start a new search. |
 | ConfirmDelete | (none) | Whether ask for comfiramtion before deleting file. |
@@ -685,14 +693,14 @@ The settings menu allows users to configure various aspects of Breeze's behavior
 | Log Button Press | (none) | Toggles whether to log your button presses to a file. |
 | Visible Only | (none) | Toggles whether shortcuts can activate buttons that are not visible. |
 | Reset Options | (none) | Reset all options to default. |
-| Backup Focus Mode and Custom Shortcuts | (none) | Backup focus mode and custom shortcuts to a file. Your current custom keys and focus menu will become the new defaults when you use the reset options button. |
+| Backup Focused Actions and Custom Shortcuts | (none) | Back up the current focused layouts and custom shortcuts. They become the defaults used by Reset Options. |
 | Use Module Name | (none) | Toggles whether to use the module name for cheats. |
 | Module Loaded Cheats Only | (none) | Toggles whether to only display cheats for currently loaded modules. |
 | ShortcutProgrameKey | (none) | Define the key combo that lets you program a custom shortcut. |
 | ShortcutEraseKey | (none) | Remove a shortcut if you are using Custom Shortcuts. |
 | alpha_toggleKey | (none) | Adjust the alpha transparency of the UI. |
-| FocusMode_EraseKey | (none) | Remove a button from the focus list while in Focus Mode. |
-| Focus Manager key | (none) | Toggle between focus and normal mode (opens the Focus Manager). |
+| RemoveFocused_key | (none) | Remove the selected action from Focused Actions. |
+| FocusedActions_key | (none) | Open Focused Actions layout management. |
 | radial_modeKey | (none) | Enter radial mode for the left stick. |
 | Theme | (none) | Select the light or dark theme. |
 | Use Alt Color | (none) | Toggles whether to use an alternate color for the font. |
