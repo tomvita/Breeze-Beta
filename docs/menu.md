@@ -6,6 +6,7 @@ Whether you're a new user getting acquainted with the application or an experien
 
 ## Table of Contents
 - [Focused Actions / All Actions](#focused-actions--all-actions)
+- [Context-Sensitive Help](#context-sensitive-help)
 - [Extra buttons](#extra-buttons)
 - [Focused Actions Menu](#focused-actions-menu)
 - [Main Menu](#main-menu)
@@ -25,6 +26,10 @@ Whether you're a new user getting acquainted with the application or an experien
 - [Gen2 Menu](#gen2-menu)
 - [Gen2 Extra Menu](#gen2-extra-menu)
 - [Setting Menu](#setting-menu)
+
+## Context-Sensitive Help
+
+Hold **ZR first**, then press **A** to open help for the current menu. Use the D-Pad and A for topics, Left/Right for pages, X for the selected action's help, and B to return or close. Help blocks the underlying menu and saves its state per menu. See the [Help System Guide](help%20system.md).
 
 ## Focused Actions / All Actions
 
@@ -82,7 +87,7 @@ The main entry point of the application, providing access to all major features.
 | Cheat Menu | R | Opens the Advance Cheat Menu. |
 | SearchManager | L | Opens the Search Manager Menu. |
 | Bookmarks | Right Stick Up | Opens the Bookmark Menu. |
-| Help | (none) | Opens the Help Screen. |
+| Help | (none) | Opens the Main Menu tutorial topic screen. |
 | Download | - | Opens the Download Menu. |
 | Exit | B | Exits the application. |
 | Settings | + | Opens the Settings Menu. |
@@ -703,4 +708,9 @@ The settings menu allows users to configure various aspects of Breeze's behavior
 | FocusedActions_key | (none) | Open Focused Actions layout management. |
 | radial_modeKey | (none) | Enter radial mode for the left stick. |
 | Theme | (none) | Select the light or dark theme. |
-| Use Alt Color | (none) | Toggles whether to use an alternate color for the font. |
+| Use Alt Color | (none) | Replaces normal white/light text with RGB values from `/switch/Breeze/alt_color.ini`; light theme retains black text. |
+| Prerelease updates | R | Allows update checks to offer prerelease Breeze builds. |
+
+### Sysmodule Manager
+
+**On** means a sysmodule is currently loaded and running; **Off** means no process was detected. Immediate modules can change state without restarting. Boot-time modules show a restart popup and retain their current On/Off display until reboot. See the [Sysmodule Manager Guide](sysmodules.md), including `sys-ftp-breeze` setup and security notes.

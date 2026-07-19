@@ -39,6 +39,8 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[Advance Cheat Making Tutorial](docs/advance_cheat_making_tutorial.md)**: A step-by-step guide to creating advanced ASM cheat.
 -   **[UI Reference (menu.md)](docs/menu.md)**: A complete reference for every button and menu in the UI.
 -   **[Focused Actions Guide](docs/focus%20mode.md)**: Configure Focused/All Actions views, training, layouts, customization, and shortcuts.
+-   **[Context-Sensitive Help Guide](docs/help%20system.md)**: Open and navigate the in-application tutorial and selected-button Action Help.
+-   **[Sysmodule Manager Guide](docs/sysmodules.md)**: Runtime status, restart-required modules, and `sys-ftp-breeze` configuration.
 -   **[Break and Trace Guide](docs/break%20and%20trace.md)**: A guide on the Break and Trace feature using Breeze and Breezehand-Overlay.
 -   **[Technical Cheat Details (cheats.md)](docs/cheats.md)**: Advanced documentation on the cheat code format and CheatVM instructions.
 -   **[Dynamic Modules](docs/dynamic_module.md)**: An explanation of how dynamic modules work.

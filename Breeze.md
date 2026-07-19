@@ -310,8 +310,8 @@ AOB scanning helps find code that has shifted after a game update.
 
 ## Settings
 
--   **Sysmodule manager**: Enable/disable optional sysmodules like Tesla, sys-ftpd, and NoExes.
--   **Profile shortcut**: Toggle whether the profile button launches Breeze.
+-   **Sysmodule manager**: Manage optional immediate and boot-time sysmodules. On means currently loaded and running; restart-required changes take effect after reboot. See the [Sysmodule Guide](docs/sysmodules.md).
+-   **Profile shortcut**: `1` makes the HOME Menu Profile icon launch Breeze; `0` restores the normal Profile screen.
 -   **Combo keys**: Set the maximum number of keys for a hotkey combo.
 -   **Use titleid**: Use title names instead of title IDs for cheat folders.
 -   **Use starfield as background**: Toggle the starfield background.
@@ -320,6 +320,12 @@ AOB scanning helps find code that has shifted after a game update.
 -   **Search Code Segment**: Include the code segment in searches.
 -   **Search Main only**: Limit searches to the `main` memory region.
 -   **VisibleOnly**: If enabled, shortcuts only work for visible buttons.
+-   **Prerelease updates**: Allow update checks to offer prerelease Breeze builds.
+-   **Use alt color**: Replace normal light text with RGB values from `/switch/Breeze/alt_color.ini`; light theme keeps black text for readability.
+
+## In-application help
+
+Hold **ZR**, then press **A** to open context-sensitive help. Use X for the selected action's explanation. The overlay blocks underlying input and restores its per-menu state after restart. See the [Context-Sensitive Help Guide](docs/help%20system.md).
 
 ---
 

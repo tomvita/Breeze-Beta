@@ -1,5 +1,21 @@
 # Changelog
 
+## Tutorial Help System
+
+### Added
+
+- Added context-sensitive topic tutorials and selected-button Action Help throughout Breeze.
+- Added ZR then A as the ordered global help toggle, with underlying input blocked while help is open.
+- Added persistent per-menu tutorial state and a separate Focused Actions tutorial context.
+- Added dedicated Sysmodule help, including runtime On/Off semantics and `sys-ftp-breeze` configuration guidance.
+
+### Changed
+
+- Main Menu Help now opens the Main Menu tutorial.
+- Moved Prerelease updates from the legacy Help screen to Settings.
+- Renamed unclear Gen2, JumpBack, ASM Composer, and Cheat Editor actions; see [release note tutorial help.md](release%20note%20tutorial%20help.md).
+- Excluded the Gen2 fork Title ID `010000000000D609` from Sysmodule Manager.
+
 ## [Beta 108.7c] - 2026-07-16
 
 ### Changed
