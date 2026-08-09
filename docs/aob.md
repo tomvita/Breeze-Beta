@@ -80,7 +80,7 @@ If the scan does not find the pattern, it means the code around the hook changed
 
 ### ARM64 Instruction Masking
 
-The AOB pattern uses intelligent masking based on ARM64 instruction encoding. Instructions with relocatable immediates (values that change when code moves) are partially wildcarded:
+The AOB generator examines executable modules and selects the shortest unique ARM64 signature between 6 and 16 instructions. It uses instructions before and after the hook, records the hook's position inside the signature, and rejects ambiguous patterns instead of silently selecting the first match. Instructions with relocatable immediates are partially wildcarded:
 
 | Instruction Type | What is kept | What is wildcarded |
 |---|---|---|
@@ -90,9 +90,12 @@ The AOB pattern uses intelligent masking based on ARM64 instruction encoding. In
 | TBZ / TBNZ | Opcode + bit index + register | 14-bit offset |
 | ADR / ADRP | Opcode + destination register | PC-relative immediate |
 | LDR (literal) | Opcode + register | 19-bit offset |
+| ADD / SUB (immediate) | Operation, shift, and registers | 12-bit immediate |
+| LDR / STR (immediate) | Operation and registers | Address offset |
+| LDP / STP | Operation and registers | Pair address offset |
 | All others | Entire instruction (exact match) | Nothing |
 
-This means the pattern survives recompilation because branch targets and address calculations change between versions, but the opcode structure and register allocation remain stable.
+The mask improves resilience when code moves. Recompilation can still change instruction selection or register allocation, so every generated signature is checked for uniqueness and should be verified after conversion.
 
 ### .aob File Format
 
@@ -100,21 +103,27 @@ The file is plain text in INI style:
 
 ```
 [AOB]
+format_version=2
 name=Speed Hack
 offset=00123456
 instruction=D65F03C0
 offset_register=0
 hook_position=0
+pattern_words=8
 pattern=D65F03C0 A9BF7BFD 910003FD F9400108 B9400900 7100001F 54000005 F9400508
 mask=FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FFFFFFFF FF00001F FFFFFFFF
 ```
 
 | Field | Description |
 |---|---|
+| `format_version` | Signature generator/file-format version; current value is `2` |
 | `name` | Cheat display name |
 | `offset` | Hook address as hex offset from main module base |
 | `instruction` | Original 32-bit ARM instruction at the hook (hex) |
 | `offset_register` | 0 = main module relative, 1 = dynamic module relative (R1) |
 | `hook_position` | Byte offset of the hook within the pattern (usually 0) |
-| `pattern` | 8 space-separated 32-bit hex words |
-| `mask` | 8 space-separated 32-bit hex masks (FFFFFFFF = exact, partial = wildcarded) |
+| `pattern_words` | Number of valid words in `pattern` and `mask` (6–16 for new files) |
+| `pattern` | Variable-length sequence of 32-bit ARM64 instruction words |
+| `mask` | One mask per pattern word (`FFFFFFFF` = exact, partial = wildcarded) |
+
+Older files without `format_version` or `pattern_words` remain loadable; Breeze infers their length from the `pattern` line. Running **Make AOB** regenerates a legacy file in the adaptive version-2 format.
