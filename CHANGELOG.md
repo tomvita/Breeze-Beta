@@ -1,5 +1,26 @@
 # Changelog
 
+## [Beta 109.00] - 2026-08-17
+
+### Added
+
+- Added live IL2CPP method browsing with names, addresses, flags, return types, and parameters, without requiring `dump.cs`.
+- Added on-device `il2cpp_function_map.txt` generation for ASM Explorer function names and Function Up/Down navigation.
+- Added navigation from parameter and return types to runtime class field and method views.
+
+### Changed
+
+- ASM Explorer Detail can open the owning runtime class and select the current method when using a runtime-generated function name.
+- Improved Klass name-cache performance with bulk string reads.
+
+### Fixed
+
+- Fixed the Klass name cache becoming latched empty when accessed before a Klass search.
+- Fixed automatic cheat download validation and database fallback when no URL cheat is available.
+- Fixed opening Focused Actions from the Candidate menu causing a spurious file-open error.
+
+See [the beta109.00 release note](release%20note%20109.00.md) for usage and compatibility details.
+
 ## Tutorial Help System
 
 ### Added

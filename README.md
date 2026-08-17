@@ -18,7 +18,7 @@ This project started as a rewrite of the features implemented in EdiZon SE. Over
 -   **Memory Tools**: Search, edit, freeze, and bookmark memory with static offsets or pointer chains.
 -   **Advanced Debugging**: Set memory breakpoints and watch instructions.
 -   **ASM Composer**: Build ASM cheats efficiently. One-click templates for common hacks.
--   **Unity (IL2CPP) Analysis Workflow**: Explore `dump.cs`, inspect live class fields, follow class links, and generate cheats from valid linked targets.
+-   **Unity (IL2CPP) Analysis Workflow**: Inspect live classes, fields, methods, and signatures; build ASM Explorer function maps directly from game memory; or use `dump.cs` for additional detail.
 -   **Class Field View & Persistence**: Pin live instance offsets, navigate class relationships, and save/load field-view sessions.
 -   **Unreal (UE4/UE5) Runtime Tooling**: Scan UE profiles, resolve root chains (`UWorld` flow), export native `UFunction` maps, and browse results in Function Explorer/UWorld Explorer. WIP
 -   **Auto-Update**: Keep the app and database up to date automatically.
@@ -32,7 +32,8 @@ For detailed information, please refer to our comprehensive documentation:
 
 -   **[Quick Start Guide](quick_start.md)**: For new users who want to get started with basic cheat usage right away.
 -   **[User Manual (Breeze.md)](Breeze.md)**: The main guide for installation, usage, and all features.
--   **[Unity Guide](docs/UnityGuide.md)**: Unity-specific workflow for ASM Explorer, `dump.cs` navigation, Field View, and class-link based cheat building.
+-   **[Unity Guide](docs/UnityGuide.md)**: Unity-specific workflow for runtime metadata, ASM Explorer, optional `dump.cs` navigation, Field View, and class-link based cheat building.
+-   **[Runtime IL2CPP Metadata](docs/il2cpp_runtime_metadata.md)**: Browse methods and generate function maps without `dump.cs`.
 -   **[Unreal Support Guide](docs/unreal.md)**: Unreal workflow for UE profile scan, root-chain resolution, function map export, and explorer tools.
 -   **[Unreal Primer](docs/unreal_primer.md)**: Core UE runtime concepts (`UObject`, `UClass`, `UFunction`, NamePool, and `OuterPrivate`) used by Breeze.
 -   **[Basic Cheat Making Tutorial](basic_cheat_making_tutorial.md)**: A step-by-step guide to creating your first cheat.

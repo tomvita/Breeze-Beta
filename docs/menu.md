@@ -550,6 +550,7 @@ The ASM Explorer allows for in-depth analysis of disassembled code directly from
 | Page Up | StickRUp | Go to the previous page of disassembly. |
 | Page Down | StickRDown | Go to the next page of disassembly. |
 | Write info to file | + | Write information on the left panel to a file. |
+| IL2CPP map | Y + ZR | Build Unity function names from live Klass data without `dump.cs`. |
 | Back | B | Return to the previous menu. |
 
 ## Jump Back Menu

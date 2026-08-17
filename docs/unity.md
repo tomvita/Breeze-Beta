@@ -7,8 +7,13 @@ Last reviewed against code: 2026-02-27 (`HEAD` `483d1f6`), compared to previous 
 Unity games are now first-class targets in Breeze. With IL2CPP-aware `dump.cs` indexing, live Field View inspection, pointer-chain-aware restore, and one-click cheat generation, Breeze delivers a faster path from structure discovery to working in-game results. You can move from class lookup to verified live values, persist your setup across sessions, and jump between Field View, Memory Explorer, and `dump.cs` without losing context.
 
 ## Scope
-- Target source: IL2CPP metadata from `dump.cs`.
+- Target sources: IL2CPP metadata from optional `dump.cs` files or directly from live process memory.
 - Main workflows: class/field discovery, live memory inspection, pointer-chain-based restoration, and cheat generation.
+
+Beta109.00 adds live method names, addresses, signatures, type navigation, and
+on-device ASM Explorer function-map generation. Start with **Search → Klass**,
+then use **Methods** (`L + ZR`) in Field View or **IL2CPP map** (`Y + ZR`) in
+ASM Explorer. See [`il2cpp_runtime_metadata.md`](il2cpp_runtime_metadata.md).
 
 ## Core Data Source
 - `dump.cs` is indexed and used for:

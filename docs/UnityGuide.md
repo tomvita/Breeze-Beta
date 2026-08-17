@@ -27,6 +27,14 @@ See also: [class_primer.md](class_primer.md) for class/instance fundamentals and
 
 ## Preparation
 
+### Runtime workflow without `dump.cs`
+
+`dump.cs` is optional in beta109.00. Run **Search → Klass**, then use
+**Methods** (`L + ZR`) in a class Field View to browse live methods and
+signatures. In ASM Explorer, **IL2CPP map** (`Y + ZR`) builds function names
+from live class data and enables Function Up/Down. See
+[`il2cpp_runtime_metadata.md`](il2cpp_runtime_metadata.md).
+
 ### Get il2cpp Breeze helper
 
 You need to generate required files with helper for new Unity-specific features to work.

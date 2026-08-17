@@ -108,6 +108,8 @@ Once the Field View is successfully resolved, Breeze displays a structured table
 * **Value**: The current value stored at that address, updated in real time if the base address is pinned.
 
 ### Advanced Features in the Field View:
+- **Methods** (`L + ZR`): lists method names, live addresses, flags, and
+  signatures directly from `Il2CppClass.methods`; no `dump.cs` is required.
 - **Expandable Collections**: Arrays and Lists can be expanded to inspect their elements.
 - **String Decoding**: `System.String` types are automatically dereferenced and displayed as readable text (e.g., `"Player_1"`).
 - **Static Fields**: Displayed in their own section, representing global class-level variables rather than instance-level values.
@@ -175,4 +177,3 @@ Inside Actor::TakeDamage(this_ptr, amount):
 ```
 
 By comparing the instance's Klass pointer at `0x00` against the known Klass address of `Player` or `Enemy`, you can write precise conditionals in your cheat scripts (such as ASM cheats or memory pokes) to selectively apply modifications only to the intended target.
-

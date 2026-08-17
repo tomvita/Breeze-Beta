@@ -303,6 +303,12 @@ AOB scanning helps find code that has shifted after a game update.
 
 ### ASM Explorer
 
+For Unity IL2CPP games, **IL2CPP map** (`Y + ZR`) builds function names directly
+from live class data after **Search → Klass**. This enables Function Up and
+Function Down without `dump.cs`. A class's Field View also provides **Methods**
+(`L + ZR`) to browse live method addresses and signatures. See the
+[Runtime IL2CPP Metadata guide](docs/il2cpp_runtime_metadata.md).
+
 -   **From a cheat**: Use the "Jump to ASM" button.
 -   **From memory explorer**: Use the "ASM explorer" button.
 
