@@ -1,5 +1,15 @@
 # Changelog
 
+## [Beta 109.01] - 2026-08-17
+
+### Changed
+
+- Runtime IL2CPP method browsing, type resolution, and function-map generation now run a lightweight Klass scan automatically when `Klass.dat` is missing or stale.
+- Automatic discovery skips the slower Klass instance scan and reuses valid class data when available.
+- Updated runtime status and error messages for automatic Klass discovery and outdated maps.
+
+See [the beta109.01 release note](release%20note%20109.01.md) for workflow details.
+
 ## [Beta 109.00] - 2026-08-17
 
 ### Added

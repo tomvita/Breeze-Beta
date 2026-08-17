@@ -1,13 +1,12 @@
 # Runtime IL2CPP Metadata
 
-Breeze beta109.00 can browse Unity IL2CPP methods and build ASM Explorer function names directly from live game memory. `dump.cs` is optional: it remains supported and may contain richer metadata, but it is no longer required for method discovery and navigation.
+Breeze beta109.01 can browse Unity IL2CPP methods and build ASM Explorer function names directly from live game memory. `dump.cs` is optional: it remains supported and may contain richer metadata, but it is no longer required for method discovery and navigation.
 
 ## Quick Start
 
-1. Run **Search → Klass** to create `Klass.dat` for the current game session.
-2. Open a class Field View and select **Methods** (`L + ZR`) to inspect that class.
-3. To name functions across the executable, open ASM Explorer, select **IL2CPP map** (`Y + ZR`), and press **X** to build.
-4. Return to ASM Explorer. Function names and **Function Up** / **Function Down** are available immediately.
+1. Open a class Field View and select **Methods** (`L + ZR`) to inspect that class. Breeze runs a lightweight Klass scan automatically if needed.
+2. To name functions across the executable, open ASM Explorer, select **IL2CPP map** (`Y + ZR`), and press **X** to build.
+3. Return to ASM Explorer. Function names and **Function Up** / **Function Down** are available immediately.
 
 ## Runtime Method List
 
@@ -33,8 +32,8 @@ Files are written to `/switch/breeze/cheats/<TitleID>/`:
 
 ## Limitations and Diagnostics
 
-- Runtime coverage follows `Klass.dat`. Re-run the Klass search and rebuild the map when additional classes have loaded.
-- `Klass.dat` stores process addresses and cannot be reused after restarting the game.
+- Runtime coverage follows `Klass.dat`. Rebuild the map when additional classes have loaded.
+- `Klass.dat` stores process addresses; Breeze automatically refreshes missing or stale data when a runtime feature needs it.
 - Parameter names appear only on IL2CPP builds that retain them; parameter types and counts remain available.
 - Type-name resolution is a separate action because it has a one-time performance cost.
 - When reporting incorrect decoding, include the `# layout` and `# datamap` lines from `runtime_methods.log`.
