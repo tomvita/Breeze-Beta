@@ -1,5 +1,27 @@
 # Changelog
 
+## [Beta 110.00] - 2026-08-18
+
+### Added
+
+- Added a graph-driven Unreal object browser with class filtering, paging, class summaries, deep scanning, and pointer-chain bookmarks.
+- Added `ue_field_map.txt` with nested struct expansion and inherited-property ownership.
+- Added validated object and class-summary caches for reuse while the same game process remains active.
+
+### Changed
+
+- Reworked Unreal field traversal around `UStruct::PropertyLink` for reliable own and inherited property discovery.
+- Added runtime `FFieldVariant`, field-name, field-offset, `FNamePool`, and broader Unreal version detection.
+- Simplified the Unreal entry menu so UWorld Explorer performs profile scanning and root resolution on demand.
+
+### Fixed
+
+- Fixed blank or inconsistent Unreal field names caused by per-node offset guessing and stale saved name-pool addresses.
+- Fixed function frame locals and unrelated UObject slots being mistaken for object properties.
+- Fixed object-browser navigation continuously resetting its selection and expand state.
+
+See [the beta110.00 release note](release%20note%20110.00.md) for controls, generated files, and limitations.
+
 ## [Beta 109.01] - 2026-08-17
 
 ### Changed
