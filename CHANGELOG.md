@@ -1,5 +1,30 @@
 # Changelog
 
+## [Beta 113.00] - 2026-08-20
+
+### Added
+
+- Added native C++ function discovery from script binding tables, with a searchable Script functions list and `script_functions.txt` export/cache.
+- Added native function boundaries from `.eh_frame_hdr` and recovered AAPCS64 parameter shapes for ASM Explorer and virtual method lists.
+- Added native C++ class-field resolution through Itanium RTTI, including inheritance, virtual methods, inferred field types, and interior-pointer targets.
+- Added persistent `class_field_hints.txt` and `ue_version.txt` caches to make later class-field visits faster.
+- Added improved Unity array-of-struct and dictionary inspection, including resolved element layouts and generic key/value types.
+
+### Changed
+
+- Function Up/Down now chooses the nearest boundary across every available map and uses synthetic names only when no real name exists.
+- Class field resolution tries the lightweight native RTTI path before an expensive Unreal scan for unknown engines.
+- Unity static-field views can resolve and pin static blocks, navigate pointer rows, and create cheats from static fields.
+- AOB file names are sanitized when cheat labels contain key-hint glyphs or filesystem-reserved characters.
+
+### Fixed
+
+- Fixed `key hint to file=0` leaving conditional-key glyphs in some saved cheat names.
+- Fixed Make AOB and Make AOB M failing to create files for labels containing key hints or invalid filename characters.
+- Fixed pointer-width field hints hiding the class or interior offset of the pointed-to object.
+
+See [the beta113.00 release note](release%20note%20113.00.md) for workflows, generated files, implementation details, and limitations.
+
 ## [Beta 110.00] - 2026-08-18
 
 ### Added

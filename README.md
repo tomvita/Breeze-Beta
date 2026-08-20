@@ -19,7 +19,8 @@ This project started as a rewrite of the features implemented in EdiZon SE. Over
 -   **Advanced Debugging**: Set memory breakpoints and watch instructions.
 -   **ASM Composer**: Build ASM cheats efficiently. One-click templates for common hacks.
 -   **Unity (IL2CPP) Analysis Workflow**: Inspect live classes, fields, methods, and signatures; build ASM Explorer function maps directly from game memory; or use `dump.cs` for additional detail.
--   **Class Field View & Persistence**: Pin live instance offsets, navigate class relationships, and save/load field-view sessions.
+-   **Class Field View & Persistence**: Inspect Unity, Unreal, and native C++ objects; pin live offsets, navigate class relationships, and cache inferred layouts.
+-   **Native Function Discovery**: Recover function boundaries, calling-convention signatures, and script binding names in stripped C++ games.
 -   **Unreal (UE4/UE5) Runtime Tooling**: Scan UE profiles, resolve root chains (`UWorld` flow), export native `UFunction` maps, and browse results in Function Explorer/UWorld Explorer. WIP
 -   **Auto-Update**: Keep the app and database up to date automatically.
 -   **Consistent UI**: A user-friendly interface designed for seamless navigation. Includes **Radial Selection** (hold ZL and use stick) for quick action activation.
@@ -36,6 +37,8 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[Runtime IL2CPP Metadata](docs/il2cpp_runtime_metadata.md)**: Browse methods and generate function maps without `dump.cs`.
 -   **[Unreal Support Guide](docs/unreal.md)**: Unreal workflow for UE profile scan, root-chain resolution, function map export, and explorer tools.
 -   **[Unreal Primer](docs/unreal_primer.md)**: Core UE runtime concepts (`UObject`, `UClass`, `UFunction`, NamePool, and `OuterPrivate`) used by Breeze.
+-   **[AOB Guide](docs/aob.md)**: Create version-3 signatures with Make AOB or Make AOB M and rebuild hooks after a game update.
+-   **[Beta 113.00 Release Note](release%20note%20113.00.md)**: Native C++ inspection, function discovery, Unity field improvements, caches, and fixes.
 -   **[Basic Cheat Making Tutorial](basic_cheat_making_tutorial.md)**: A step-by-step guide to creating your first cheat.
 -   **[Advance Cheat Making Tutorial](docs/advance_cheat_making_tutorial.md)**: A step-by-step guide to creating advanced ASM cheat.
 -   **[UI Reference (menu.md)](docs/menu.md)**: A complete reference for every button and menu in the UI.
