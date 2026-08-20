@@ -13,12 +13,19 @@ See also: [class_primer.md](class_primer.md) for class/instance fundamentals and
   - `Class view` (`Y + ZR + ZL`, label may appear as `Class field` in some builds) to jump directly from cursor address into class Field View resolution flow.
 - Enhanced class-link resolution so discovering one instance can lead to many related instances for exploration.
 - Save/load for class views, including instance links when the address is still valid.
+- `Extract` in Field View to pick which of a class's fields are shown inline on
+  every row that points at that class, remembered per title.
 - Cheat generation support when linked addresses resolve from valid `main`-region targets.
+- Runtime metadata path that needs no `dump.cs` at all:
+  - `Methods` (`L + ZR`) in Field View for method names, addresses and signatures.
+  - `IL2CPP map` (`Y + ZR`) in ASM Explorer to generate function names for the
+    whole binary, enabling `Function Up` / `Function Down`.
+  - `Visit type` to navigate from a method signature to a parameter's class.
 
 ## Focus and shortcut notes
 
-- If a new button is not visible in Focused Actions, use **Switch action view** to open All Actions or customize that menu. See the [Focused Actions Guide](focus%20mode.md) for details.
-- Open Focused Actions management with `FocusedActions_key` (default: `L + ZR`).
+- If you are using Focus mode and some new buttons are not visible, apply the newer `default.focus` included in later releases.
+- You can open Focus Manager directly with `FocusManager_key` (default: `L + ZR`).
 - `default.focus` is applied when:
 - you activate the "Full Menu" button in Main Menu, or
 - it is loaded directly in Focus Menu.
@@ -27,18 +34,21 @@ See also: [class_primer.md](class_primer.md) for class/instance fundamentals and
 
 ## Preparation
 
-### Runtime workflow without `dump.cs`
+### Do you need dump.cs at all?
 
-`dump.cs` is optional in beta109.01. Use **Methods** (`L + ZR`) in a class
-Field View to browse live methods and signatures. In ASM Explorer,
-**IL2CPP map** (`Y + ZR`) builds function names from live class data and
-enables Function Up/Down. Breeze runs the required Klass scan automatically.
-See
+No longer required. Breeze can read class fields, methods, signatures and
+function names directly from live memory. `dump.cs` is still preferred when you
+have it — it carries richer detail and parameter names on every build — but the
+runtime path covers titles where Il2CppDumper fails, which is common on older
+games.
+
+Runtime-only route: run **Search → Klass**, then build the function map from
+ASM Explorer with **IL2CPP map** (`Y + ZR`). See
 [`il2cpp_runtime_metadata.md`](il2cpp_runtime_metadata.md).
 
 ### Get il2cpp Breeze helper
 
-You need to generate required files with helper for new Unity-specific features to work.
+To generate `dump.cs` and its index files for the richest experience.
 
 Get from here: <https://github.com/tomvita/Il2CppDumper/releases/latest>
 
@@ -51,7 +61,9 @@ Get from here: <https://github.com/tomvita/Il2CppDumper/releases/latest>
 ### Compatibility notes (`main` vs `main.elf`)
 
 - Some very old Unity/IL2CPP titles may fail with the Switch-side workflow.
-- For those cases, use the PC Il2CppDumper workflow instead.
+- For those cases, use the PC Il2CppDumper workflow instead — or skip the dumper
+  entirely and use the runtime path, which is generally the better option when
+  Il2CppDumper cannot handle the title at all.
 - On PC:
 - Use `main` for better compatibility with older games.
 - Use `main.elf` for better compatibility with newer games.
@@ -62,7 +74,15 @@ Get from here: <https://github.com/tomvita/Il2CppDumper/releases/latest>
 
 - `Function Up` (`StickRLeft`): jump to the nearest function above the current cursor line.
 - `Function Down` (`StickRRight`): jump to the nearest function below the current cursor line.
-- `Detail` (`X + ZR`): open `dump.cs` details for the current function.
+- `Detail` (`X + ZR`): open `dump.cs` details for the current function. When the
+  name came from the runtime map instead, opens the Runtime Method List for the
+  owning class with the cursor on that method.
+- `IL2CPP map` (`Y + ZR`): generate function names from live klass data. Needed
+  once per session for `Function Up` / `Function Down` when there is no
+  `dump.cs`; requires `Search -> Klass` first.
+
+Function names resolve from `dump.cs` when present, otherwise from the generated
+`il2cpp_function_map.txt`.
 
 ### dump.cs View
 
@@ -84,9 +104,67 @@ Get from here: <https://github.com/tomvita/Il2CppDumper/releases/latest>
 - `View class` (`R + ZL`): open field-type class details.
 - `Class Link` (`Y`): find classes/fields that link to the current class.
 - `Descendent` (`Y + ZL`): find direct child classes.
+- `Methods` (`L + ZR`): list this class's methods from live memory — names,
+  addresses, static/virtual flags and signatures. Works without `dump.cs`.
+- `Extract` (`Minus + ZL`): pick which fields of the pointed-to class are shown
+  inline on every row of that type. See *Extract (inline field display)* below.
 - `Jump Back` (`StickL + ZR`): open jump-back style source navigation.
 - `Make cheat` (`+ + ZR`): generate cheat from valid linked field context.
 - `Save field view` (`StickR + ZR`): save current field view state for reload.
+
+### Extract (inline field display)
+
+A row holding an object pointer shows only an address, so a list of `Item*`
+reads as a list of addresses — nothing on screen says which item is which.
+`Extract` lets you pick the fields that identify such an object once, and Breeze
+then shows those values on every row of that type.
+
+1. Put the cursor on a row whose type is a class pointer, for example
+   `[3] : Idle.Datas.Item*`, and press `Extract` (`Minus + ZL`). Breeze follows
+   the pointer and opens that object's Field View as a **pick session**: the
+   panel title gains `[Extract pick]` and every row gains a marker column.
+2. Press `Extract` on each field you want shown. `*` marks a chosen field.
+   Pressing `Extract` again on a marked field removes it.
+3. Press `Back`. There is no save step — the picks are written to disk on every
+   toggle, so a session cannot be lost by leaving the wrong way.
+
+Rows of that type then read:
+
+```
++0x0038 [3] : Idle.Datas.Item* (u64) @0xFF31E1B18 = A+10B14E600 "灵气" 18914
+```
+
+To change the display later, press `Extract` on such a row again: the pick
+session reopens with the current set already marked.
+
+Notes:
+
+- Picks are keyed on the row's **declared** type with any `*` removed, so
+  `Idle.Datas.Item*` and `Idle.Datas.Item` share one setting. A field typed as a
+  base class is keyed on that base class, not on the object's runtime class.
+- Strings show as `"text"`; every other type is formatted exactly as it would be
+  on its own field row.
+- `Extract` on a string row is refused — the row already shows its own text.
+- The extracted values also land in `field_view.log` when you use
+  `Write to file`.
+- Per-row limits: 24 characters per extracted string, 72 bytes for the whole
+  suffix. The suffix shares the row with the field name, type and address.
+- The setting is per title and survives a relaunch. With no picks recorded,
+  Extract costs nothing — no extra memory reads are made.
+
+`field_extract.txt` in the title's Breeze directory holds the picks and is
+hand-editable:
+
+```
+# Breeze field extract - inline display picked with the Extract button
+# type|offset|field name|field type
+Idle.Datas.Item|0x38|<itemName>k__BackingField|System.String*
+Idle.Datas.Item|0x20|amount|long
+```
+
+Line order is display order: picks append rather than sort by offset, so the
+values read in the order you chose them. Delete the file to clear every type at
+once.
 
 ## Instance Search guide
 
