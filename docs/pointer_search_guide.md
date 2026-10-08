@@ -194,3 +194,42 @@ A pointer chain that resolves correctly *right now* is not necessarily a stable 
 - [unity.md](unity.md), [UnityGuide.md](UnityGuide.md) — Unity / IL2CPP workflow.
 - [unreal.md](unreal.md), [unreal_primer.md](unreal_primer.md) — Unreal Engine workflow.
 - [menu.md](menu.md) — full Jump Back menu button reference.
+
+## Changes Since beta115.00
+
+The steps above still apply. These additions make long searches safer and their results easier to sort.
+
+### Deep searches no longer run out of memory
+
+- Breeze no longer stores every path it finds, so a search can go several depths further.
+- Free memory is shown on the scan status line as `free`. A scan or an expansion stops and says so while there is still memory left, instead of failing.
+- **Max edge/node** limits how many pointers are kept for one node.
+
+### Going back to an earlier depth
+
+Every depth's map is kept. **Rewind to depth** returns to an earlier depth and discards the deeper ones. When a depth runs out of memory, go back one depth, change a parameter and continue; there is no need to start over. That depth has to be scanned again.
+
+### A saved map resumes the search
+
+**Save_Map** saves every depth's map with the search root and the bookmark list. **Load_Map** puts the search back where it was; press **Start** once and the depth is live again. A saved map is valid only while the game session that produced it is still running.
+
+### Knowing what an address is
+
+- **Add field label** on the Candidate, Bookmark and Jump Back lists names the class and field each address lies in. It cycles off, on, then filtered, where rows that name nothing are hidden. An address in main that holds a class is shown as `=>ClassName`: those are the roots chains start from.
+- **Class field** opens the class field view of the object an address lies in.
+- **Land on class** in the Jump Back menu cycles off / prefer / strict. Strict skips a landing that is not the start of an object, such as one inside an array, whose offset shifts when the game inserts an element. Prefer does the same but falls back to an unfiltered depth when nothing would be found.
+
+### Trim by label
+
+**Trim** in the Jump Back menu scans every node of the map and lists the distinct labels, largest group first.
+
+- **Toggle keep** marks a group to survive.
+- **Analyse this label** works on that one group in the node list, then returns to the Trim screen.
+- **Execute** removes every node whose label was not kept. It takes two presses, because the removed search state cannot be rebuilt without searching again.
+- **Save to file** writes the screen to `node_labels.txt`.
+
+Grouping narrows a long list where filtering by value does not: pick the class that makes sense for your target and drop the rest.
+
+### Paging
+
+The node list pages 11 rows at a time with Right Stick Up and Down, like the candidate list.

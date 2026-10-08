@@ -1,5 +1,7 @@
 # Break and Trace Guide
 
+> **Note:** this page describes Break and Trace with **Breezehand-Overlay**. From beta121.02 Break and Trace is also built into Breeze's **ASM Explorer**, with breakpoints, stepping, registers, stack and threads on one screen. For that, see the **[Break and Trace: Visual Step-by-Step Tutorial](break_and_trace_guide.md)**.
+
 The **Break and Trace** feature, introduced in Breeze beta108+ (using `dmnt.gen2` fork v0.15+) and Breezehand-Overlay v0.10.0+, is an advanced debugging tool for Nintendo Switch memory hacking. It allows users to set hardware watchpoints on memory addresses or instructions, trace execution in real-time, inspect call stacks, and view/modify CPU registers.
 
 ---

@@ -18,7 +18,7 @@ This guide covers the fastest way to get cheats running with Breeze.
 
 ### 2. Loading & Using Cheats
 
-On main menu select **Simple Menu** to get rid of items that may be confusing for beginner, you can select full menu when you want to see the default menu again
+Breeze asks on first run how you will use it. Pick **Player** to hide the items a beginner does not need. To change it later, press `L + ZR` to open Focused Actions and use **Load layout**: **Player** for the simple view, **All** for every button.
 
 Breeze automatically finds cheats for your running game from its online database.
 
@@ -50,7 +50,7 @@ If no cheats appear automatically, try these steps in order.
 
 If the database has no cheats for your game, you can install cheat files manually. You will need to find a cheat file matching your game's **Title ID** and **Build ID**.
 
-For detailed instructions, see the **[Manual Cheat Files](Breeze.md#manual-cheat-files)** section in the main User Manual.
+For detailed instructions, see the **[Manual Cheat Files](Breeze.md#loading-cheats)** section in the main User Manual.
 
 ---
 

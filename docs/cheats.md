@@ -21,7 +21,7 @@ In cases where `dmnt` has not activated the cheat manager, but the user wants to
 
 In cases where `dmnt` has activated the cheat manager, but the user wants to use an alternate debugger, the cheat manager's service API provides a `ForceCloseCheatProcess` command that homebrew can use. This command will cause the cheat manager to detach itself from the process.
 
-By default, all cheat codes listed in the loaded .txt file will be toggled on. This is configurable by the user by editing the `atmosphere!dmnt_cheats_enabled_by_default` [system setting](configurations.md).
+By default, all cheat codes listed in the loaded .txt file will be toggled on. This is configurable by the user by editing the `atmosphere!dmnt_cheats_enabled_by_default` [system setting](https://github.com/Atmosphere-NX/Atmosphere/blob/master/docs/features/configurations.md).
 
 Users may use homebrew programs to toggle cheats on and off at runtime via the cheat manager's service API.
 

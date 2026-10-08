@@ -404,6 +404,32 @@ resolves on demand.
 **UObject view** — added `StickR` ↑/↓ paging alongside the existing `ZL+L` /
 `ZL+R`.
 
+| | |
+|---|---|
+| ZL+X | Compare instances — opens the instance view for the selected row |
+
+> `ZL`, `ZR` and `A` are reserved on their own, so every new binding has to
+> be a chord.
+
+**Instance view** — the same offset read out of every live instance of the
+class, with siblings (classes sharing the selected class's direct super)
+listed after them and tagged. `>` marks the object the comparison was
+launched from. The status line classifies the slot: *varies* over instances
+is live state, *constant within this class* with several variants across
+siblings is a per-type parameter from the game's data tables, and constant
+everywhere is a shared constant. This is how an unnamed `gap_0x....` row is
+identified when reflection has nothing to say about it.
+
+| | |
+|---|---|
+| A | Open the UObject view for that instance, focused on the same offset |
+| X | Refresh (re-read every instance) |
+| − | Write `ue_instance_compare.txt` |
+| B | Back |
+
+The menus stack, so `B` walks back the way you came: UObject view → instance
+view → the selected instance's UObject view.
+
 ---
 
 ## 7. Runtime files (in `sdmc:/switch/breeze/cheats/<TitleID>/`)
@@ -416,6 +442,10 @@ resolves on demand.
 | `ue_object_cache.bin` | graph/deep scan | object + path cache |
 | `ue_fproperty_raw_dump.txt` | UObject view, Write To File | per-node diagnostics with `SHOWN`/`NO-OFFSET`/`BELOW-HEADER`/… status |
 | `ue_field_chain_dump.txt` | UObject view, Write To File | the rendered field rows |
+| `ue_instance_compare.txt` | instance view, Write To File | one offset across every live instance |
+| `ue_object_array.txt` | GUObjectArray detection | cached RVA, keyed to module size — delete to force a re-scan |
+| `ue_object_index.log` | object index build | array shape, object count, and the two pass timings |
+| `ue_namepool_diag.txt` | name store detection | the pool/GNames address and its first entries |
 
 ### Reading the UObject view header
 
@@ -435,7 +465,19 @@ depth=3 levels=1 ue=4.25 fv=8 np=52DA6E5940 [PropertyLink]
 
 ## 8. Known limitations
 
-- **Unreflected members are unrecoverable.** Only `UPROPERTY()`-marked members
+- **Unreflected members still have no name, but they can now be classified.**
+  The instance view reads one offset across every live instance of a class:
+  a value that differs between instances is live state, one that is constant
+  within a class but varies across sibling classes is a per-type parameter,
+  and one that never varies is a shared constant. That is not a name, but it
+  is usually enough to know what a row is. On a UE 4.18 fighting game the HP
+  of a character sits at `+0xB6C` with no `FProperty` anywhere near it; the
+  instance view showed it as the only slot in the block differing between the
+  two fighters under player control, with `+0xB70`/`+0xB74` constant at 300
+  (max HP, stored twice) and `+0xB84`/`+0xB88` constant per character but
+  different for each of them.
+
+- **Unreflected members are unnameable.** Only `UPROPERTY()`-marked members
   exist in reflection data. `PlayerSystem` reflects 2 of its 952 bytes; the money
   at `+0x2A0` has no `FProperty` and no tool — Breeze, UE4SS, any dumper — can
   name it. Gap rows plus annotations (`L` in the UObject view, keyed by class

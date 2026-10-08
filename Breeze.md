@@ -61,6 +61,8 @@ Breeze uses a dual-panel interface for efficient navigation:
 -   Press the configurable **Focused Actions key** (`L + ZR` by default) to open layout management.
 -   **Switch action view** is the top-left and initially selected button. Use it to switch the previous menu between Focused and All Actions.
 -   The manager itself is never filtered, so all management controls remain available.
+-   **Dynamic view** needs no layout: hold **ZL**, **ZR** or **ZL + ZR** to see the buttons of that shift key, and nothing to see the rest. Turn it on per menu with **Dynamic=ON/OFF** in the manager, or load the built-in **Dynamic** layout.
+-   Six built-in layouts come with Breeze: **Player**, **Beginner maker**, **Advanced maker**, **Engine tools**, **All** and **Dynamic**. Breeze asks which one to start with on first run; load another at any time with **Load layout**.
 
 ### Customizing your layout
 
@@ -71,7 +73,7 @@ Breeze uses a dual-panel interface for efficient navigation:
 
 Any action can be removed. If the usual initial action is absent, selection safely starts on the lower-right page button.
 
-Set **Training mode=1** to learn actions as you use them without clearing the existing layout or changing the current action view. **Save layout** updates only the menu being managed, and **Clear focus for this menu** leaves all other menus unchanged.
+Turn **Training mode** on to learn actions as you use them without clearing the existing layout or changing the current action view. **Save layout** saves the focus of every menu into the selected layout file, and **Clear focus for this menu** leaves all other menus unchanged. Built-in layouts are shown in green and cannot be overwritten; save your changes under a new name.
 
 For a detailed guide, see the **[Focused Actions Guide](docs/focus%20mode.md)**. For the full button reference, see the **[UI Reference](docs/menu.md#focused-actions-menu)**.
 
@@ -319,15 +321,41 @@ Function Down without `dump.cs`. A class's Field View also provides **Methods**
 -   **Sysmodule manager**: Manage optional immediate and boot-time sysmodules. On means currently loaded and running; restart-required changes take effect after reboot. See the [Sysmodule Guide](docs/sysmodules.md).
 -   **Profile shortcut**: `1` makes the HOME Menu Profile icon launch Breeze; `0` restores the normal Profile screen.
 -   **Combo keys**: Set the maximum number of keys for a hotkey combo.
--   **Use titleid**: Use title names instead of title IDs for cheat folders.
+-   **Use titleid**: Use title IDs instead of title names for cheat folders.
 -   **Use starfield as background**: Toggle the starfield background.
--   **Install gen2 fork**: Install the gen2 fork for gen2 features.
+-   **Install / Reinstall gen2 fork**: Install the gen2 fork for gen2 features, or update it to the version bundled with Breeze. **Uninstall gen2 fork** removes it.
+-   **HOME daemon**, **Home toggle**, **Overlay pauses game**, **Breeze first**: Let HOME switch between Breeze and the game, and show Breeze on top of the running game. See [HOME Toggle and Overlay Mode](docs/home%20toggle%20and%20overlay.md).
+-   **PC connect**: Let a PC on the same network see and drive Breeze. The label shows the address and code to use. See the [Breeze PC App Guide](docs/pc%20connect%20app.md).
+-   **Backup / Restore custom shortcuts**: Save all custom shortcuts to `/switch/Breeze/custom_shortcuts.dat` and load them back.
+-   **Reset general settings**: Reset general settings while keeping custom shortcuts and focus layouts.
 -   **Use Dpad for Left panel item select**: Switch between D-pad and L-stick for the left panel.
 -   **Search Code Segment**: Include the code segment in searches.
 -   **Search Main only**: Limit searches to the `main` memory region.
 -   **VisibleOnly**: If enabled, shortcuts only work for visible buttons.
 -   **Prerelease updates**: Allow update checks to offer prerelease Breeze builds.
 -   **Use alt color**: Replace normal light text with RGB values from `/switch/Breeze/alt_color.ini`; light theme keeps black text for readability.
+
+## In-app keyboard
+
+Breeze's own keyboard opens whenever a value, a label or a name is needed.
+
+| Key | Action |
+|---|---|
+| ZL + L / ZL + R | Change the format (HEX, DEC, FLT, STR, WSTR) or the layout |
+| ZL + Y | Copy the word at the cursor |
+| ZL + B | Cut the word at the cursor |
+| ZL + X | Paste the newest entry; press again at once for the next older one |
+| Minus | Undo, up to 50 steps |
+| Right stick click | Clear the line |
+| B, L, R held | Repeat |
+
+Copies go onto one **copy stack** shared by all of Breeze: 20 entries, newest first, kept in `/switch/Breeze/clipboard.txt` so it survives a restart. In the Memory Explorer, **Copy** pushes the copied values and **Copy address** pushes the cursor's address, so an address or a value can be pasted into any keyboard.
+
+## Leaving and restarting Breeze
+
+-   **hbmenu** on the Main Menu (`ZR + B`) leaves Breeze. Plain `B` on the Main Menu does nothing, so pressing B once too often on the way back up does not close Breeze.
+-   **Restart Breeze** in the Focused Actions manager (`L + ZR`, then `ZR + B`) restarts Breeze in place.
+-   With the HOME daemon installed, HOME switches between Breeze and the game.
 
 ## In-application help
 
@@ -367,6 +395,10 @@ Using cheats can be risky and may lead to unexpected behavior, including game cr
 
 ## Further Resources
 
+-   [UI Reference](docs/menu.md): every menu and button.
+-   [Code Caves and ASM Cheats](docs/code%20caves.md), [Rebase](docs/rebase.md), [AOB Guide](docs/aob.md)
+-   [Unity Guide](docs/UnityGuide.md), [Unreal Support Guide](docs/unreal.md), [Lua Tools](docs/lua.md)
+-   [HOME Toggle and Overlay Mode](docs/home%20toggle%20and%20overlay.md), [Breeze PC App Guide](docs/pc%20connect%20app.md), [Save Snapshots and Game Files](docs/save%20snapshots%20and%20game%20files.md)
 -   [Breeze Wiki](https://github.com/tomvita/Breeze-Beta/wiki)
 -   [Breeze Repository](https://github.com/tomvita/Breeze-Beta)
 -   [NXCheatCode Repository](https://github.com/tomvita/NXCheatCode)

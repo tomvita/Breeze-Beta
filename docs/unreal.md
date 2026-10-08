@@ -150,6 +150,37 @@ Resolved chain values are cached for Explorer usage, including Pawn-focused acti
 - Cross-check class/function ownership via outer-chain names.
 - Prepare stable targets for ASM analysis, hooks, or cheat actions.
 
+## Engine versions
+
+Breeze supports UE 4.16 through UE 5.x. Two things differ on older engines
+and both are handled automatically:
+
+- **Names.** `FNamePool` arrives in 4.23. Before it, FName indices resolve
+  through `GNames`, a chunked array of `FNameEntry*`. Breeze detects which of
+  the two a title uses and records it as `NameLayout` in `ue_profile.ini`.
+- **Properties.** `FField` arrives in 4.25. Before it, properties are
+  `UProperty` — UObjects chained through `UField::Next` — and `UStruct` has no
+  `FStructBaseChain`, so `SuperStruct` and everything after it sit 0x10 lower.
+  The 4.16–4.21 layout is in the version table; 4.22–4.24 falls back to
+  brute-force offset detection.
+
+Without this a pre-4.23 title looks like it works — the scans complete and
+the profile is written — while every class and object name comes back blank.
+
+## Instance view
+
+`ZL+X` in the UObject view reads the selected offset out of every live
+instance of the class and lists them by name. Instances come from
+`GUObjectArray`, the engine's own object list, so it needs neither a scan nor
+a gen2 watch; a running watch and the visited-object list are merged in as
+fallbacks. Selecting a row opens that instance's UObject view at the same
+offset, and `B` walks back.
+
+This is the tool for unreflected native members, which have no name in the
+binary at all: a slot that differs between instances is live state, one that
+is constant within a class but varies between sibling classes is a per-type
+parameter, and one that never varies is a shared constant.
+
 ## Notes and limits
 
 - Results depend on runtime memory layout and detected offsets.

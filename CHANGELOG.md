@@ -1,5 +1,202 @@
 # Changelog
 
+## [Beta 124.00] - 2026-10-08
+
+- **Game files:** Breeze reads the running game's own files (RomFS) through the system, with no keys and no dump tool. A game is allowed once and Breeze reopened with HOME twice.
+- **Unity without dump.cs:** Class Link, Descendent, Dump.cs and Load field view answer from Breeze's IL2CPP maps. **Il2Cpp** and **Launch dumptool** are removed from Main.
+- **Save snapshots:** copy a game's save with a picture, and restore one, through Atmosphere's save redirect to the SD card.
+- **PC app:** Stop game, Start game, save controls and a two-panel file manager. PC connect serves three clients.
+
+## [Beta 123.11] - 2026-10-07
+
+- **Dynamic view:** the action panel shows the buttons of the shift keys you hold (none, ZL, ZR, ZL + ZR). New built-in **Dynamic** layout.
+- Built-in layouts are shown in green and cannot be overwritten.
+- Many shortcuts added or moved so that every one can work.
+- Engine scan recognises Pixel Game Maker MV and Luau.
+
+## [Beta 123.10] - 2026-10-06
+
+- Title-name game folders work for games with Japanese names; bundled sys-ftp updated to match.
+- The overlay responds while the game is in front.
+- **Cheat folders:** rename, cut and paste a folder on the Cheats screen.
+- **ASM cheats:** the cave is written before the branch, and Toggle Cheat has three stages (on, off with the hook left in, off with the original instruction back).
+- **Main:** Exit is renamed **hbmenu** and moves from B to ZR + B.
+- Long lists page one screenful (11 rows) at a time; field views refresh on their own.
+
+## [Beta 123.09] - 2026-10-03
+
+- Fixed IL2CPP field maps and field views that lost most of a class's fields.
+- Unity: a component's field view lists the other components on its GameObject; row filter for long field views.
+
+## [Beta 123.08] - 2026-10-02
+
+- **Jump to target** runs the whole cheat as a dry run. New **Trace cheat** lists every hop, read, compare and write.
+- Godot games: Find chain walks the object graph from the root.
+- Unity Find chain: GameObject steps, lasting chains, and a reason when nothing is found.
+- PC connect: cheat commands, pointer tools, two clients. New **Breeze PC** app.
+
+## [Beta 123.07] - 2026-10-01
+
+- Unity: Instances include subclasses; Search maps takes several words.
+- Overlay mode shows in screenshots.
+
+## [Beta 123.06] - 2026-10-01
+
+- Unreal Engine 5 games without a version banner are recognised; UWorld Explorer reads the chain instead of guessing it.
+- Browse UE Objects lists every object. New **Attributes (GAS)** view.
+
+## [Beta 123.05] - 2026-09-30
+
+- Fixed three bugs in the Unity dictionary view: Make cheat on `_count`, Extract through a dictionary, and value types in a fresh session.
+
+## [Beta 123.04] - 2026-09-30
+
+- **In-app keyboard:** copy, cut, paste and undo with ZL as a modifier; STR and WSTR formats.
+- **Copy stack** shared by the keyboard and the Memory Explorer, kept across restarts. New **Copy address**; Address to A and Value to A removed.
+
+## [Beta 123.03] - 2026-09-30
+
+- **Game information** reports the engine and its version, the scripting language, middleware, renderer and SDK version.
+- The engine scan and the code cave floor are measured once per game when Breeze attaches.
+
+## [Beta 123.02] - 2026-09-29
+
+- **Add ASM** can place a code cave below main (nnrtld). Jump to target, Jump to ASM and the disassembly understand these caves.
+
+## [Beta 123.01] - 2026-09-28
+
+- Find chain reaches values in a dictionary, behind a generic singleton and through an interface field.
+- Match by Extract, and **Make cheat (scan)** for lists the game reorders.
+
+## [Beta 123.00] - 2026-09-26
+
+- **Unity menu:** usual suspects, map search, singletons and instances with a pointer chain to each.
+- **IL2CPP field map:** every field of every class with its offset and type.
+- Field view reads statics from the right block.
+
+## [Beta 122.03] - 2026-09-24
+
+- Download menu reworked: each check button turns into its install button; new **Install / Update Sphaira**.
+- Fixed downloads that stopped working until a reboot, and Add Bookmark in the Memory Explorer's u8 view closing Breeze.
+
+## [Beta 122.02] - 2026-09-23
+
+- **PC connect:** a PC on the same network can see and drive Breeze and read the game's memory without stopping the game.
+- **Built-in focus layouts:** Player, Beginner maker, Advanced maker and Engine tools, with a choice on first run.
+- Fixed sys-ftp using up the Switch's clock objects.
+
+## [Beta 122.01] - 2026-09-22
+
+- **HOME daemon** button in Settings installs and manages the daemon without the SwitchU menu. New **Breeze first** setting.
+- Fixed a crash when opening the Break and Trace view.
+
+## [Beta 122.00] - 2026-09-22
+
+- Break and Trace **Registers** screen reworked: separate X and V pages, new formats, every part of a V register editable.
+- **Restart Breeze** in the Focus Menu, which now tracks the layout file in effect.
+
+## [Beta 121.02] - 2026-09-21
+
+- Disassembler and Break and Trace unified into one **ASM Explorer**.
+- Normal mode keeps the programmed button order; Simple Menu and Full Menu buttons removed from Main.
+- Settings: Reset general settings, Backup and Restore custom shortcuts; one-step **Reinstall gen2 fork**.
+
+## [Beta 121.01] - 2026-09-19
+
+- Tesla / Ultrahand overlays work alongside Overlay mode.
+
+## [Beta 121.00] - 2026-09-17
+
+- **Overlay mode:** Breeze is shown on top of the running game, with HOME to show and hide it.
+- Fixed a crash at the end of installing an update.
+
+## [Beta 120.00] - 2026-09-15
+
+- **Rebase** carries cheats to a new version of the same Unity game.
+
+## [Beta 119.01] - 2026-09-15
+
+- Install SwitchU fork always installs the newest release.
+
+## [Beta 119.00] - 2026-09-15
+
+- **HOME toggle:** HOME switches between Breeze and the game, with tomvita's SwitchU fork as the HOME menu.
+- Downloads and installs wait on a progress screen.
+
+## [Beta 118.07] - 2026-09-14
+
+- Class field opens the object the cursor is inside; Function Up stops at every function; loadable modules supported.
+
+## [Beta 118.06] - 2026-09-13
+
+- Field annotations reach the native C++ field view; a struct RTTI cannot see can be declared.
+
+## [Beta 118.05] - 2026-09-11
+
+- Static fields are recognised by their type; Class field works inside a static block.
+
+## [Beta 118.04] - 2026-09-08
+
+- The Lua detector finds the Lua state where it lives, on a progress screen; large tables open.
+
+## [Beta 118.03] - 2026-09-06
+
+- Gen2 attach and detach no longer reset the cheat VM. New **Reset CheatVM** button.
+- A failed attach no longer freezes the game.
+
+## [Beta 118.02] - 2026-09-04
+
+- Lua paths are resolved in native code, shared by every Lua cheat.
+
+## [Beta 118.01] - 2026-09-03
+
+- Lua: self-resolving cheats accept keys that are not array indexes and values that are not always there.
+
+## [Beta 118.00] - 2026-09-03
+
+- **Lua tool** for games that keep their data in a Lua state: browse by name, bookmarks that are paths, cheats that survive a game restart.
+
+## [Beta 117.02] - 2026-08-31
+
+- Trimming the node map is a scan with progress; label lookups are much faster; the label list is paged.
+
+## [Beta 117.01] - 2026-08-27
+
+- Fixed the Gen2 method label naming the caller instead of the row.
+
+## [Beta 117.00] - 2026-08-27
+
+- **Add field label** and **Class field** on the Candidate, Bookmark and Jump Back lists.
+- Gen2: **Add method label** and **View caller**. Jump Back: node list pages and **Trim** by label.
+
+## [Beta 116.02] - 2026-08-26
+
+- Fixed Assemble all ASM packing caves above an off cheat and losing cheats with no script.
+
+## [Beta 116.01] - 2026-08-26
+
+- **Unreal Engine 4.16 - 4.22** support.
+
+## [Beta 116.00] - 2026-08-25
+
+- **GameMaker** cheats from a shared hook (**Make GM cheat**).
+- Code caves are allocated from the cheats themselves; new **Code Cave Map**; Assemble all ASM rebuilds and packs every cheat together.
+
+## [Beta 115.00] - 2026-08-23
+
+- Pointer searches no longer store the paths they find, so deep searches do not run out of memory.
+- Free memory is measured and a search stops before it fails; **Rewind to depth**; a saved map resumes the whole search.
+
+## [Beta 114.02] - 2026-08-22
+
+- Pointer chains keep their depth; Extract works on a class without `dump.cs` and over more than one hop.
+- Jump Back: **Land on class**. Assembler save guard.
+
+## [Beta 114.00] - 2026-08-20
+
+- Field view reads a list of objects, shows strings, and walks arrays of objects with the right stride.
+- Faster IL2CPP function map build; enum names without a dump.
+
 ## [Beta 113.00] - 2026-08-20
 
 ### Added

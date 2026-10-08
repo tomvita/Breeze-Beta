@@ -24,11 +24,9 @@ See also: [class_primer.md](class_primer.md) for class/instance fundamentals and
 
 ## Focus and shortcut notes
 
-- If you are using Focus mode and some new buttons are not visible, apply the newer `default.focus` included in later releases.
+- If you are using Focused Actions and a button in this guide is not visible, load the built-in **Engine tools** or **All** layout, or hold `ZL` / `ZR` when Dynamic view is on.
 - You can open Focus Manager directly with `FocusManager_key` (default: `L + ZR`).
-- `default.focus` is applied when:
-- you activate the "Full Menu" button in Main Menu, or
-- it is loaded directly in Focus Menu.
+- Layouts are loaded in the Focus Manager with **Load layout**. See the [Focused Actions Guide](focus%20mode.md).
 - Shortcut keys shown in this guide are default mappings.
 - Users can customize shortcuts when custom shortcuts are enabled.
 
@@ -36,11 +34,20 @@ See also: [class_primer.md](class_primer.md) for class/instance fundamentals and
 
 ### Do you need dump.cs at all?
 
-No longer required. Breeze can read class fields, methods, signatures and
-function names directly from live memory. `dump.cs` is still preferred when you
-have it — it carries richer detail and parameter names on every build — but the
-runtime path covers titles where Il2CppDumper fails, which is common on older
-games.
+No. Breeze reads class fields, methods, signatures and function names directly
+from live memory, and nothing in Breeze makes a `dump.cs` any more: the `IL2CPP`
+button on Main, which ran a helper program to write one, is gone. A `dump.cs`
+made on a PC with Il2CppDumper and put in the game directory is still used when
+it is there; it carries parameter names the runtime path does not.
+
+Without one, the Field View buttons that used to need it answer from the IL2CPP
+maps instead: **Class Link** lists the fields declared as the class, **Descendent**
+the classes derived from it, and **Dump.cs** the class with its fields and
+methods. They open the same result screen as **Unity > Search maps**, so Open,
+Instances and Find chain work from there. Build the maps first (**Unity > IL2CPP
+map**). **Load field view** needs no `dump.cs` either: a saved view is reopened
+from the running game by following its saved pointer chain to the object. Only
+the `dump.cs View` itself, with its search and bookmarks, still needs the file.
 
 Runtime-only route: run **Search → Klass**, then build the function map from
 ASM Explorer with **IL2CPP map** (`Y + ZR`). See
@@ -48,15 +55,14 @@ ASM Explorer with **IL2CPP map** (`Y + ZR`). See
 
 ### Get il2cpp Breeze helper
 
-To generate `dump.cs` and its index files for the richest experience.
+Optional, on a PC: it generates `dump.cs` and its index files (`index1.bin`,
+`index2.bin`) from the game's `main` and `global-metadata.dat`. Put the three
+files in the game directory.
 
 Get from here: <https://github.com/tomvita/Il2CppDumper/releases/latest>
 
-### No-PC (Switch-only) workflow
-
-- You can prepare IL2CPP files directly on Switch from Main Menu (`IL2CPP` / `Launch dumptool`) without using a PC.
-- Processing on Switch is much slower. Expect around 5 minutes (sometimes more) depending on game size.
-- Some games need more memory for this step. If it fails or stops early, run Breeze in title takeover mode (high-memory applet replacement) and retry.
+`global-metadata.dat` can be copied out of the running game with the PC app's
+file manager (**Files... > Game files**, under `Data/Managed/Metadata/`).
 
 ### Compatibility notes (`main` vs `main.elf`)
 
@@ -67,6 +73,164 @@ Get from here: <https://github.com/tomvita/Il2CppDumper/releases/latest>
 - On PC:
 - Use `main` for better compatibility with older games.
 - Use `main.elf` for better compatibility with newer games.
+
+## Unity menu (Main > Unity)
+
+For a first run, follow [`unity_menu_walkthrough.md`](unity_menu_walkthrough.md):
+it makes a money cheat and an HP cheat step by step.
+
+Everything here reads the two files the IL2CPP map screen writes to the game
+folder, `il2cpp_function_map.txt` and `il2cpp_field_map.txt`. Build them once per
+game update with **IL2CPP map** (the first button). No `dump.cs` is needed, and
+nothing here searches memory for a value.
+
+| Button | Does |
+|---|---|
+| IL2CPP map | Opens the map screen: *Build / Abort* for methods, *Build field map* for fields |
+| Usual suspects | Number fields whose names match the suspect list, statics first, with live values |
+| Search maps | Part of a class, field or method name, looked up in both maps |
+| Singletons | Statics whose type is their own class (the `Instance` pattern), the usual starting points |
+| Edit suspects | Edit the suspect list on the keyboard |
+
+**The suspect list** is `/switch/Breeze/unity_suspects.ini`, shared by every game
+and created with a starting list the first time. One word per line. A plain word
+matches a whole word of the field name, in any case: `hp` matches `maxHp`,
+`curHP` and `<Hp>k__BackingField`, but not `graphParent`. `*word*` matches
+anywhere in the name. A `-Prefix` line leaves out classes whose full name starts
+with it (`-System.`, `-UnityEngine.` ...). Only number fields are listed, plus
+anti-cheat `Obscured*` types. *Edit suspects* changes the word lines and keeps
+comments and `-` lines.
+
+**On a results list:**
+
+| Button | Does |
+|---|---|
+| Open | Static field or class: the class field view. Instance field: its live instances. Method: ASM Explorer |
+| Bookmark static | Bookmark `[main+class slot] -> +static block -> +offset`, checked to land on the field first |
+| Bookmark all statics | The same for every static in the list |
+| Instances | Live objects of the row's class |
+| Make cheat | A pointer cheat that writes the static's current value (added disabled) |
+| Hook template | Method rows: a cheat on the method's first instruction plus a starter `asm` script next to it; open it in Edit Cheat, then *Add ASM* |
+
+**Instances** scans the game's writable memory for the class: an IL2CPP object
+starts with its class pointer, then a lock word that is 0, at a 16-byte
+boundary. It runs in slices, so the screen stays live; B stops it.
+
+| Button | Does |
+|---|---|
+| Field view | Open the selected object |
+| Find chain | Chains from a static to this object, up to five objects deep, shortest first |
+| Save candidates | Write `{object + field offset, value}` for every instance as `/switch/Breeze/unity_<field>.dat`, a normal search result: Search Manager lists it and *Continue search* narrows it |
+| Keep searched | Keep only the instances left in the newest continued search of that file (`unity_<field>(NN).dat`) |
+| Go to address | Select the instance at a hex address (the object or one of its fields) |
+
+Rows show the object's name after the value when its class has a string field
+(`value = 100 [money]`), which tells apart objects holding the same number.
+
+**Find chain from Candidates:** Search Manager's candidate list has **Find
+chain** too (Y+ZR). It walks back from the selected address to the object it is
+in, names its class and field from the field map, and opens the same chain
+screen, so a narrowed search goes straight to a chain without returning to the
+instance list.
+
+**Find chain from a field view** (Down+ZR): on a pointer row it finds chains to
+the object the row points at; on a value row it finds chains to the object the
+view shows, with that field attached, so the chain screen's *Make cheat* writes
+it. On Graveyard Keeper 2, an inventory `Item`'s `count` row gave
+`MainGame.PlayerData > inventory > inventoryItem > inventory[1]`, and its
+`definition : ItemDef*` row gave `GameBalance.instance > itemDefs[311]`.
+| Bookmark field | Bookmark this object's field address (no chain) |
+
+**Find chain** walks from every static reference field through the reference
+fields the field map lists for each object's class and its parents, up to five
+objects deep. A `List<T>` field is followed into its items and an array of
+references element by element; that step does not use up a level, and the
+chain records the index (`resValues[0]`). Before walking, it works out from the
+field map which classes can lead to the target's class at all, and only follows
+fields whose declared type names one of them.
+
+On Graveyard Keeper 2:
+
+- The player's `HPComponent`: `MainGame.PlayerData > hpComponent`, 2.7 s.
+- The money resource (a `GameResAtom` in a list): `MainGame.PlayerData > res >
+  resValues[0]`, 2.7 s after walking 4,024 objects (17,461 without the type
+  pruning, which found nothing).
+
+From the chain list, *Bookmark* and *Make cheat* use it directly. When the
+chain goes through a list or array index, *Make cheat* also checks the object's
+first string field (for `GameResAtom`, its name) starts with the same two
+characters as now, and writes nothing otherwise. A list's order can differ in
+another save, and the check turns a wrong index into a cheat that does nothing.
+The cheat for the money chain above wrote 1,000,000 back over a poked 500, and
+its check reads `"mo"`.
+
+**GameObjects and Transforms.** Unity keeps a GameObject's components on its
+native side, so a hero held only as a `GameObject` (`CameraScript.Players`) or a
+`Transform` has no managed field leading to its scripts. Find chain follows
+that step too, through Unity's native objects:
+
+`GameObject +0x10` (native GameObject) `> +arr` (component array) `> [i]` (native
+component) `> +handle > +0` (the managed component)
+
+It measures the offsets on each game the first time it meets a GameObject,
+and every component taken this way must point back to its GameObject and to its
+managed object, so a wrong layout finds nothing rather than a wrong chain. The
+step shows as `{HeroStats #2}` (class and index in the GameObject), and the
+finished status line shows the measured layout, `[go+20 arr+20 n+30 h+18+0]`
+on King's Blade. Fields typed `GameObject` or `Transform` are only followed
+when the target is a component, or a component can reach it.
+
+On King's Blade, `HeroStats.SkillPoint`:
+`UnitCooling.instance > CS > Players[0] > {HeroStats #2}`, 10 s. The component
+index comes from the prefab, so check a chain like this with another character.
+
+**Which chains last.** A chain can reach the object only for a moment: King's
+Blade's `TriggeredPhysicsEventsBuffer.fastInstance > probe > invoker` is the
+physics event being handled. After the search, each chain is resolved again
+0.7 s and 1.5 s later; one that reaches something else is marked `[changes]` and
+listed last, and when every chain found changes, the search goes deeper. This
+needs the game running (Breeze as an overlay): with Breeze full screen the game
+is paused, and the status line says the chains were not re-checked. Chains are
+listed held first, then shorter, singleton roots (`instance`) before others,
+and names like `probe`, `last`, `buffer`, `invoker`, `event` last.
+
+**From a component to the other components on its GameObject.** The player's
+`Entity` (a component) leads to its `Damageable`, its `StatsStateComponent` and
+the rest through their GameObject, so on Castlevania: Belmont's Curse Demo the
+player's current health is found as
+`GameStateManager.instance > mainCharacterEntity > {Damageable #21} > currentHealthStat > statObject`
+(10 s), where before the only chain was
+`CameraManagerSystem.shakeListener > componentCache[59] > CurrentStats[47]`. Only
+components whose class can lead to the target are queued, and each GameObject is
+expanded once.
+
+**Other routes to the same object.** The search keeps one route to each object,
+so the first static to reach the player hid the others. Routes met later (at
+most one level longer) are kept, and each chain is also listed through them:
+`GameStateManager.instance > mainCharacterEntity` and
+`CameraManagerSystem.shakeListener` both appear. The search also goes one level
+past the first chain it finds, and an index into a list or dictionary (`[59]`)
+counts against a chain in the ranking, since it depends on the order things
+were added; a component's place on its GameObject (`#21`) comes from the prefab.
+
+**The component array** is `{data, memory label, size, capacity}`. The label is
+a small constant (58 on King's Blade, 43 on Castlevania) that looks like a
+count, so the size is read from the word after it.
+
+**When nothing is found**, the list says why: every object reachable from a
+static was searched (to five deep), the 200,000-object limit was hit, or the
+search was stopped with B.
+
+A typical session on a new game:
+
+1. *IL2CPP map*, then build both maps.
+2. *Usual suspects* or *Search maps* for the value's field.
+3. For a static: *Make cheat*.
+4. For an instance field: *Open* lists every object. To find the one that
+   matters, *Save candidates*, narrow it in Search Manager (== the value you
+   see, then changed or decreased after it changes in the game), come back and
+   *Keep searched*.
+5. *Find chain* on it, then *Make cheat*.
 
 ## Views guide
 
@@ -80,6 +244,11 @@ Get from here: <https://github.com/tomvita/Il2CppDumper/releases/latest>
 - `IL2CPP map` (`Y + ZR`): generate function names from live klass data. Needed
   once per session for `Function Up` / `Function Down` when there is no
   `dump.cs`; requires `Search -> Klass` first.
+- On that screen, `Build field map` (`Y`) writes `il2cpp_field_map.txt`: every
+  class's fields with offset and type (`HPComponent::hp = +0x3C int`), for
+  searching on a PC. Class lines carry `klass=[main+0x...]`, the global holding
+  the class pointer. With the static block slot in the header, a static field is
+  then a pointer chain rooted in main: `[[main+SLOT]+0xB8]+offset`.
 
 Function names resolve from `dump.cs` when present, otherwise from the generated
 `il2cpp_function_map.txt`.
@@ -100,7 +269,7 @@ Function names resolve from `dump.cs` when present, otherwise from the generated
 - `Pin selected offset` (`X`): pin the selected field using the active source address/bookmark.
 - `Pin gen2 offset` (`ZR`): pin using gen2 offset flow when applicable.
 - `Memory Explorer` (`R`): jump to live memory at current field context.
-- `Dump.cs` (`L`): jump back to `dump.cs` context.
+- `Dump.cs` (`L`): jump back to `dump.cs` context. With no `dump.cs`: the class, its fields and its methods from the IL2CPP maps.
 - `View class` (`R + ZL`): open field-type class details.
 - `Class Link` (`Y`): find classes/fields that link to the current class.
 - `Descendent` (`Y + ZL`): find direct child classes.
@@ -111,6 +280,13 @@ Function names resolve from `dump.cs` when present, otherwise from the generated
 - `Jump Back` (`StickL + ZR`): open jump-back style source navigation.
 - `Make cheat` (`+ + ZR`): generate cheat from valid linked field context.
 - `Save field view` (`StickR + ZR`): save current field view state for reload.
+- `Condense` (`Left + ZR`): show only the rows whose Extract display resolved
+  to something. See *Condense* below.
+- `Page +` / `Page -` (`Right + ZL` / `Left + ZL`): move the scanned window on a
+  native view whose object size is unknown. Offsets stay absolute from the
+  object base, so a row found on a later page makes the same cheat it would
+  have made on the first. Declines on a `dump.cs` view -- there is no window to
+  move.
 
 ### Extract (inline field display)
 
@@ -125,6 +301,11 @@ then shows those values on every row of that type.
    panel title gains `[Extract pick]` and every row gains a marker column.
 2. Press `Extract` on each field you want shown. `*` marks a chosen field.
    Pressing `Extract` again on a marked field removes it.
+   Inside a pick session the same button also *descends*: on a row that still
+   holds an object, Breeze walks into it and the session continues one level
+   deeper, still keyed on the type you started from. So a value two or three
+   hops away can be put on the original row. `Back` returns to the level above
+   with its own picks intact.
 3. Press `Back`. There is no save step — the picks are written to disk on every
    toggle, so a session cannot be lost by leaving the wrong way.
 
@@ -157,14 +338,37 @@ hand-editable:
 
 ```
 # Breeze field extract - inline display picked with the Extract button
-# type|offset|field name|field type
+# type|hop>hop>offset|field name|field type
 Idle.Datas.Item|0x38|<itemName>k__BackingField|System.String*
 Idle.Datas.Item|0x20|amount|long
+Idle.Datas.Bag|0x18>0x20|amount|long
 ```
+
+The offset column is a path: every element but the last is a dereference, the
+last is where the value sits, so `0x18>0x20` reads *follow the pointer at +0x18,
+then take the long at +0x20*. A bare offset is the one-hop form, so files
+written before paths existed load unchanged. A path that breaks at any hop shows
+nothing rather than a number read from the wrong object.
 
 Line order is display order: picks append rather than sort by offset, so the
 values read in the order you chose them. Delete the file to clear every type at
 once.
+
+### Condense
+
+On a large view most rows carry no extracted value. `Condense` (`Left + ZR`)
+drops the list to only the rows whose Extract display resolved -- on a table of
+38 records that is 266 rows down to 37, one per record, each showing its own
+values.
+
+It is a filter, so every other button still acts on the real field behind the
+row. The cursor is carried across the toggle: condensing lands on the first kept
+row at or after where you were, and un-condensing returns to exactly the field
+you were reading. `Write to file` follows the filter, so a condensed dump
+contains the identified rows and nothing else.
+
+If no row has an extracted value the toggle refuses and says so -- pick fields
+with `Extract` first.
 
 ## Instance Search guide
 
@@ -213,10 +417,6 @@ What to try:
 
 - Main Menu: `Load field view`
 - Purpose: open saved Field View entries and resume previous class-analysis sessions.
-- Main Menu: `IL2CPP` / `Launch dumptool`
-- Purpose: run on-device IL2CPP prep and extraction flow (creates files under `sdmc:/switch/breeze/cheats/<TITLE_ID>/`).
-- Main Menu: `Launch dumptool`
-- Purpose: launch `nxdumptool` to extract `main` and `global-metadata.dat` into `sdmc:/switch/breeze/cheats/<TITLE_ID>/`.
 - Memory Explorer: `Load field view` (`StickLUp + ZR`)
 - Purpose: use current cursor context as source input for Field View pinning workflow.
 - Memory Explorer: `Class view` / `Class field` (`Y + ZR + ZL`)
@@ -283,6 +483,28 @@ Offset tip from ASM:
 - `pin_source = base + gen2_offset`
 - `instance_base = pin_source - gen2_offset` (same selected base)
 - On success, Field View cursor is moved to the row matching `gen2 offset` when that offset exists in the class layout.
+
+### `Class field` on a static field (static block)
+
+- Static fields do not live in any object. Each class has one static block,
+  reached from its `Il2CppClass` (`main+X -> klass -> +B8 -> block`), and the
+  field offsets shown in Field View for static rows count from that block.
+- The block has no header, so `Class field` cannot find it by scanning
+  backwards the way it finds an object; the bytes of a static block look like
+  any other data.
+- If you reached the value by following the pointer chain in Memory Explorer
+  (for example `main+5836128+B8+3C`), press `Class field` where you are:
+  Breeze reads the class from the chain's last hop and opens it with the
+  static block pinned and the cursor on the field. This replaces jumping back
+  one step to the pointer and pressing `Class field` there.
+- If you reached the value some other way (search result, candidate list),
+  Breeze matches the address against the static blocks of every class it
+  knows. This needs the Klass list; the Klass search runs by itself the first
+  time if `Klass.dat` is missing, which takes a few seconds.
+- Either way `Make cheat` gets the `main -> klass -> block -> field` chain,
+  which is restart-stable.
+- An object that ends before the address (an array whose length puts the
+  address past its data) is no longer shown as the owner.
 
 ## Practical examples
 
