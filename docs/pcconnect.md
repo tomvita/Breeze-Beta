@@ -423,6 +423,7 @@ The ip and code are remembered in `~/.breeze_pc.json`, so later it is just
   base folder. **Album** opens that folder as thumbnails (`pcconnect_album.py`):
   double-click opens a picture, Delete removes the selection, and pictures can
   be dragged out into Explorer or another program (Windows).
+  The file manager's PC panel can be dragged from in the same way.
 - **Record** (check box) keeps every picture the app receives, in
   `record/<date_time>/` inside the game's folder, each named by the milliseconds
   since the box was ticked. `log.txt` beside them lists, on the same clock,

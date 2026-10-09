@@ -18,9 +18,11 @@ folder is made when it does not exist. With a game running the PC side starts
 in the title-name folder. The base folder is remembered in ~/.breeze_pc.json
 ("pc_game_base"); until one is picked it is "Breeze games" in the home folder.
 """
+import ctypes
 import os
 import queue
 import string
+import sys
 import threading
 import time
 import tkinter as tk
@@ -38,6 +40,102 @@ def pc_folder_name(name):
     """A title name as a Windows folder name."""
     name = "".join("_" if c in '<>:"/\\|?*' or ord(c) < 32 else c for c in name)
     return name.rstrip(" .")
+
+
+class _Guid(ctypes.Structure):
+    _fields_ = [("d1", ctypes.c_ulong), ("d2", ctypes.c_ushort), ("d3", ctypes.c_ushort), ("d4", ctypes.c_ubyte * 8)]
+
+
+class _FormatEtc(ctypes.Structure):
+    _fields_ = [("format", ctypes.c_ushort), ("device", ctypes.c_void_p), ("aspect", ctypes.c_ulong),
+                ("index", ctypes.c_long), ("tymed", ctypes.c_ulong)]
+
+
+class _StgMedium(ctypes.Structure):
+    _fields_ = [("tymed", ctypes.c_ulong), ("handle", ctypes.c_void_p), ("release", ctypes.c_void_p)]
+
+
+def _guid(text):
+    g = _Guid()
+    ctypes.windll.ole32.CLSIDFromString(ctypes.c_wchar_p(text), ctypes.byref(g))
+    return g
+
+
+def _com_call(obj, index, restype, *argtypes):
+    """Method `index` of a COM object's vtable, as a callable taking the arguments after `this`."""
+    vtable = ctypes.cast(obj, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
+    fn = ctypes.WINFUNCTYPE(restype, ctypes.c_void_p, *argtypes)(vtable[index])
+    return lambda *args: fn(obj, *args)
+
+
+def _prefer_copy(data):
+    """Tells a drop target that copying is what we would like ("Preferred DropEffect" = copy).
+    Explorer would otherwise move files dropped on the same drive."""
+    k, u = ctypes.windll.kernel32, ctypes.windll.user32
+    k.GlobalAlloc.restype = k.GlobalLock.restype = ctypes.c_void_p
+    k.GlobalAlloc.argtypes = [ctypes.c_uint, ctypes.c_size_t]
+    k.GlobalLock.argtypes = k.GlobalUnlock.argtypes = k.GlobalFree.argtypes = [ctypes.c_void_p]
+    mem = k.GlobalAlloc(2, 4)   # GMEM_MOVEABLE
+    if not mem:
+        return
+    ctypes.cast(k.GlobalLock(mem), ctypes.POINTER(ctypes.c_ulong))[0] = 1   # DROPEFFECT_COPY
+    k.GlobalUnlock(mem)
+    fmt = _FormatEtc(u.RegisterClipboardFormatW(ctypes.c_wchar_p("Preferred DropEffect")), None, 1, -1, 1)
+    medium = _StgMedium(1, mem, None)   # TYMED_HGLOBAL
+    set_data = _com_call(data, 7, ctypes.c_long, ctypes.POINTER(_FormatEtc), ctypes.POINTER(_StgMedium), ctypes.c_int)
+    if set_data(ctypes.byref(fmt), ctypes.byref(medium), 1) != 0:   # 1: the object frees the memory
+        k.GlobalFree(mem)
+
+
+def drag_files(hwnd, paths):
+    """Starts a Windows drag of these files and folders, as Explorer would, and
+    returns when the mouse button comes up: the effect of the drop (1 copy,
+    2 move, 4 link), or 0 when nothing took them.
+
+    The shell builds the data object and supplies the drop source, so no extra
+    package is needed. Copy, move and link are all offered, as Explorer offers
+    them: a web page's reply box refuses a drag that offers copy alone."""
+    if sys.platform != "win32" or not paths:
+        return 0
+    shell32, ole32 = ctypes.windll.shell32, ctypes.windll.ole32
+    ole32.OleInitialize(None)
+    shell32.SHParseDisplayName.argtypes = [ctypes.c_wchar_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p),
+                                           ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong)]
+    shell32.SHCreateShellItemArrayFromIDLists.argtypes = [ctypes.c_uint, ctypes.POINTER(ctypes.c_void_p),
+                                                          ctypes.POINTER(ctypes.c_void_p)]
+    shell32.SHDoDragDrop.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong,
+                                     ctypes.POINTER(ctypes.c_ulong)]
+    shell32.ILFree.argtypes = [ctypes.c_void_p]
+    pidls = []
+    array = ctypes.c_void_p()
+    data = ctypes.c_void_p()
+    try:
+        for p in paths:
+            pidl = ctypes.c_void_p()
+            if shell32.SHParseDisplayName(os.path.abspath(p), None, ctypes.byref(pidl), 0, None) == 0 and pidl:
+                pidls.append(pidl)
+        if not pidls:
+            return 0
+        items = (ctypes.c_void_p * len(pidls))(*[p.value for p in pidls])
+        if shell32.SHCreateShellItemArrayFromIDLists(len(pidls), items, ctypes.byref(array)) != 0:
+            return 0
+        # IShellItemArray::BindToHandler(NULL, BHID_DataObject, IID_IDataObject, &data)
+        bind = _com_call(array, 3, ctypes.c_long, ctypes.c_void_p, ctypes.POINTER(_Guid), ctypes.POINTER(_Guid),
+                         ctypes.POINTER(ctypes.c_void_p))
+        bhid = _guid("{B8C0BD9F-ED24-455C-83E6-D5390C4FE8C4}")
+        iid = _guid("{0000010E-0000-0000-C000-000000000046}")
+        if bind(None, ctypes.byref(bhid), ctypes.byref(iid), ctypes.byref(data)) != 0:
+            return 0
+        _prefer_copy(data)
+        effect = ctypes.c_ulong(0)
+        hr = shell32.SHDoDragDrop(hwnd, data, None, 1 | 2 | 4, ctypes.byref(effect))   # copy, move, link
+        return effect.value if hr == 0x00040100 else 0                                  # DRAGDROP_S_DROP
+    finally:
+        for obj in (data, array):
+            if obj:
+                _com_call(obj, 2, ctypes.c_ulong)()   # IUnknown::Release
+        for pidl in pidls:
+            shell32.ILFree(pidl)
 
 
 def human(n):
@@ -206,7 +304,29 @@ class FileManager:
         tree.bind("<Delete>", lambda e: self.delete())
         tree.bind("<FocusIn>", lambda e: self.set_active(side))
         tree.bind("<Tab>", lambda e: self.other_tree(side).focus_set() or "break")
+        if side == "pc":
+            # Files on this PC can be dragged out to Explorer or another program.
+            tree.bind("<ButtonPress-1>", self.on_pc_press)
+            tree.bind("<B1-Motion>", self.on_pc_motion)
         return tree
+
+    def on_pc_press(self, e):
+        # A press on a row that is already selected keeps the whole selection
+        # for a drag; the list itself is about to reduce it to that one row.
+        row = self.pc_tree.identify_row(e.y)
+        keep = self.pc_tree.selection()
+        self.pc_drag = (e.x, e.y, keep if row in keep else (row,)) if row and row != ".." else None
+
+    def on_pc_motion(self, e):
+        drag = getattr(self, "pc_drag", None)
+        if drag is None or self.pc_path == DRIVES or abs(e.x - drag[0]) + abs(e.y - drag[1]) < 8:
+            return "break" if drag else None
+        self.pc_drag = None
+        self.pc_tree.selection_set(*drag[2])
+        paths = [os.path.join(self.pc_path, self.pc_entries[int(i)][0]) for i in drag[2]]
+        drag_files(self.win.winfo_id(), paths)
+        self.win.after(500, lambda: self.load_pc(self.pc_path))   # Explorer may have moved them (Shift held)
+        return "break"
 
     def other_tree(self, side):
         return self.pc_tree if side == "sw" else self.sw_tree

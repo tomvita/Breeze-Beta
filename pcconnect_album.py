@@ -8,10 +8,9 @@ where that is); the app's Screenshot button saves there.
 - Thumbnails, newest first. Click to select, Ctrl+click and Shift+click for more.
 - Double-click (or Enter) opens a picture in the program Windows uses for it.
 - Drag the selection out of the window to copy it somewhere else: an Explorer
-  folder, a chat, a document. Windows only.
+  folder, a chat, the reply box of a web page. Windows only.
 - Delete removes the selection, after asking. Open folder shows it in Explorer.
 """
-import ctypes
 import os
 import subprocess
 import sys
@@ -19,6 +18,8 @@ import tkinter as tk
 from tkinter import messagebox
 
 from PIL import Image, ImageTk
+
+from pcconnect_files import drag_files
 
 PICTURES = (".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp")
 THUMB_W, THUMB_H = 192, 108
@@ -31,71 +32,6 @@ def open_path(path):
         os.startfile(path)  # noqa: S606 - a picture or folder the user picked
     else:
         subprocess.Popen(["open" if sys.platform == "darwin" else "xdg-open", path])
-
-
-class _Guid(ctypes.Structure):
-    _fields_ = [("d1", ctypes.c_ulong), ("d2", ctypes.c_ushort), ("d3", ctypes.c_ushort), ("d4", ctypes.c_ubyte * 8)]
-
-
-def _guid(text):
-    g = _Guid()
-    ctypes.windll.ole32.CLSIDFromString(ctypes.c_wchar_p(text), ctypes.byref(g))
-    return g
-
-
-def _com_call(obj, index, restype, *argtypes):
-    """Method `index` of a COM object's vtable, as a callable taking the arguments after `this`."""
-    vtable = ctypes.cast(obj, ctypes.POINTER(ctypes.POINTER(ctypes.c_void_p))).contents
-    fn = ctypes.WINFUNCTYPE(restype, ctypes.c_void_p, *argtypes)(vtable[index])
-    return lambda *args: fn(obj, *args)
-
-
-def drag_files(hwnd, paths):
-    """Starts a Windows drag of these files, as Explorer would, and returns when
-    the mouse button comes up. True when they were dropped somewhere.
-
-    The shell builds the data object for the files and supplies the drop
-    source, so no extra package is needed."""
-    if sys.platform != "win32" or not paths:
-        return False
-    shell32, ole32 = ctypes.windll.shell32, ctypes.windll.ole32
-    ole32.OleInitialize(None)
-    shell32.SHParseDisplayName.argtypes = [ctypes.c_wchar_p, ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p),
-                                           ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong)]
-    shell32.SHCreateShellItemArrayFromIDLists.argtypes = [ctypes.c_uint, ctypes.POINTER(ctypes.c_void_p),
-                                                          ctypes.POINTER(ctypes.c_void_p)]
-    shell32.SHDoDragDrop.argtypes = [ctypes.c_void_p, ctypes.c_void_p, ctypes.c_void_p, ctypes.c_ulong,
-                                     ctypes.POINTER(ctypes.c_ulong)]
-    shell32.ILFree.argtypes = [ctypes.c_void_p]
-    pidls = []
-    array = ctypes.c_void_p()
-    data = ctypes.c_void_p()
-    try:
-        for p in paths:
-            pidl = ctypes.c_void_p()
-            if shell32.SHParseDisplayName(os.path.abspath(p), None, ctypes.byref(pidl), 0, None) == 0 and pidl:
-                pidls.append(pidl)
-        if not pidls:
-            return False
-        items = (ctypes.c_void_p * len(pidls))(*[p.value for p in pidls])
-        if shell32.SHCreateShellItemArrayFromIDLists(len(pidls), items, ctypes.byref(array)) != 0:
-            return False
-        # IShellItemArray::BindToHandler(NULL, BHID_DataObject, IID_IDataObject, &data)
-        bind = _com_call(array, 3, ctypes.c_long, ctypes.c_void_p, ctypes.POINTER(_Guid), ctypes.POINTER(_Guid),
-                         ctypes.POINTER(ctypes.c_void_p))
-        bhid = _guid("{B8C0BD9F-ED24-455C-83E6-D5390C4FE8C4}")
-        iid = _guid("{0000010E-0000-0000-C000-000000000046}")
-        if bind(None, ctypes.byref(bhid), ctypes.byref(iid), ctypes.byref(data)) != 0:
-            return False
-        effect = ctypes.c_ulong(0)
-        hr = shell32.SHDoDragDrop(hwnd, data, None, 1, ctypes.byref(effect))   # 1 = DROPEFFECT_COPY
-        return hr == 0x00040100 and effect.value != 0                           # DRAGDROP_S_DROP
-    finally:
-        for obj in (data, array):
-            if obj:
-                _com_call(obj, 2, ctypes.c_ulong)()   # IUnknown::Release
-        for pidl in pidls:
-            shell32.ILFree(pidl)
 
 
 class Album:
@@ -236,7 +172,9 @@ class Album:
         self.press = None
         paths = [os.path.join(self.folder, n) for n in self.files if n in self.selected]
         if paths:
-            drag_files(self.win.winfo_id(), paths)
+            effect = drag_files(self.win.winfo_id(), paths)
+            self.info.config(text="  dropped" if effect else "  not dropped")
+            self.win.after(500, self.reload)   # Explorer may have moved the files (Shift held)
 
     def open_selected(self):
         for n in [n for n in self.files if n in self.selected][:8]:

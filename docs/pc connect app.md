@@ -243,7 +243,7 @@ The picture is what is on the Switch's screen at that moment: the game while Bre
 
 - **Click** selects a picture. **Ctrl+click** adds or removes one, **Shift+click** selects a range.
 - **Double-click**, Enter or **Open** opens it in the program Windows uses for pictures.
-- **Drag** the selection out of the window to copy it somewhere else: an Explorer folder, a chat, a document. Windows only.
+- **Drag** the selection out of the window to copy it somewhere else: an Explorer folder, a chat, the reply box of a web page. Windows only.
 - **Delete** removes the selection, after asking.
 - **Open folder** shows the folder in Explorer. **Reload** (F5) reads it again.
 
@@ -259,8 +259,6 @@ A recording is a folder, `record/<date_time>/` inside the game's folder, holding
 - `log.txt`, which lists on the same clock every picture, every command the app sent, every controller state sent by Game input, and every change of Breeze's screen.
 
 Recording goes on while the app's window is not in front. It is a few pictures a second -- about 5 at the default **fps** setting, 7 at most -- not a video: it is meant for going through a session afterwards, by you or by a script, to find the moment something happened.
-
-Dragging pictures out of the album has not been tried with a real mouse yet.
 
 ## Saves
 
@@ -365,6 +363,8 @@ The keys act on the panel that has the focus. Selecting in one panel clears the 
 | F2 | Rename | Rename the selected item |
 | F8, Delete | Delete | Delete the selection, after asking |
 | Ctrl+R | Reload | Read both panels again |
+
+Files and folders in the PC panel can also be dragged out of the window, to Explorer or another program (Windows only).
 
 Several items can be selected with Ctrl and Shift. Before a copy that would overwrite files, the app lists them and asks. The progress bar shows the file being copied, and **Cancel** stops the copy; a file that was only partly copied to the PC is removed.
 
