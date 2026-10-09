@@ -33,18 +33,35 @@ The last ip and code are remembered in ~/.breeze_pc.json.
   has not saved is lost. Start game starts the last game again; Breeze closes
   to let it start and comes back the way it does after any exit (press HOME
   if it does not). Together with Restore: Stop game, Restore, Start game.
+- Game input sends the keyboard and a Windows controller to the game instead
+  of to Breeze's menus, through a virtual controller Breeze attaches to the
+  Switch. It reaches whatever is in front there: the game while Breeze is
+  hidden, Breeze itself while it is on screen. Player is the controller slot
+  it takes (a game for one player only reads player 1; the pad that was there
+  moves to the slot it leaves and gets it back when the box is unticked).
+  Controller: any XInput one (Xbox layout). Buttons go by position, so the
+  bottom button is the Switch's B, unless "A/B by label" is ticked; triggers
+  are ZL/ZR, Back/Start are MINUS/PLUS, the Guide button is HOME. It is read
+  whether or not this window has focus. Keyboard (window in focus): WASD =
+  left stick, IJKO = right stick, arrows = D-pad, Enter/Space = A,
+  Esc/Backspace = B, X Y, L R, Q = ZL, E = ZR, +/- , Z = LS, C = RS, H = HOME;
+  keys stay down while held. A click is a touch on the game's screen.
+- HOME presses the Switch's HOME button: with a game running it puts a
+  full-screen Breeze behind the game, or brings it back.
 - Files... opens a two-panel file manager: the Switch on the left (the game's
   directory, the game's own files, its save on the SD card, the album, the SD
   card), this PC on the right, where a list offers a folder for the game by
   title name or title id under a base folder of your choice. See
   pcconnect_files.py.
 
-One connection is used for everything but the file manager, which opens a
-second one while its window is open. PC connect takes three clients, so a
-script can still connect.
+One connection is used for everything but the file manager and Game input,
+which each open one of their own while they are in use. PC connect takes three
+clients, so with both open a script cannot connect.
 """
+import ctypes
 import io
 import json
+import math
 import os
 import queue
 import sys
@@ -72,12 +89,31 @@ KEYS = {
     "i": "RSUP", "k": "RSDOWN", "j": "RSLEFT", "o": "RSRIGHT",
     "s": "LS", "t": "RS",
 }
+# The same in Game input, where keys are held, not pressed once: WASD is the
+# left stick, and A and S give their buttons to Enter/Space and Z.
+GAME_KEYS = dict(KEYS, w="LSUP", a="LSLEFT", s="LSDOWN", d="LSRIGHT", space="A", z="LS", c="RS", h="HOME")
+STICK_KEYS = {"LSUP": (0, 1, 1), "LSDOWN": (0, 1, -1), "LSLEFT": (0, 0, -1), "LSRIGHT": (0, 0, 1),
+              "RSUP": (1, 1, 1), "RSDOWN": (1, 1, -1), "RSLEFT": (1, 0, -1), "RSRIGHT": (1, 0, 1)}
+# The order buttons are named in a gamestate command.
+PAD_ORDER = ["A", "B", "X", "Y", "L", "R", "ZL", "ZR", "PLUS", "MINUS", "UP", "DOWN", "LEFT", "RIGHT",
+             "LS", "RS", "HOME", "CAPTURE"]
+# XInput button bits -> Switch buttons, apart from the four face buttons.
+XINPUT_BUTTONS = [(0x0001, "UP"), (0x0002, "DOWN"), (0x0004, "LEFT"), (0x0008, "RIGHT"),
+                  (0x0010, "PLUS"), (0x0020, "MINUS"), (0x0040, "LS"), (0x0080, "RS"),
+                  (0x0100, "L"), (0x0200, "R"), (0x0400, "HOME")]
+# Face buttons by position (Xbox A is the bottom one, which is the Switch's B) and by label.
+XINPUT_FACE = {False: [(0x1000, "B"), (0x2000, "A"), (0x4000, "Y"), (0x8000, "X")],
+               True: [(0x1000, "A"), (0x2000, "B"), (0x4000, "X"), (0x8000, "Y")]}
+STICK_DEADZONE = 8000
+TRIGGER_DOWN = 60
 # Keys that move the list cursor (rows), like Breeze's own USB keyboard
 # support: Page Up / Page Down jump 10 rows.
 ROW_KEYS = {"Prior": -10, "Next": 10, "Home": -1000000, "End": 1000000}
 # The first line of the Restore list: the save in the place the game is not using.
 OTHER_SAVE = {"nand": "<the save inside the console (NAND)>", "sd": "<the save on the SD card>"}
 PLACE = {"nand": "the save inside the console (NAND)", "sd": "the save on the SD card"}
+GAME_HELP = ("Game input: WASD=left stick  IJKO=right stick  Arrows=D-pad  Enter/Space=A  Esc=B  X Y  L R  "
+             "Q=ZL E=ZR  +/-  Z=LS C=RS  H=HOME  click=touch  |  controller: Guide=HOME")
 HELP = ("Arrows=D-pad  Enter/A=A  Esc/B=B  X Y  L R  Q=ZL E=ZR  +/-=PLUS/MINUS  PgUp/PgDn=10 rows  "
         "Home/End  IJKO=right stick  S=LS T=RS  Ctrl=+ZL Shift=+ZR  click=select/press")
 
@@ -166,6 +202,170 @@ class Link(threading.Thread):
             self.drain_events(b)
 
 
+class _XGamepad(ctypes.Structure):
+    _fields_ = [("buttons", ctypes.c_ushort), ("lt", ctypes.c_ubyte), ("rt", ctypes.c_ubyte),
+                ("lx", ctypes.c_short), ("ly", ctypes.c_short), ("rx", ctypes.c_short), ("ry", ctypes.c_short)]
+
+
+class _XState(ctypes.Structure):
+    _fields_ = [("packet", ctypes.c_uint), ("pad", _XGamepad), ("reserved", ctypes.c_uint)]
+
+
+class XInput:
+    """The first connected XInput controller, read without any extra package."""
+
+    def __init__(self):
+        self.get = None
+        self.index = None
+        self.next_scan = 0.0
+        if sys.platform != "win32":
+            return
+        for name in ("xinput1_4", "xinput1_3", "xinput9_1_0"):
+            try:
+                dll = ctypes.WinDLL(name)
+                # Ordinal 100 is XInputGetState with the Guide button reported too.
+                self.get = dll.XInputGetState if name == "xinput9_1_0" else dll[100]
+                return
+            except (OSError, AttributeError):
+                continue
+
+    def read(self):
+        """(buttons, lt, rt, lx, ly, rx, ry), or None with no controller."""
+        if self.get is None:
+            return None
+        st = _XState()
+        if self.index is not None:
+            if self.get(self.index, ctypes.byref(st)) == 0:
+                g = st.pad
+                return g.buttons, g.lt, g.rt, g.lx, g.ly, g.rx, g.ry
+            self.index = None
+        # Asking about an empty slot is slow, so look for a controller once a second.
+        if time.time() >= self.next_scan:
+            self.next_scan = time.time() + 1.0
+            for i in range(4):
+                if self.get(i, ctypes.byref(st)) == 0:
+                    self.index = i
+                    g = st.pad
+                    return g.buttons, g.lt, g.rt, g.lx, g.ly, g.rx, g.ry
+        return None
+
+
+def pad_line(xpad, held, by_label):
+    """The gamestate command for a controller reading (or None) plus the keys held on the keyboard."""
+    down = set()
+    sticks = [[0, 0], [0, 0]]
+    if xpad:
+        buttons, lt, rt, lx, ly, rx, ry = xpad
+        for bit, name in XINPUT_BUTTONS + XINPUT_FACE[bool(by_label)]:
+            if buttons & bit:
+                down.add(name)
+        if lt >= TRIGGER_DOWN:
+            down.add("ZL")
+        if rt >= TRIGGER_DOWN:
+            down.add("ZR")
+        for i, (x, y) in enumerate(((lx, ly), (rx, ry))):
+            if math.hypot(x, y) >= STICK_DEADZONE:
+                sticks[i] = [x, y]
+    for key in held:
+        if key in STICK_KEYS:
+            i, axis, sign = STICK_KEYS[key]
+            sticks[i][axis] = sign * 32767
+        else:
+            down.add(key)
+    v = [max(-32767, min(32767, n)) for n in sticks[0] + sticks[1]]
+    names = "+".join(n for n in PAD_ORDER if n in down) or "-"
+    return "gamestate %s %d %d %d %d" % (names, v[0], v[1], v[2], v[3])
+
+
+class PadLink(threading.Thread):
+    """Game input: its own connection, so a press never waits behind a
+    capture. Sends the whole pad whenever it changes."""
+
+    def __init__(self, host, code, out, player, by_label, xinput=None):
+        super().__init__(daemon=True)
+        self.host, self.code, self.out = host, code, out
+        self.player, self.by_label = player, by_label
+        self.xinput = xinput or XInput()
+        self.jobs = queue.Queue()
+        self.lock = threading.Lock()
+        self.held = set()
+        self.stop = threading.Event()
+
+    def key(self, name, down):
+        with self.lock:
+            (self.held.add if down else self.held.discard)(name)
+
+    def release_keys(self):
+        with self.lock:
+            self.held.clear()
+
+    def send(self, line):
+        self.jobs.put(line)
+
+    def run(self):
+        while not self.stop.is_set():
+            b = None
+            try:
+                b = Breeze(self.host, self.code, timeout=5)
+                self.loop(b)
+            except Exception as e:  # noqa: BLE001 - shown, then retried
+                self.out.put(("pad", "game input: %s (retrying)" % e))
+                self.stop.wait(3)
+            finally:
+                if b is not None:
+                    if self.stop.is_set():
+                        try:
+                            b.cmd("gamepad off")
+                        except Exception:  # noqa: BLE001 - closing anyway
+                            pass
+                    b.close()
+        self.out.put(("pad", ""))
+
+    def loop(self, b):
+        last = shown = None
+        slot = ""
+        next_claim = next_ping = 0.0
+        while not self.stop.is_set():
+            now = time.time()
+            # The slot is lost when the Switch sleeps or Breeze restarts, and
+            # changes when Player does: ask again, but not on every packet.
+            if slot != str(self.player) and now >= next_claim:
+                next_claim = now + 2.0
+                reply = b.cmd("gamepad player %d" % self.player)
+                if not reply.startswith("+OK"):
+                    raise RuntimeError(reply)
+                slot = str(json.loads(reply[4:]).get("player", ""))
+                last = None
+            try:
+                job = self.jobs.get_nowait()
+            except queue.Empty:
+                job = None
+            if job is not None:
+                reply = b.cmd(job)
+                if not reply.startswith("+OK"):
+                    self.out.put(("pad", "game input: %s: %s" % (job.split()[0], reply)))
+            xpad = self.xinput.read()
+            with self.lock:
+                held = set(self.held)
+            line = pad_line(xpad, held, self.by_label)
+            if line != last:
+                reply = b.cmd(line)
+                if not reply.startswith("+OK"):
+                    raise RuntimeError(reply)
+                last = line
+                slot = reply.split()[-1]
+                next_ping = now + 2.0
+            elif now >= next_ping:
+                next_ping = now + 2.0
+                b.cmd("ping")  # notices a Breeze that has gone
+            note = "game input: player %s, %s" % (slot or "?", "controller %d" % (self.xinput.index + 1)
+                                                  if xpad else "no controller (keyboard only)")
+            if note != shown:
+                shown = note
+                self.out.put(("pad", note))
+            time.sleep(0.004)
+
+
 class App:
     def __init__(self, root, host, code, cfg=None):
         self.root = root
@@ -221,6 +421,22 @@ class App:
         self.save_info = tk.Label(sbar, text="", anchor="w", fg="#555")
         self.save_info.pack(side="left", fill="x", expand=True)
 
+        # Game input: the keyboard and a Windows controller as a controller on the Switch.
+        self.pad = None
+        gbar = tk.Frame(root)
+        gbar.pack(fill="x")
+        self.game_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(gbar, text="Game input", variable=self.game_var, command=self.on_game_input).pack(side="left")
+        tk.Label(gbar, text=" Player:").pack(side="left")
+        self.player_var = tk.StringVar(value=str(self.cfg.get("game_player", 1)))
+        tk.Spinbox(gbar, from_=1, to=8, width=2, textvariable=self.player_var, state="readonly",
+                   command=self.on_game_options).pack(side="left")
+        self.label_var = tk.BooleanVar(value=bool(self.cfg.get("game_by_label", False)))
+        tk.Checkbutton(gbar, text="A/B by label", variable=self.label_var, command=self.on_game_options).pack(side="left")
+        tk.Button(gbar, text="HOME", command=self.on_home).pack(side="left")
+        self.pad_info = tk.Label(gbar, text="", anchor="w", fg="#555")
+        self.pad_info.pack(side="left", fill="x", expand=True)
+
         # Breeze's keyboard, shown only while it is open.
         self.kbd = tk.Frame(root, bg="#203040")
         self.kbd_label = tk.Label(self.kbd, text="", anchor="w", bg="#203040", fg="white")
@@ -236,6 +452,8 @@ class App:
         self.status.pack(fill="x")
 
         root.bind("<KeyPress>", self.on_key)
+        root.bind("<KeyRelease>", self.on_key_up)
+        root.protocol("WM_DELETE_WINDOW", self.on_close)
         root.bind("<FocusIn>", lambda e: self.link.capture_on.set())
         root.bind("<FocusOut>", self.on_focus_out)
         self.canvas.bind("<Configure>", self.on_resize)
@@ -253,9 +471,68 @@ class App:
     def press(self, chord):
         self.link.send("press " + chord)
 
+    def game_key(self, e):
+        return GAME_KEYS.get(e.keysym) or GAME_KEYS.get(e.keysym.lower())
+
+    def on_key_up(self, e):
+        if self.pad is not None:
+            name = self.game_key(e)
+            if name:
+                self.pad.key(name, False)
+
+    def on_game_input(self):
+        if self.game_var.get():
+            self.pad = PadLink(self.cfg["host"], self.cfg["code"], self.out, self.game_player(), self.label_var.get())
+            self.pad.start()
+            self.pad_info.config(text="game input: connecting...")
+            self.status.config(text=GAME_HELP)
+            self.canvas.focus_set()
+        else:
+            self.stop_pad()
+            self.status.config(text=HELP)
+
+    def game_player(self):
+        try:
+            return max(1, min(8, int(self.player_var.get())))
+        except ValueError:
+            return 1
+
+    def on_game_options(self):
+        self.cfg["game_player"] = self.game_player()
+        self.cfg["game_by_label"] = bool(self.label_var.get())
+        self.save_cfg()
+        if self.pad is not None:
+            self.pad.player, self.pad.by_label = self.cfg["game_player"], self.cfg["game_by_label"]
+
+    def stop_pad(self):
+        # The thread takes the virtual controller off the Switch as it ends.
+        pad, self.pad = self.pad, None
+        if pad is not None:
+            pad.stop.set()
+        return pad
+
+    def on_home(self):
+        if self.pad is not None:
+            self.pad.send("gamepress HOME 120")
+        else:
+            # No virtual controller of ours: attach one for the press only.
+            self.link.send("gamepress HOME 120")
+            self.link.send("gamepad off")
+
+    def on_close(self):
+        pad = self.stop_pad()
+        if pad is not None:
+            pad.join(1.5)
+        self.root.destroy()
+
     def on_key(self, e):
         if self.kbd_open or e.widget in (self.chord, self.kbd_entry):
             return
+        if self.pad is not None:
+            name = self.game_key(e)
+            if name:
+                self.pad.key(name, True)
+            return "break"
         if e.keysym in ROW_KEYS:
             self.link.send("#rows %d" % ROW_KEYS[e.keysym])
             return "break"
@@ -297,6 +574,8 @@ class App:
         # gets the text box when it opens.
         if self.root.focus_get() is None:
             self.link.capture_on.clear()
+            if self.pad is not None:
+                self.pad.release_keys()  # their key-up events go elsewhere
 
     def to_screen(self, x, y):
         return x * SCREEN_W / self.view_w, y * SCREEN_H / self.view_h
@@ -318,7 +597,9 @@ class App:
         # Breeze's keyboard covers the menu, so a click there is a touch on
         # the keyboard; so is a click on nothing the menu reports.
         h = None if self.state.get("keyboard") else self.hit(x, y)
-        if h and h[0] == "button":
+        if self.pad is not None and self.state.get("overlay") == "hidden":
+            self.pad.send("gametouch %d %d" % (min(int(x), SCREEN_W - 1), min(int(y), SCREEN_H - 1)))
+        elif h and h[0] == "button":
             self.link.send("button %d" % h[1])
         elif h:
             self.link.send("select %d" % h[1])
@@ -678,6 +959,8 @@ class App:
                         self.last_reply = ""
                 elif item[0] == "status":
                     self.status.config(text=item[1])
+                elif item[0] == "pad":
+                    self.pad_info.config(text=item[1] if self.pad is not None else "")
         except queue.Empty:
             pass
         if latest_frame is not None:

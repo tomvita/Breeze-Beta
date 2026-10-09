@@ -218,6 +218,14 @@ Breeze uses that for save snapshots. Details are in `savesnap.hpp`.
 | `saveshot <name>` | the snapshot's picture: header line, then the JPEG |
 | `gamestop` | ends the running game at once, as if it had crashed: what it has not saved is lost. Works with Breeze behind the game |
 | `gamestart <title id>` | asks the system to start a game, the way a homebrew menu does. Refused while a game runs. The HOME program acts on it once the applet in front has closed, so Breeze exits, and comes back the way it does after any exit |
+| `gamepad` | the virtual controller: attached or not, its player slot, what it holds, and every pad the system has |
+| `gamepad player <1-8>` | attaches it and takes that slot; a pad already there takes the slot it leaves. A game for one player reads player 1 only, so with a real controller connected the virtual one (player 2) is ignored until this is sent |
+| `gamepad off` | puts the slots back as they were and removes it. Also done when PC connect stops |
+| `gamepress <keys> [ms]` | presses buttons for `ms` (80 unless given, 20 to 5000) and releases; the reply (`+OK player 2`) comes after the release and names the slot. Key names as for `press`, joined with `+`, plus `HOME` and `CAPTURE`; no stick directions |
+| `gamedown <keys>` / `gameup [keys]` | holds buttons until `gameup`; no keys = everything up |
+| `gamestick <L\|R> <x> <y>` | tilts a stick, -32767 to 32767, until set again (`0 0` = centre) |
+| `gamestate <keys\|-> <lx> <ly> <rx> <ry>` | the whole pad in one command: the buttons named are down, all others up, both sticks as given. For passing a PC controller on; when the client that sent it disconnects, everything is released |
+| `gametouch <x> <y> [ms]` | a finger on the screen (1280x720) for `ms` (50 unless given) |
 
 Every one of them takes `tid=<title id>`, for a game that is not running.
 `from` and `to` default to where the game's save is now: the SD card when the
@@ -226,6 +234,14 @@ to the other by taking a snapshot `from` one and restoring it `to` the other;
 `nand_users` in the state says whether the console holds a save for the game. Names are letters, digits, `_`, `-` and `.`. Snapshots are kept in
 `sdmc:/switch/Breeze/save_snapshots/<title id>/<name>/`: one folder per user and
 `shot.jpg`.
+
+The `game...` commands drive a virtual Pro Controller (hid:dbg, the method
+sys-botbase uses), attached by the first command that needs it. The system
+sends its input to whatever is in front: the game while Breeze is behind it
+(keep or overlay mode, overlay hidden), Breeze itself while Breeze is on
+screen. `gamepress HOME` is a real HOME press, so it is also the way to put a
+full-screen Breeze behind the game from the PC. They run on the network
+thread and work while `state` answers busy.
 
 Turning redirect on does nothing to a game that is already running: the game
 gets the SD folder the next time it opens its save, which for almost every game
@@ -379,6 +395,28 @@ The ip and code are remembered in `~/.breeze_pc.json`, so later it is just
   a save is carried from the console to the SD card or back. Delete removes a
   snapshot. The app remembers the last game, so this works with no game
   running.
+- **Game input** (check box) sends the keyboard and a Windows controller to
+  the game instead of to Breeze's menus, through the virtual controller
+  (`gamepad player <n>`, then `gamestate` on every change, on a connection of
+  its own so a press never waits behind a capture). It reaches whatever is in
+  front on the Switch: the game while Breeze is hidden, Breeze while it is on
+  screen. Unticking it removes the virtual controller (`gamepad off`).
+  - **Player** is the slot it takes. A game for one player reads player 1
+    only; the real controller that was there moves to the slot the virtual
+    one leaves, so it cannot play until the box is unticked.
+  - **Controller:** any XInput one (Xbox layout), read whether or not the
+    window has focus; no extra Python package. Buttons go by position (the
+    bottom button is the Switch's B) unless **A/B by label** is ticked.
+    Triggers = ZL / ZR, Back / Start = MINUS / PLUS, stick clicks = LS / RS,
+    Guide = HOME.
+  - **Keyboard** (window in focus), held for as long as the key is down:
+    WASD = left stick, I J K O = right stick, arrows = D-pad, Enter or Space
+    = A, Esc or Backspace = B, X, Y, L, R, Q = ZL, E = ZR, + and -, Z = LS,
+    C = RS, H = HOME.
+  - **Mouse:** with Breeze hidden a click is a touch on the game's screen
+    (`gametouch`).
+- **HOME** presses the Switch's HOME button (`gamepress HOME`): with a game
+  running it puts a full-screen Breeze behind the game, or brings it back.
 - **Files...** opens the file manager (`pcconnect_files.py`): the Switch on the
   left, with a list of places for the running game (Breeze's directory for it
   by title id and by name, with a `*` on the one in use, Atmosphere's directory

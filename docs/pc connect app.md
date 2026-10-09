@@ -1,6 +1,6 @@
 # Breeze PC App Guide
 
-The Breeze PC app shows Breeze's screen in a window on your PC and lets you drive it with the keyboard and mouse over Wi-Fi. It also takes snapshots of a game's save, stops and starts the game, and copies files between the Switch and the PC.
+The Breeze PC app shows Breeze's screen in a window on your PC and lets you drive it with the keyboard and mouse over Wi-Fi. It also lets you play the game with the PC's keyboard or a controller plugged into the PC, takes snapshots of a game's save, stops and starts the game, and copies files between the Switch and the PC.
 
 ![The Breeze PC app showing Breeze's main menu over a game](./images/pcapp_02_main_window.png)
 
@@ -13,6 +13,7 @@ What you can do from the PC:
 - **See Breeze's screen**, refreshed a few times a second.
 - **Press buttons** with the keyboard, or click Breeze's buttons and rows with the mouse.
 - **Type on the PC keyboard** whenever Breeze opens its on-screen keyboard.
+- **Play the game** with the PC's keyboard or a Windows controller, and press the Switch's HOME button.
 - **Snapshot and restore the game's save**, with a picture of the game for each snapshot.
 - **Stop and start the game.**
 - **Copy files** both ways in a two-panel file manager: cheats, the game's own files, its save, the album, the whole SD card.
@@ -25,11 +26,11 @@ The app answers only while Breeze is running. With the SwitchU HOME daemon, Bree
 
 ### What you need
 
-- Breeze **beta124.00** or later on the Switch.
+- Breeze **beta124.00** or later on the Switch; **beta124.01** or later for Game input and the HOME button.
 - The Switch and the PC on the same network.
 - **Python 3** on the PC, with Tk. The Windows installer from python.org includes Tk; on Linux install `python3-tk`.
 - The **Pillow** package.
-- Three files in one folder: `pcconnect_app.py`, `pcconnect_files.py` and `pcconnect.py`. They are in the root of this repository and attached to the Breeze release.
+- Three files in one folder: `pcconnect_app.py`, `pcconnect_files.py` and `pcconnect.py`. They are in the root of this repository and attached to the Breeze release. `pcconnect_app.bat`, beside them, is optional: on Windows it starts the app with a double click.
 
 ### 1. Install Pillow
 
@@ -65,6 +66,8 @@ python pcconnect_app.py
 
 Started with nothing remembered and nothing on the command line, the app asks for the address and the code.
 
+On Windows, double-clicking `pcconnect_app.bat` does the same as the second command, with no console window.
+
 When the bottom line of the window reads `connected: ...` and Breeze's screen appears, the app is ready.
 
 ## The main window
@@ -76,6 +79,7 @@ From top to bottom:
 | Screen | Breeze's screen. It refreshes only while the app window has the focus. |
 | First row | **Show**, **Hide**, **Reset**, the **Keys** box, the **fps** setting and the status text. |
 | Second row | **Save redirect to SD**, **Save snapshot**, **Restore...**, **Stop game**, **Start game**, **Files...** and the save status. |
+| Third row | **Game input**, **Player**, **A/B by label**, **HOME** and the game input status. |
 | Text box | Appears only while Breeze's keyboard is open. |
 | Bottom line | The connection status, or the list of keys. |
 
@@ -140,8 +144,87 @@ While the keyboard is open the key mapping above is off, so letters go into the 
 ### Show, Hide and Reset
 
 - **Show** and **Hide** bring Breeze over the game and put it away again. They apply to the HOME daemon's overlay mode. With Breeze full screen there is no overlay to hide, and Breeze answers with an error that appears in the status text.
-- While Breeze is hidden the screen in the app is the game, and button presses are refused. Press **Show** first.
+- While Breeze is hidden the screen in the app is the game, and button presses are refused. Press **Show** first, or tick **Game input** to send them to the game instead.
 - **Reset** restarts Breeze from whatever screen it is on, after asking. Use it when a menu cannot be left with buttons. The game and its cheats are not touched, and the app reconnects by itself a few seconds later.
+
+## Playing the game from the PC
+
+The third row sends the PC's keyboard and a controller plugged into the PC to the game. Breeze attaches a **virtual controller** to the Switch for it; the game sees one more controller, and nothing in the game is changed.
+
+**Game input** | **Player** | **A/B by label** | **HOME**
+
+### Before you start
+
+- Breeze has to keep running while the game is on screen. That needs the HOME daemon with the Home toggle on **Keep** or **Overlay**.
+- The virtual controller presses whatever is in front on the Switch. While Breeze is on screen that is Breeze's menus. Press **Hide** (or **HOME**) so that the game is in front.
+
+### Turning it on
+
+1. Start the game and put it in front.
+2. Tick **Game input**.
+3. The text at the right of the row shows what is connected, for example `game input: player 1, controller 1`, or `no controller (keyboard only)`.
+
+Untick the box when you are done. That removes the virtual controller from the Switch.
+
+### With a controller
+
+Any controller that Windows games see as an Xbox controller (XInput) works. Nothing has to be installed for it, and it is read whether or not the app's window is the one in front.
+
+| Controller | Switch |
+|---|---|
+| Sticks, D-pad | the same |
+| LB, RB | L, R |
+| Left trigger, right trigger | ZL, ZR |
+| Back, Start | MINUS, PLUS |
+| Stick clicks | left stick press, right stick press |
+| Guide | HOME |
+| The four face buttons | by position: the bottom button is the Switch's B, the right one A, the left one Y, the top one X |
+
+Tick **A/B by label** to have the button marked A be A, B be B, X be X and Y be Y instead.
+
+A controller that Windows games do not see as an Xbox controller, such as a PlayStation or Switch controller plugged straight into the PC, is not picked up. Steam and similar tools can make it look like one.
+
+### With the keyboard
+
+Click the screen in the app first. A key stays down for as long as you hold it.
+
+| PC key | Switch |
+|---|---|
+| `W`, `A`, `S`, `D` | Left stick |
+| `I`, `J`, `K`, `O` | Right stick up, left, down, right |
+| Arrow keys | D-pad |
+| Enter, Space | A |
+| Esc, Backspace, `B` | B |
+| `X`, `Y` | X, Y |
+| `L`, `R` | L, R |
+| `Q`, `E` | ZL, ZR |
+| `+` (or `=`), `-` | PLUS, MINUS |
+| `Z`, `C` (or `T`) | Left stick press, right stick press |
+| `H` | HOME |
+
+This is a different table from the one for driving Breeze: `A` and `S` are part of the left stick here, and Ctrl and Shift add nothing. Page Up, Page Down, Home and End do nothing while the box is ticked.
+
+With Breeze hidden, a mouse click on the screen is a touch on the game's screen at that point.
+
+### Player
+
+**Player** is the controller slot the virtual controller takes, 1 by default.
+
+- A game for one player listens to player 1 only. So the PC takes player 1, **and the controller you hold becomes player 2 and stops working in the game** until you untick **Game input**, which gives it back its slot.
+- For a game for two, set **Player** to 2: your own controller stays player 1 and the PC plays the second one.
+
+### HOME
+
+**HOME** presses the Switch's HOME button, whether the box is ticked or not. With a game running and the HOME daemon installed, it sends a full-screen Breeze behind the game, or brings it back. It is the way to get back to the game after **Reset**, which leaves Breeze full screen.
+
+### Good to know
+
+- The screen in the app is a few pictures a second. It is there to see where you are; to play, watch the Switch or the TV.
+- Game input uses a connection of its own, so a press does not wait behind a picture. With the file manager open as well, the app holds all three of PC connect's connections, and no other program can connect.
+- If the connection is lost while a button is down, Breeze lets go of everything by itself.
+- After the Switch has slept, the virtual controller is attached again by the next press, and the app takes the chosen player slot again within two seconds.
+
+Touching the game's screen with the mouse, and coming back after sleep, have not been tried yet.
 
 ## Saves
 
@@ -264,6 +347,10 @@ Copying runs at about 3 MB/s in either direction.
 | Keys do nothing | The cursor is in the Keys box or a text box. Click the screen. |
 | `-ERR busy` in the status text | Breeze is in the middle of a long job. Wait; do not repeat the key. |
 | A button press is refused | Breeze is hidden behind the game. Press **Show**. |
+| Game input is ticked and the game does not react | Breeze is on screen, so the presses go to Breeze: press **Hide**. Or **Player** is not 1 in a game for one player. |
+| My own controller stopped working in the game | **Game input** is ticked with **Player** 1. Untick it. |
+| `no controller (keyboard only)` | Windows does not see an Xbox-style controller. Check it works in a Windows game. |
+| `game input: ... unknown command` | Breeze on the Switch is older than beta124.01. |
 
 ## Security
 
