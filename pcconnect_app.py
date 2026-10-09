@@ -48,11 +48,25 @@ The last ip and code are remembered in ~/.breeze_pc.json.
   keys stay down while held. A click is a touch on the game's screen.
 - HOME presses the Switch's HOME button: with a game running it puts a
   full-screen Breeze behind the game, or brings it back.
+- Screenshot (or F12) saves the picture on the Switch's screen, as the app
+  gets it from Breeze (1280x720 JPEG), into the `album` folder inside the
+  game's folder on this PC. Album opens that folder as a window of thumbnails:
+  double-click opens a picture, and pictures can be dragged out of it into
+  Explorer or another program. See pcconnect_album.py.
+- Record keeps every picture the app receives while it is ticked, in
+  `record/<date_time>/` inside the game's folder, named by the milliseconds
+  since the box was ticked, with `log.txt` listing in the same clock what was
+  sent to the Switch and what Breeze's screen was. It keeps going while the
+  window is not in front. It is a few pictures a second, not a video.
 - Files... opens a two-panel file manager: the Switch on the left (the game's
   directory, the game's own files, its save on the SD card, the album, the SD
   card), this PC on the right, where a list offers a folder for the game by
   title name or title id under a base folder of your choice. See
   pcconnect_files.py.
+
+The game's folder on this PC is the one the file manager uses: named after
+the game, under the base folder picked there ("Breeze games" in the home
+folder until one is picked).
 
 One connection is used for everything but the file manager and Game input,
 which each open one of their own while they are in use. PC connect takes three
@@ -74,7 +88,8 @@ from PIL import Image, ImageTk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pcconnect import Breeze  # noqa: E402
-from pcconnect_files import FileManager  # noqa: E402
+from pcconnect_files import FileManager, pc_folder_name  # noqa: E402
+from pcconnect_album import Album  # noqa: E402
 
 CONFIG = os.path.join(os.path.expanduser("~"), ".breeze_pc.json")
 SCREEN_W, SCREEN_H = 1280, 720
@@ -118,6 +133,48 @@ HELP = ("Arrows=D-pad  Enter/A=A  Esc/B=B  X Y  L R  Q=ZL E=ZR  +/-=PLUS/MINUS  
         "Home/End  IJKO=right stick  S=LS T=RS  Ctrl=+ZL Shift=+ZR  click=select/press")
 
 
+class Recorder:
+    """Record: every picture received, and a log of what happened, on one clock."""
+
+    def __init__(self, folder, about):
+        os.makedirs(folder, exist_ok=True)
+        self.folder = folder
+        self.t0 = time.time()
+        self.frames = 0
+        self.lock = threading.Lock()
+        self.log = open(os.path.join(folder, "log.txt"), "a", encoding="utf-8")
+        self.note("start", "%s  %s" % (time.strftime("%Y-%m-%d %H:%M:%S"), about))
+
+    def ms(self):
+        return int((time.time() - self.t0) * 1000)
+
+    def note(self, kind, text):
+        with self.lock:
+            if self.log is not None:
+                self.log.write("%07d\t%s\t%s\n" % (self.ms(), kind, text))
+                self.log.flush()
+
+    def frame(self, data):
+        name = "%07d.jpg" % self.ms()
+        try:
+            with open(os.path.join(self.folder, name), "wb") as f:
+                f.write(data)
+        except OSError:
+            return
+        self.frames += 1
+        self.note("frame", name)
+
+    def close(self):
+        self.note("stop", "%d frames" % self.frames)
+        with self.lock:
+            self.log.close()
+            self.log = None
+
+
+# Commands the app sends by itself every few seconds; they are not worth a line in a recording.
+QUIET = ("save", "fs", "ping", "capture")
+
+
 class Link(threading.Thread):
     """Owns the socket. Runs queued commands first, captures in between."""
 
@@ -129,6 +186,7 @@ class Link(threading.Thread):
         self.capture_on.set()
         self.fps = 6.0
         self.stop = False
+        self.recorder = None
 
     def send(self, line):
         self.jobs.put(line)
@@ -175,10 +233,15 @@ class Link(threading.Thread):
                 next_capture = 0.0
                 continue
             if line is not None:
+                rec = self.recorder
+                if rec is not None and line.split()[0] not in QUIET:
+                    rec.note("cmd", line)
                 reply = b.cmd(line)
                 if isinstance(reply, tuple):
                     if line.startswith("saveshot "):
                         self.out.put(("shot", line.split()[1], reply[1]))
+                    elif line == "capture":
+                        self.out.put(("screenshot", reply[1]))
                     reply = reply[0]
                 self.out.put(("reply", line, reply))
                 if reply.startswith("+OK {") and line.startswith("state"):
@@ -191,6 +254,9 @@ class Link(threading.Thread):
                 reply = b.cmd("capture")
                 if isinstance(reply, tuple):
                     self.out.put(("frame", reply[1]))
+                    rec = self.recorder
+                    if rec is not None:
+                        rec.frame(reply[1])
                 else:
                     self.out.put(("status", "capture: " + reply))
                     next_capture = time.time() + 2.0
@@ -290,6 +356,7 @@ class PadLink(threading.Thread):
         self.lock = threading.Lock()
         self.held = set()
         self.stop = threading.Event()
+        self.recorder = None
 
     def key(self, name, down):
         with self.lock:
@@ -349,6 +416,9 @@ class PadLink(threading.Thread):
                 held = set(self.held)
             line = pad_line(xpad, held, self.by_label)
             if line != last:
+                rec = self.recorder
+                if rec is not None:
+                    rec.note("pad", line)
                 reply = b.cmd(line)
                 if not reply.startswith("+OK"):
                     raise RuntimeError(reply)
@@ -434,6 +504,14 @@ class App:
         self.label_var = tk.BooleanVar(value=bool(self.cfg.get("game_by_label", False)))
         tk.Checkbutton(gbar, text="A/B by label", variable=self.label_var, command=self.on_game_options).pack(side="left")
         tk.Button(gbar, text="HOME", command=self.on_home).pack(side="left")
+        # Pictures: one into the game's album on this PC, the album itself, and everything that comes through.
+        self.game = ("", "")                           # title id, title name of the running game
+        self.album = None
+        self.recorder = None
+        tk.Button(gbar, text="Screenshot", command=self.on_screenshot).pack(side="left")
+        tk.Button(gbar, text="Album", command=self.on_album).pack(side="left")
+        self.record_var = tk.BooleanVar(value=False)
+        tk.Checkbutton(gbar, text="Record", variable=self.record_var, command=self.on_record).pack(side="left")
         self.pad_info = tk.Label(gbar, text="", anchor="w", fg="#555")
         self.pad_info.pack(side="left", fill="x", expand=True)
 
@@ -453,6 +531,7 @@ class App:
 
         root.bind("<KeyPress>", self.on_key)
         root.bind("<KeyRelease>", self.on_key_up)
+        root.bind("<F12>", lambda e: self.on_screenshot())
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         root.bind("<FocusIn>", lambda e: self.link.capture_on.set())
         root.bind("<FocusOut>", self.on_focus_out)
@@ -483,6 +562,7 @@ class App:
     def on_game_input(self):
         if self.game_var.get():
             self.pad = PadLink(self.cfg["host"], self.cfg["code"], self.out, self.game_player(), self.label_var.get())
+            self.pad.recorder = self.recorder
             self.pad.start()
             self.pad_info.config(text="game input: connecting...")
             self.status.config(text=GAME_HELP)
@@ -519,7 +599,101 @@ class App:
             self.link.send("gamepress HOME 120")
             self.link.send("gamepad off")
 
+    # --------------------------------------------------------- pictures
+    def game_dir(self, sub):
+        """A folder inside the game's folder on this PC (the one the file manager uses), made if needed."""
+        tid, name = self.game
+        if not tid:
+            tid, name = self.cfg.get("last_game", ["", ""])
+        base = self.cfg.get("pc_game_base") or os.path.join(os.path.expanduser("~"), "Breeze games")
+        path = os.path.join(base, pc_folder_name(name) or tid or "No game", sub)
+        os.makedirs(path, exist_ok=True)
+        return path
+
+    def game_label(self):
+        tid, name = self.game if self.game[0] else self.cfg.get("last_game", ["", ""])
+        return name or tid or "no game"
+
+    def on_roots(self, reply):
+        if not reply.startswith("+OK {"):
+            return
+        j = json.loads(reply[4:])
+        tid, name = j.get("title_id", ""), j.get("title_name", "")
+        if tid and not name:
+            # an older Breeze does not send the name: take it from its folder on the Switch
+            for r in j.get("roots", []):
+                if "(title name)" in r.get("name", ""):
+                    name = r["path"].rstrip("/").rsplit("/", 1)[-1]
+        if (tid, name) == self.game:
+            return
+        self.game = (tid, name)
+        if tid:
+            self.cfg["last_game"] = [tid, name]
+            self.save_cfg()
+            if self.album is not None and self.album.win.winfo_exists():
+                self.album.set_folder(self.game_dir("album"), self.game_label())
+
+    def on_screenshot(self):
+        self.link.send("capture")
+
+    def save_screenshot(self, data):
+        try:
+            folder = self.game_dir("album")
+            stamp = time.strftime("%Y%m%d_%H%M%S")
+            path = os.path.join(folder, stamp + ".jpg")
+            n = 1
+            while os.path.exists(path):
+                n += 1
+                path = os.path.join(folder, "%s_%d.jpg" % (stamp, n))
+            with open(path, "wb") as f:
+                f.write(data)
+        except OSError as e:
+            messagebox.showerror("Screenshot", str(e), parent=self.root)
+            return
+        self.status.config(text="screenshot saved: " + path)
+        if self.album is not None and self.album.win.winfo_exists():
+            self.album.reload()
+
+    def on_album(self):
+        try:
+            folder = self.game_dir("album")
+        except OSError as e:
+            messagebox.showerror("Album", str(e), parent=self.root)
+            return
+        if self.album is not None and self.album.win.winfo_exists():
+            self.album.set_folder(folder, self.game_label())
+            self.album.win.lift()
+        else:
+            self.album = Album(self.root, folder, self.game_label())
+
+    def on_record(self):
+        if self.record_var.get():
+            try:
+                folder = os.path.join(self.game_dir("record"), time.strftime("%Y%m%d_%H%M%S"))
+                self.recorder = Recorder(folder, self.game_label())
+            except OSError as e:
+                self.record_var.set(False)
+                messagebox.showerror("Record", str(e), parent=self.root)
+                return
+            self.link.recorder = self.recorder
+            if self.pad is not None:
+                self.pad.recorder = self.recorder
+            self.link.capture_on.set()   # also while the window is not in front
+            self.status.config(text="recording to " + folder)
+        else:
+            self.stop_record()
+
+    def stop_record(self):
+        rec, self.recorder = self.recorder, None
+        self.link.recorder = None
+        if self.pad is not None:
+            self.pad.recorder = None
+        if rec is not None:
+            rec.close()
+            self.status.config(text="recorded %d pictures in %s" % (rec.frames, rec.folder))
+
     def on_close(self):
+        self.stop_record()
         pad = self.stop_pad()
         if pad is not None:
             pad.join(1.5)
@@ -573,7 +747,8 @@ class App:
         # Capture only while the app is in front; Breeze's keyboard still
         # gets the text box when it opens.
         if self.root.focus_get() is None:
-            self.link.capture_on.clear()
+            if self.recorder is None:
+                self.link.capture_on.clear()
             if self.pad is not None:
                 self.pad.release_keys()  # their key-up events go elsewhere
 
@@ -645,6 +820,11 @@ class App:
 
     def apply_state(self, s):
         self.state = s
+        if self.recorder is not None:
+            m = s.get("menu", {})
+            self.recorder.note("state", "%s | %s | row %s | %s" % (
+                s.get("overlay", "?"), m.get("left_title") or m.get("text") or "", m.get("index", "-"),
+                "keyboard" if s.get("keyboard") else ""))
         kb = s.get("keyboard")
         if kb and not self.kbd_open:
             self.kbd_open = True
@@ -670,6 +850,7 @@ class App:
     def poll_save(self):
         # The running game first; with none, on_save_reply asks about the last one.
         self.link.send("save")
+        self.link.send("fs roots")   # which game: its folder on this PC holds the album and recordings
         self.root.after(6000, self.poll_save)
 
     def on_save_reply(self, line, reply):
@@ -934,7 +1115,8 @@ class App:
         fps = self.frames / max(now - self.fps_t0, 1e-3)
         if now - self.fps_t0 > 2:
             self.frames, self.fps_t0 = 0, now
-        self.info.config(text="  %s | %s | %.1f fps | %s" % (self.state.get("overlay", "?"), title[:60], fps, self.last_reply[:60]))
+        rec = " | REC %d" % self.recorder.frames if self.recorder is not None else ""
+        self.info.config(text="  %s | %s | %.1f fps%s | %s" % (self.state.get("overlay", "?"), title[:60], fps, rec, self.last_reply[:60]))
 
     def pump(self):
         latest_frame = None
@@ -947,6 +1129,10 @@ class App:
                     self.apply_state(item[1])
                 elif item[0] == "shot":
                     self.show_shot(item[1], item[2])
+                elif item[0] == "screenshot":
+                    self.save_screenshot(item[1])
+                elif item[0] == "reply" and item[1] == "fs roots":
+                    self.on_roots(item[2])
                 elif item[0] == "reply" and item[1].split()[0] == "save":
                     self.on_save_reply(item[1], item[2])
                 elif item[0] == "reply" and item[1].split()[0] in ("gamestop", "gamestart"):

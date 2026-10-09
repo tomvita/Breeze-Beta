@@ -14,6 +14,7 @@ What you can do from the PC:
 - **Press buttons** with the keyboard, or click Breeze's buttons and rows with the mouse.
 - **Type on the PC keyboard** whenever Breeze opens its on-screen keyboard.
 - **Play the game** with the PC's keyboard or a Windows controller, and press the Switch's HOME button.
+- **Take screenshots** into an album for the game on the PC, and **record** everything the app shows.
 - **Snapshot and restore the game's save**, with a picture of the game for each snapshot.
 - **Stop and start the game.**
 - **Copy files** both ways in a two-panel file manager: cheats, the game's own files, its save, the album, the whole SD card.
@@ -30,7 +31,7 @@ The app answers only while Breeze is running. With the SwitchU HOME daemon, Bree
 - The Switch and the PC on the same network.
 - **Python 3** on the PC, with Tk. The Windows installer from python.org includes Tk; on Linux install `python3-tk`.
 - The **Pillow** package.
-- Three files in one folder: `pcconnect_app.py`, `pcconnect_files.py` and `pcconnect.py`. They are in the root of this repository and attached to the Breeze release. `pcconnect_app.bat`, beside them, is optional: on Windows it starts the app with a double click.
+- The app's files in one folder: `pcconnect_app.py`, `pcconnect_files.py`, `pcconnect_album.py` and `pcconnect.py`. They are in the root of this repository, and attached to the Breeze release as `pc_app.zip`. `pcconnect_app.bat`, beside them, is optional: on Windows it starts the app with a double click.
 
 ### 1. Install Pillow
 
@@ -52,7 +53,7 @@ The code is generated once and kept. Leave Settings with **Save setting** and PC
 
 ### 3. Start the app
 
-From the folder that holds the three files:
+From the folder that holds the files:
 
 ```
 python pcconnect_app.py 192.168.1.65 0303
@@ -79,7 +80,7 @@ From top to bottom:
 | Screen | Breeze's screen. It refreshes only while the app window has the focus. |
 | First row | **Show**, **Hide**, **Reset**, the **Keys** box, the **fps** setting and the status text. |
 | Second row | **Save redirect to SD**, **Save snapshot**, **Restore...**, **Stop game**, **Start game**, **Files...** and the save status. |
-| Third row | **Game input**, **Player**, **A/B by label**, **HOME** and the game input status. |
+| Third row | **Game input**, **Player**, **A/B by label**, **HOME**, **Screenshot**, **Album**, **Record** and the game input status. |
 | Text box | Appears only while Breeze's keyboard is open. |
 | Bottom line | The connection status, or the list of keys. |
 
@@ -226,6 +227,41 @@ With Breeze hidden, a mouse click on the screen is a touch on the game's screen 
 
 Touching the game's screen with the mouse, and coming back after sleep, have not been tried yet.
 
+## Screenshots, the album and recording
+
+**Screenshot**, **Album** and **Record** are on the third row. All three keep their pictures in the game's folder on the PC. That is the folder the file manager offers as *Game directory (title name)*: named after the game, under the base folder picked there, or `Breeze games` in your home folder until you pick one.
+
+### Screenshot
+
+Press **Screenshot**, or **F12**. The picture on the Switch's screen is saved as a 1280x720 JPEG named after the date and time, in `album` inside the game's folder. The bottom line of the window shows where it went.
+
+The picture is what is on the Switch's screen at that moment: the game while Breeze is hidden, Breeze over the game while it is shown.
+
+### Album
+
+**Album** opens the game's `album` folder as a window of small pictures, newest first.
+
+- **Click** selects a picture. **Ctrl+click** adds or removes one, **Shift+click** selects a range.
+- **Double-click**, Enter or **Open** opens it in the program Windows uses for pictures.
+- **Drag** the selection out of the window to copy it somewhere else: an Explorer folder, a chat, a document. Windows only.
+- **Delete** removes the selection, after asking.
+- **Open folder** shows the folder in Explorer. **Reload** (F5) reads it again.
+
+The window follows a change of game, and a new screenshot appears in it at once. Any picture you put in the folder yourself shows up too.
+
+### Record
+
+Tick **Record** to keep every picture the app receives; untick it to stop. The status text in the first row counts the pictures (`REC 42`).
+
+A recording is a folder, `record/<date_time>/` inside the game's folder, holding:
+
+- the pictures, each named by the number of milliseconds since the box was ticked (`0001380.jpg`);
+- `log.txt`, which lists on the same clock every picture, every command the app sent, every controller state sent by Game input, and every change of Breeze's screen.
+
+Recording goes on while the app's window is not in front. It is a few pictures a second -- about 5 at the default **fps** setting, 7 at most -- not a video: it is meant for going through a session afterwards, by you or by a script, to find the moment something happened.
+
+Dragging pictures out of the album has not been tried with a real mouse yet.
+
 ## Saves
 
 The second row works on the save of the running game. The app remembers the last game, so **Restore...** and **Start game** also work with no game running. The text at the right of the row shows the game's title id and where things stand.
@@ -339,7 +375,7 @@ Copying runs at about 3 MB/s in either direction.
 | What you see | What it means |
 |---|---|
 | `ModuleNotFoundError: No module named 'PIL'` | Pillow is not installed for the Python you started. Run `python -m pip install pillow`. |
-| `ModuleNotFoundError: No module named 'pcconnect'` | The three files are not in the same folder. |
+| `ModuleNotFoundError: No module named 'pcconnect'` (or `pcconnect_album`, `pcconnect_files`) | The app's files are not all in the same folder. |
 | `disconnected: ... (retrying)` | Breeze is not running, PC connect is off, or the address is wrong. The app tries again every 3 seconds. |
 | `disconnected: ... wrong code ...` | The code does not match the one Settings > PC connect shows. Start the app with the right address and code on the command line. |
 | The connection closes at once | Three programs are already connected. Close one. |

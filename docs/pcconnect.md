@@ -417,6 +417,20 @@ The ip and code are remembered in `~/.breeze_pc.json`, so later it is just
     (`gametouch`).
 - **HOME** presses the Switch's HOME button (`gamepress HOME`): with a game
   running it puts a full-screen Breeze behind the game, or brings it back.
+- **Screenshot** (or F12) saves the picture on the Switch's screen, as
+  `capture` returns it (1280x720 JPEG), into `album` inside the game's folder on
+  the PC: the folder the file manager uses, named after the game under the
+  base folder. **Album** opens that folder as thumbnails (`pcconnect_album.py`):
+  double-click opens a picture, Delete removes the selection, and pictures can
+  be dragged out into Explorer or another program (Windows).
+- **Record** (check box) keeps every picture the app receives, in
+  `record/<date_time>/` inside the game's folder, each named by the milliseconds
+  since the box was ticked. `log.txt` beside them lists, on the same clock,
+  every picture, every command sent, every controller state sent by Game input
+  and every change of Breeze's screen (tab-separated: time, kind, text). It
+  goes on while the window is not in front. About 5 pictures a second at the
+  default fps setting. Made so that a session can be gone through afterwards,
+  by a person or a script, instead of being watched live.
 - **Files...** opens the file manager (`pcconnect_files.py`): the Switch on the
   left, with a list of places for the running game (Breeze's directory for it
   by title id and by name, with a `*` on the one in use, Atmosphere's directory
