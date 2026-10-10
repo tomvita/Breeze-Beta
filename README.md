@@ -41,6 +41,7 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[User Manual (Breeze.md)](Breeze.md)**: The main guide for installation, usage, and all features.
 -   **[Unity Guide](docs/UnityGuide.md)**: Unity-specific workflow: the Unity menu, IL2CPP maps, Find chain, Field View, and class-link based cheat building.
 -   **[Unity Menu Walkthrough](docs/unity_menu_walkthrough.md)**: A money cheat and an HP cheat, step by step.
+-   **[Make Cheat](docs/make%20cheat.md)**: Turn the pointer chain in Memory Explorer into a cheat for one value or for every element of an array (all enemies), with screenshots.
 -   **[Runtime IL2CPP Metadata](docs/il2cpp_runtime_metadata.md)**: Browse methods and generate function maps without `dump.cs`.
 -   **[Unreal Support Guide](docs/unreal.md)**: Unreal workflow for UE profile scan, root-chain resolution, function map export, and explorer tools.
 -   **[Unreal Primer](docs/unreal_primer.md)**: Core UE runtime concepts (`UObject`, `UClass`, `UFunction`, NamePool, and `OuterPrivate`) used by Breeze.

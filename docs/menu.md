@@ -546,6 +546,7 @@ Directly view and edit memory, and navigate pointer chains.
 | Save to file | ZL + Right Stick Down | Write data on left panel to file. |
 | Copy | ZL + Left | Copies the value at the cursor to the explorer's paste buffer and pushes it as text onto Breeze's copy stack. |
 | Copy address | L + Left | Pushes the cursor's address as `0x...` onto Breeze's copy stack. Paste it into any keyboard with `ZL + X`. |
+ | Make cheat | ZL + Down | Opens the Make cheat screen for the pointer chain in the status line: a cheat for the one value, or a loop over an array on the chain, writing a value (always, only where above or below it) or copying another field. See [Make cheat](make%20cheat.md). |
 | Paste | ZL + Right | Paste value. |
 | Move to A | ZL + Right Stick Left | Move to address A. |
 | Extra_menu | ZL + Minus | Switch to button arrangement for temdem display. |
