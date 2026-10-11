@@ -31,7 +31,7 @@ The app answers only while Breeze is running. With the SwitchU HOME daemon, Bree
 - The Switch and the PC on the same network.
 - **Python 3** on the PC, with Tk. The Windows installer from python.org includes Tk; on Linux install `python3-tk`.
 - The **Pillow** package.
-- The app's files in one folder: `pcconnect_app.py`, `pcconnect_files.py`, `pcconnect_album.py` and `pcconnect.py`. They are in the root of this repository, and attached to the Breeze release as `pc_app.zip`. `pcconnect_app.bat`, beside them, is optional: on Windows it starts the app with a double click.
+- The app's files in one folder: `pcconnect_app.py`, `pcconnect_files.py`, `pcconnect_album.py` and `pcconnect.py`. (`breeze_unity.py`, which comes in the same zip, is for scripts and is not needed by the app; see [PC Connect](pcconnect.md).) They are in the root of this repository, and attached to the Breeze release as `pc_app.zip`. `pcconnect_app.bat`, beside them, is optional: on Windows it starts the app with a double click.
 
 ### 1. Install Pillow
 
