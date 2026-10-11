@@ -11,7 +11,7 @@ import sys
 
 PORT = 6801
 # Replies that continue past the first line until a lone '.'.
-MULTILINE = {"help", "watch", "holds", "maps", "refs", "chain"}
+MULTILINE = {"help", "watch", "probe", "holds", "maps", "refs", "chain", "xref"}
 # Replies whose header line is followed by raw bytes (bytes=<n>).
 BINARY = {"tail", "capture", "saveshot", "fsget"}
 
@@ -159,6 +159,146 @@ class Breeze:
         reply = self._line()
         if not reply.startswith("+OK"):
             raise RuntimeError(reply)
+
+    def files(self):
+        """The running game's folder: every file with its size, age, kind and,
+        for the ones Breeze knows, what it is for. Fetch one with get_file."""
+        return self.json("files")
+
+    def get_file(self, name, local_path=None):
+        """A whole file of the game folder (or any sdmc:/ path), in pieces.
+        Returns the bytes, and writes them to local_path when given."""
+        path = name if ":/" in name else self.files()["dir"] + name
+        data = b""
+        while True:
+            piece, size = self.fs_get(path, len(data), 1 << 20)
+            data += piece
+            if not piece or len(data) >= size:
+                break
+        if local_path:
+            with open(local_path, "wb") as f:
+                f.write(data)
+        return data
+
+    def prep(self, job=None):
+        """prep() lists the preparation jobs for the running game's engine, with
+        the one running and how the last ended. prep("il2cpp_fields") starts one
+        and returns the reply line; follow it with prep()."""
+        if job is None:
+            return self.json("prep")
+        return self.cmd("prep %s" % job)
+
+    def prep_wait(self, job, poll_s=5, timeout_s=1800):
+        """Starts a job and waits for it. Returns its 'last' entry. A job that
+        holds Breeze's UI thread is still followed: prep is answered on the
+        network thread."""
+        import time
+        reply = self.prep(job)
+        if not reply.startswith("+OK"):
+            raise RuntimeError(reply)
+        end = time.time() + timeout_s
+        while time.time() < end:
+            time.sleep(poll_s)
+            status = self.prep()
+            if status.get("running") is None:
+                return status.get("last")
+        raise RuntimeError("prep %s still running after %d s" % (job, timeout_s))
+
+    def gen2(self, *args):
+        """gen2() is the watch gen2 holds; gen2("rows") adds the captured rows;
+        gen2("watch", "21A4C3E144", "w", 4) starts a memory watch; gen2("stop")
+        detaches. Needs Breeze's UI thread."""
+        return self.json(" ".join(["gen2"] + [str(a) for a in args]))
+
+    def fieldwatch(self, *args):
+        """fieldwatch() is the field watch's state with the accessed byte runs
+        and fields; fieldwatch("start", "21A4C3E000", "F0", "w") watches an
+        instance; then "sweep", "stop", "clear", "mark"."""
+        return self.json(" ".join(["fieldwatch"] + [str(a) for a in args]))
+
+    def methodwatch(self, *args):
+        """methodwatch() is the method watch's state and list (state, name, the
+        first caller); methodwatch("start", "PlayerStats::") breaks once on every
+        method whose name in the function map contains the text; then "stop",
+        "clear" (start again with every method waiting)."""
+        return self.json(" ".join(["methodwatch"] + [str(a) for a in args]))
+
+    def instances(self, klass_pointer=None):
+        """instances(ptr) starts Breeze's scan for the live objects of a Unity
+        class (ptr is the first word of any object of it); instances() is the
+        scan's state: done, progress, objects."""
+        if klass_pointer is None:
+            return self.json("instances")
+        return self.cmd("instances %X" % klass_pointer)
+
+    def probe(self, ms, hz, values, press=None, at_ms=0, hold_ms=100):
+        """Samples several values on one clock, and can press game buttons at
+        a set moment of the same run.
+
+        values: [(addr, len), ...], up to 16, len 1 to 16.
+        press:  game buttons ("B", "ZL+ZR"), pressed at at_ms for hold_ms.
+        Returns [(t_ms, [bytes or None, ...]), ...].
+        """
+        line = "probe %d %d %s" % (ms, hz, " ".join("%X:%d" % v for v in values))
+        if press:
+            line += " press %s %d %d" % (press, at_ms, hold_ms)
+        reply = self.cmd(line)
+        if not reply.startswith("+OK"):
+            raise RuntimeError(reply)
+        out = []
+        for row in reply.split("\n")[1:]:
+            parts = row.split()
+            out.append((int(parts[0]), [None if x == "?" else bytes.fromhex(x) for x in parts[1:]]))
+        return out
+
+    def cheats_state(self):
+        """{id: True/False} for every cheat. Keep it before a test and hand it
+        to cheats_set_state afterwards: the list is then exactly as found."""
+        reply = self.cmd("cheats state")
+        if not reply.startswith("+OK"):
+            raise RuntimeError(reply)
+        return {int(x.split(":")[0]): x.endswith(":on") for x in reply.split()[1:]}
+
+    def cheats_set_state(self, state):
+        """Makes each cheat in {id: True/False} on or off; others are left alone."""
+        if not state:
+            return "+OK"
+        reply = self.cmd("cheats state " + " ".join("%d:%s" % (i, "on" if on else "off") for i, on in sorted(state.items())))
+        if not reply.startswith("+OK"):
+            raise RuntimeError(reply)
+        return reply
+
+    def xref_call(self, addr):
+        """Offsets into main of every b / bl whose target is addr."""
+        reply = self.cmd("xref call %X" % addr)
+        if not reply.startswith("+OK"):
+            raise RuntimeError(reply)
+        return [int(l.split()[0][2:], 16) for l in reply.split("\n")[1:]]
+
+    def xref_insn(self, mask, value, lo=0, hi=0, limit=512):
+        """(offset, word) of every instruction in main's code with
+        (word & mask) == value; lo / hi limit it to that stretch of main."""
+        reply = self.cmd("xref insn %X %X %X %X %d" % (mask, value, lo, hi, limit))
+        if not reply.startswith("+OK"):
+            raise RuntimeError(reply)
+        out = []
+        for l in reply.split("\n")[1:]:
+            off, word = l.split()
+            out.append((int(off[2:], 16), int(word, 16)))
+        return out
+
+    def notes(self):
+        """The game folder's ai_notes.md -- what earlier sessions established --
+        or '' when there is none."""
+        files = self.files()
+        if not any(f["name"] == "ai_notes.md" for f in files["files"]):
+            return ""
+        return self.get_file("ai_notes.md").decode("utf-8", "replace")
+
+    def write_notes(self, text):
+        """Replaces ai_notes.md in the game folder. Write what the next session
+        needs: the route to the player, layouts, controls, what failed."""
+        return self.fs_put(self.files()["dir"] + "ai_notes.md", 0, text.encode("utf-8"))
 
     def watch(self, addr, n, hz, ms):
         reply = self.cmd("watch %x %d %d %d" % (addr, n, hz, ms))

@@ -1,5 +1,30 @@
 # Changelog
 
+## [Beta 124.04] - 2026-10-11
+
+- **Needs the new gen2 fork (v0.18):** Settings > Install gen2 fork, then reboot.
+- **Watch methods:** which methods of a class are ever called, by whom and on which object. Each live method stops the game once; **Field view of object** opens the object a method was called on.
+- **Break on one object:** Break and Trace can stop only when a method runs for one instance (**Break on pinned object** in a class's Methods list).
+- Field and method watches are kept when stopped; **Pre results** / **Next results** step through them, and the gen2 menu has **Field watch** and **Method watch** buttons. **Expand screen** on both.
+- Fixed: **Sweep unseen** with nothing found yet stopped the running field watch.
+- **PC connect:** `prep`, `files`, `gen2`, `fieldwatch`, `methodwatch`, `instances`, `probe`, `xref`, `cheats state`; `breeze_unity.py` works on a Unity game by class and field name.
+
+## [Beta 124.03] - 2026-10-11
+
+- **Needs the new gen2 fork (v0.17).**
+- **Watch fields:** from a field view, gen2 watches a whole object and lists the fields the game reads or writes as it happens. **Sweep unseen** goes on checking the rest at full game speed.
+- The box over the game lists the fields as they are found.
+
+## [Beta 124.02] - 2026-10-10
+
+- **Make cheat** (Memory Explorer, ZL + Down): a cheat from the pointer chain for one value, or a loop over an array (every enemy); write always, only where above or below a value, or copy another field.
+- Fixed: a secondary search on candidates saved from the Unity menu crashed Breeze.
+
+## [Beta 124.01] - 2026-10-09
+
+- **Game input:** PC connect drives a virtual controller on the Switch.
+- **PC app:** play the game with the PC keyboard or an Xbox-style controller; HOME, Screenshot, Album and Record.
+
 ## [Beta 124.00] - 2026-10-08
 
 - **Game files:** Breeze reads the running game's own files (RomFS) through the system, with no keys and no dump tool. A game is allowed once and Breeze reopened with HOME twice.

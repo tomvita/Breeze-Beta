@@ -28,6 +28,8 @@ Whether you're a new user getting acquainted with the application or an experien
 - [Jump Back Menu](#jump-back-menu)
 - [Gen2 Menu](#gen2-menu)
 - [Gen2 Extra Menu](#gen2-extra-menu)
+- [Field Watch](#field-watch)
+- [Method Watch](#method-watch)
 - [Search Items Editor (Advance Search)](#search-items-editor-advance-search)
 - [Pointer Search Menu](#pointer-search-menu)
 - [Game Information](#game-information)
@@ -619,7 +621,7 @@ The ASM Explorer allows for in-depth analysis of disassembled code directly from
 
 Lists a class's methods read directly from `Il2CppClass.methods` in live memory,
 with no `dump.cs` required. Open it from the class Field View with **Methods**
-(`L + ZR`), or from ASM Explorer's **Detail** when the current function name came
+(`R + ZR`), or from ASM Explorer's **Detail** when the current function name came
 from the runtime function map.
 
 Rows show `flags name(parameters) : return type` and the live address, for
@@ -635,6 +637,8 @@ and cannot be hooked.
 | Resolve type names | L + ZR | Resolve `class` / `valuetype` placeholders to real type names. One-time cost. |
 | Build function map | Y + ZR | Open the IL2CPP Function Map menu. |
 | Write to file | Minus + ZR | Append the list and layout diagnostics to `runtime_methods.log`. |
+| Watch methods | ZL + Left Stick Click | Starts a method watch on every method of the class and opens the [Method Watch](#method-watch) screen: which are ever called, by whom and on which object. |
+| Break on pinned object / Break on call | X + ZL | Break and Trace at the selected method's first instruction. When the list was opened from a field view with an instance pinned, the game stops only when the method is called on that instance; otherwise at the next call on any object. |
 | Page Up | StickRUp | Previous page. |
 | Page Down | StickRDown | Next page. |
 | Back | B | Return to the previous menu. |
@@ -798,6 +802,8 @@ You will typically enter this menu from the Memory Explorer when watching a spec
 | Pre results | ZL + Right Stick Left | Navigate data recorded from previous capture. |
 | LastLoad | ZL + Right Stick Up | Jump to record that was used to start a new run. |
 | Erase old results | (none) | Erase all the recorded data. |
+| Field watch | (none) | Opens the [Field Watch](#field-watch) screen on the last field watch of this game, with its results. |
+| Method watch | (none) | Opens the [Method Watch](#method-watch) screen on the last method watch of this game, with its results. |
 | Set Max trigger | (none) | The run stops when total number of trigger reach this number. |
 | Look | ZR + Plus | Look at the game screen. |
 | Class field | Y + ZR | Opens the class field view of the object the selected capture address lies in. |
@@ -850,6 +856,58 @@ A successful cheat is achieved when these conditions isolate a memory access to 
 | X30_match | R + ZL | Check the value of X30 current or stored on stack and only capture if match. |
 | Show capture fields | (none) | Open a diagnostic dialog showing the selected Gen2 record's raw packed i, j, k, and offset fields. This is a developer inspection aid; it displays decoding inputs and does not perform validation or repair. |
 | View caller | Left Stick Click + ZR | Opens the caller of the selected captured instruction. |
+
+## Field Watch
+
+Which fields of one object the game reads or writes. Start it from a field view
+with an instance pinned, or from the Unreal UObject view, with **Watch fields**
+(`ZL + Left Stick Click`). gen2 watches every byte of the object while the game
+runs, and each field is listed the first time it is touched. While the watch
+runs the Gen2 Action button on Main opens this screen; afterwards the Gen2
+Menu's **Field watch** button does. See the
+[guide](watch%20fields%20and%20methods.md).
+
+| Button Name | Default Shortcut | Action |
+|---|---|---|
+| Start / Stop | R | Run or end the watch. Stop detaches gen2 and keeps the run. |
+| Sweep unseen | R + ZL | Goes on with only the bytes not accessed yet, a few pieces at a time in turn. The game runs at full speed; an access to a piece whose turn it is not is missed. |
+| Clear | - | Forget what was accessed and start again. |
+| Read= / Write= | ZL + Up / ZL + Down | Which accesses count. Applies at the next Start. |
+| Mark seen | Y | Take the `new` mark off every line: only fields first accessed afterwards show it. |
+| View | Y + ZL | by offset, newest first, or new only. |
+| Select | X | Back to the field view with the cursor on that field. |
+| Memory Explorer | L | Open the field's address. |
+| Watch this field | X + ZL | Stop, and set the Gen2 Menu up to watch this one field for the code that accesses it. |
+| Pre results / Next results | ZL + Right Stick Left / Right | Step through the saved runs; past the newest, Next results returns to the current watch. |
+| Expand screen | R + ZR | Toggle the list between half and full width. |
+| Close field watch | ZL + Plus | Stop and open the Gen2 Menu. |
+| Look | ZR + Plus | Look at the game screen. |
+| Back | B | Return to the previous menu. |
+
+## Method Watch
+
+Which methods of a class are ever called. Start it from a class's Runtime
+Method List with **Watch methods**. gen2 puts a break on the first instruction
+of each method and takes it off at the method's first call, so a live method
+stops the game once. Each line reads `called`, `-` (not so far), `overwritten`
+(something else rewrote the instruction, as an enabled cheat hooking the method
+does) or `not set`, then the method, the object it was called on, and its first
+caller.
+
+| Button Name | Default Shortcut | Action |
+|---|---|---|
+| Start / Stop | R | Run or end the watch. Stop takes every break off and keeps the run. |
+| Clear | - | Start again with every method waiting. |
+| View | Y + ZL | all, called (newest first), or not called. |
+| ASM Explorer | X | Open the method's code. |
+| Go to caller | X + ZL | Open the code that made the method's first call. |
+| Field view of object | Y | Open the field view on the object the method was first called on. |
+| Break on object | R + ZL | Break and Trace on this method, only when it is called on the object shown on its line. Ends the method watch. |
+| Pre results / Next results | ZL + Right Stick Left / Right | Step through the saved runs; past the newest, Next results returns to the current watch. |
+| Expand screen | R + ZR | Toggle the list between half and full width. |
+| Close method watch | ZL + Plus | Stop and open the Gen2 Menu. |
+| Look | ZR + Plus | Look at the game screen. |
+| Back | B | Return to the previous menu. |
 
 ## Search Items Editor (Advance Search)
 

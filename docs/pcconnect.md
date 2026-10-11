@@ -113,7 +113,7 @@ operation answers `-ERR busy`.
 | `show` / `hide` | shows or hides the overlay over the game (HOME daemon interface 3+) |
 | `keys` | every action of the current menu with its programmed key, its custom-shortcut slot, the key in use, and actions whose keys collide |
 | `restart [now]` | relaunches `/switch/Breeze/Breeze.nro`, like the focus manager's Restart Breeze. Refused unless Breeze is on Main and on screen; `now` overrides |
-| `focus` / `focus show <name>` / `focus load <name>` | the focus layout in effect; a layout file listed by screen and button id; apply a layout (like Load layout). See the [Focused Actions Guide](focus%20mode.md) |
+| `focus` / `focus show <name>` / `focus load <name>` | the focus layout in effect; a layout file listed by screen and button id; apply a layout (like Load layout). See `focus_layouts.md` |
 
 Key names: `A B X Y L R ZL ZR PLUS MINUS UP DOWN LEFT RIGHT LS RS`, and stick
 directions `LSUP LSDOWN LSLEFT LSRIGHT RSUP RSDOWN RSLEFT RSRIGHT`.
@@ -199,6 +199,183 @@ shows the new state the next time it refreshes.
 
 `watch` samples locally and ships the samples afterwards, so the network is
 never inside the sampling loop.
+
+### Engine preparation and the game's files
+
+Most of what Breeze knows about a game it works out once and keeps in the game's
+folder: which engine it is, where its code caves can go, and for Unity and
+Unreal the maps that name every method and field. These two commands start that
+work and say what is there, so a session does not have to know which screen
+builds which file.
+
+| command | does |
+|---|---|
+| `prep` | JSON: the game's `engine`, every preparation job (`job`, `engine`, `applies`, `blocking`, `what`, and its `outputs` with `exists`, `size`, `age_s`), the job `running` (`job`, `seconds`, `progress`) and how the `last` one ended (`ok`, `seconds`, `result`) |
+| `prep <job>` | starts a job. One at a time |
+| `prep abort` | stops a job that runs in slices; what it wrote so far stays |
+| `files` | JSON: the game folder (`dir`), `title_id`, `build_id`, `engine`, and every file in it with `size`, `mtime`, `age_s`, a `kind` and, for the ones worth knowing, a `use` line. `global` lists `Klass.dat`, which lives outside the folder |
+
+| job | engine | makes | |
+|---|---|---|---|
+| `engine` | any | `engine_scan.txt` | what the game is built with; also runs by itself at attach |
+| `cave_floor` | any | `cave_floor.txt` | the lowest address a code cave may take, per code region |
+| `il2cpp_functions` | Unity | `il2cpp_function_map.txt` | every method by name with its address |
+| `il2cpp_fields` | Unity | `il2cpp_field_map.txt` | every class, its slot, and every field's offset and type |
+| `ue_profile` | Unreal | `ue_profile.ini` | the engine globals and layout offsets |
+| `ue_objects` | Unreal | `ue_object_cache.bin` | Rescan objects; can take minutes |
+| `ue_fields` | Unreal | `ue_field_map.txt` | every reflected property; needs `ue_objects` first |
+| `ue_functions` | Unreal | `ue_function_map.txt` | reflected native functions with their addresses |
+
+`prep` and `files` are answered on the network thread. The jobs themselves run
+on Breeze's UI thread, where its caches live, started by the next frame. That
+frame comes while Breeze is hidden behind the game as well, so a job can be
+started and followed without showing Breeze.
+
+- The two Unity jobs run in slices (12 ms of each frame on screen, 40 ms of each
+  50 ms while hidden), so Breeze stays usable and `prep` shows progress. The
+  klass scan, when one has to run first, is done in one go at the start.
+- A `blocking` job runs to its end in one go. `state`, `button` and the other
+  UI commands answer `-ERR busy` meanwhile; `prep` still answers. Poll it every
+  15 to 20 seconds, not faster.
+- A job for another engine than the game's is refused. When the scan named no
+  engine every job is allowed: the scan can be wrong.
+
+`kind` is `map` (made for a session to read: fetch these), `notes` (names and
+types someone gave by hand; earlier findings), `state` (a tool's saved state),
+`cache`, `cheats`, `log` or `other`. Fetch a file with `fsget`, or
+`Breeze.get_file(name)` in the client, which reads it in pieces.
+
+Checked on a console: see *Measured on the console*. The four Unreal jobs call
+the same functions as their buttons but have not been run from here.
+
+### Working by name: instances, probe, xref, notes
+
+| command | does |
+|---|---|
+| `instances <hex class pointer>` | starts Breeze's scan for the live objects of a Unity class and of its subclasses. The class pointer is the first word of any object of the class |
+| `instances` | the scan: `done`, `progress`, `objects` (addresses). About 9 s on a 4 GB game |
+| `probe <ms> <hz> <hexaddr>:<len>... [press <keys> <at_ms> <hold_ms>]` | samples up to 16 values (1 to 16 bytes each) on one clock for `ms`, and can press game buttons at `at_ms` of the same run. One line per sample: the time in ms, then each value as hex (`?` where a read failed) |
+| `xref call <addr>` | every `b` / `bl` in main's code whose target is `addr`, as `M+<offset> <word>` |
+| `xref insn <hexmask> <hexvalue> [<hexlo> <hexhi>] [max]` | every instruction word `w` in main's code with `(w & mask) == value`; `lo` / `hi` are offsets from main that limit the stretch scanned |
+| `cheats state` | every cheat as `id:on` / `id:off`, on one line |
+| `cheats state <id>:on <id>:off ...` | makes exactly those so. Use it to put a list back as it was found; `cheats restore` turns on whatever `cheats off` turned off, including cheats that were off to begin with |
+
+`probe` is for "press this, what changes?": the press and the samples share
+the console's clock, so the delay between them is real. Its press attaches the
+virtual controller as `gamepress` does; see the notes on `gamepad` below.
+
+`ai_notes.md` in the game folder is where a session leaves what it learned for
+the next one: the route to the player, object layouts, controls, what failed.
+`files` lists it as kind `notes` with "READ FIRST", and names it in
+`read_first` together with `engine_scan.txt`. `Breeze.notes()` and
+`Breeze.write_notes(text)` in the client read and replace it.
+
+**`breeze_unity.py`** (next to `pcconnect.py`) joins the two Unity maps to the
+running game, on the PC:
+
+```python
+u = Unity(Breeze(ip, code))            # fetches the maps into ~/.breeze_pc/<title>_<build>/ when the Switch has newer ones
+r = u.resolve("ServiceLocator._services[CharacterSelectionService]._currentPlayerObject.Cheats._isGodModeOn")
+u.cheat(r, 1, "God mode")              # the cheat VM words that walk the same path and write 1
+u.dry_run(words)                       # where a pointer cheat lands right now, before it is switched on
+u.describe(address)                    # the object there: class, every field, type, live value
+u.instances("Players.PlayerController")  # or instances(like=<an object>) for a class with no slot in the map
+u.method(0x27A4518)                    # 'AgentStats::ReceiveHealthDamage+0xB8'
+u.callers("AgentStats::ReceiveHealthDamage")
+u.field_users(0x58, "AgentStats::ReceiveHealthDamage")   # loads / stores of [reg, #0x58] inside those methods
+u.fieldwatch(address, "w"); u.fieldwatch_fields()         # a field watch sized from the class, bytes named
+```
+
+A path is `Class.staticField`, then `.field` for each object reached (looked up
+in the class the object really is), `[3]` to index a List or array, and
+`[SomeClass]` on a Dictionary for the entry whose value is an object of that
+class. The last field is the target.
+
+- `callers` returning nothing does not make a method dead: a small method is
+  often inlined, and virtual and delegate calls go through a pointer. Use
+  `methodwatch` for whether it runs.
+- `field_users` matches the plain `[reg, #offset]` form and does not know which
+  object the register holds, so it is only meaningful inside the methods named.
+
+### gen2 and Field watch
+
+The gen2 fork's watches, without Breeze's screens. These run on the UI thread
+(the watch state lives there), so they need Breeze answering: on screen, or
+hidden over the game.
+
+| command | does |
+|---|---|
+| `gen2` | JSON: what gen2 holds -- `gen2` (its version) and `breeze_expects`, `attached`, `address`, `read`, `write`, `size`, `type`, `rows`, `trig`, `max_trig`, `failed`, `stopped` |
+| `gen2 rows` | the same with `list`: one entry per captured row. For a memory watch `pc` (the instruction that touched the address), `call_site` (from x30), `stack` (pairs of stack offset and return address) and `count` |
+| `gen2 watch <hexaddr> [r\|w\|rw] [size] [stack=<0-5>]` | attaches gen2 and starts a memory watch: who reads or writes those 1, 2, 4 or 8 bytes. Write only and 4 bytes unless said. `stack=` records that many return addresses from the stack with each row |
+| `gen2 break <hexaddr\|M+hexoffset> [x<n>=<hex>]` | Break and Trace on that instruction: the game stops when it is reached. With `x<n>=<hex>` only when register n (0 to 30) holds that value; other hits pass without stopping |
+| `gen2 cont` | lets a game stopped at the break run on, to the next hit |
+| `gen2 stop` | detaches gen2. The rows stay readable |
+| `fieldwatch` | JSON: the field watch -- `state` (`capturing`, `sweeping`, `stopped`, `none`), `class`, `base`, `size`, `read`, `write`, `trig`, `bytes` (every run of accessed bytes as `[offset, length]`) and `fields` (`off`, `name`, `type`, `value`, `new`) |
+| `fieldwatch start <hexaddr> <hexsize> [r\|w\|rw]` | watches every byte of an instance; write only unless said |
+| `fieldwatch sweep` | goes on with only the bytes not accessed yet, at full game speed |
+| `fieldwatch stop` / `clear` / `mark` | detach; forget what was accessed (and restart when it was running); take the `new` mark off |
+
+| `methodwatch` | JSON: the method watch -- `state` (`capturing`, `stopped`, `none`), `methods`, `called`, `overwritten`, `not_set`, and `list`: per method `at`, `name`, `state` (`called`, `not called`, `overwritten`, `not set`) and, once called, `caller`, `caller_name` and, for an instance method, `this`: the object it was called on |
+| `methodwatch start <text>` | watches every method whose name in the function map contains the text (`AgentStats::`, a namespace, a word like `Damage`): 768 at most, 3 characters or more |
+| `methodwatch stop` / `clear` | take the breaks off and detach; start again with every method waiting |
+
+Code addresses are `M+<hex>` from main, as the gen2 menu shows them, or a plain
+address outside it.
+
+**Method watch** answers "is this method ever called?" before any time goes
+into hooking it. gen2 writes a break over the first instruction of each method
+and takes it off at the method's first call, recording who called. A live
+method stops the game once; a method never called costs nothing. `clear`, one
+action in the game, then `methodwatch` lists the methods that action ran.
+
+- `not called` means not called during the run, and says nothing about the
+  data: a small getter is often inlined, so its field is read with no call.
+- `overwritten`: something else rewrote the method's first instruction while
+  the watch ran -- an enabled cheat that hooks it does that twelve times a
+  second -- so whether it was called is not known.
+- The breaks are in the game's code for as long as the watch runs. `stop`
+  removes every one. Do not leave a watch running across anything that detaches
+  gen2 another way (a GDB client): a break left behind crashes the game when its
+  method is called.
+- `start` reads the function map from the SD card first; if it answers
+  `-ERR busy`, it is still starting: ask `methodwatch` a few seconds later.
+
+`bytes` is the result itself and needs no field list. `fields` has names only
+when the same instance was last watched from a field view (*Watch fields*),
+which saves the list; started from here every line is `(unnamed)`, and the
+offsets are looked up in `il2cpp_field_map.txt` or `ue_field_map.txt` on the PC.
+
+An instruction watch (which register values reach an instruction) is not
+offered here: the gen2 menu reads the register off the disassembly.
+
+**A break on one object.** At a method's first instruction X0 is the object
+the method was called on. `gen2 break M+27A4060 x0=<the hero's stats object>`
+stops the game only when that method runs for the hero, however many other
+objects it is called on. While it is set, `gen2` reports `break`, the
+condition as `when`, and once stopped: `at` and `lr` (with `at_name` /
+`lr_name` from the function map), `sp`, and `x`, the 31 registers X0 to X30.
+`gen2 cont` runs to the next hit; `gen2 stop` ends it.
+
+- Every call reaches the breakpoint and costs a stop, matching or not: a
+  method called thousands of times a second slows the game while it is set.
+- X0 is the object only at the method's entry. Further in, the object is
+  usually in X19 or X20: read the code and give that register.
+- Breeze opens its Break and Trace view when the game stops. Leave it with B
+  before driving other screens.
+- `this` in `methodwatch` is such an object, recorded at the method's first
+  call: a live instance of the class with no search. One per method; `clear`
+  starts again and may catch another.
+
+A watch runs while the game runs. gen2 is attached for as long as it does, and
+an ordinary watch slows a busy address; `gen2 stop` or `fieldwatch stop` when
+done.
+
+### Search
+
+There is no search command yet. A memory search is driven through Breeze's
+own screens with `state`, `button`, `select` and `text`, and a long one answers
+`-ERR busy` until it ends.
 
 ### The game's save
 
@@ -300,6 +477,52 @@ No Man's Sky, overlay mode, game in front:
 - `state` round trip: 20-50 ms, also with the overlay hidden.
 - `capture`: 49-90 ms for a 200-310 KB JPEG. Hidden, it is the live game;
   shown, it is the overlay over the game.
+
+The Walking Dead: Streets of Survival (Unity), Breeze hidden over the game
+(Oct 11 2026):
+
+- `prep il2cpp_fields`: **234 s** for 59,437 klass and 51,952 fields. The klass
+  scan at the start took about 27 s of that, during which `progress` reads
+  `starting`. `prep` answered every 5 s throughout.
+- `prep engine`: 1 s. `files`: 21 files, the two maps at 6.3 and 8.0 MB.
+- `gen2 watch` and `fieldwatch start`: 0.4 s to attach and arm.
+- `gen2 watch <PlayerStats + 0x48> rw 4 stack=2`, 6 s in a level: 366 hits in 3
+  rows. Both instructions reported (`M+27A81D0`, `M+27A4060`) disassemble to
+  `ldr s0, [xN, #0x48]`, and each call site is the instruction after a `blr`.
+- `fieldwatch start <PlayerStats> F0 rw`: 2,513 hits in 8 s, seven runs of
+  accessed bytes. `fieldwatch sweep`: 0 hits in the next 8 s, same bytes.
+  With the game sitting in a menu instead, the same commands recorded nothing:
+  no hits means look at the game before doubting the watch.
+
+- `breeze_unity.py`: the path to `PlayerCheats._isGodModeOn` resolved live and
+  gave the same cheat words as the cheat built by hand the day before.
+  `instances` found 8 `PlayerController` objects in 9 s, the player's among
+  them; a scan from the PC through `refs` took 51 s and missed it.
+- `probe 3000 20 <cooldown>:4 <attacking>:1 <hp>:4 press X 500 150`: the
+  cooldown read 0.00 to 450 ms, 1.97 at 600 ms, counted down to -0.03 by
+  2700 ms, and the attacking flag was set from 900 to 1050 ms.
+- `xref call`: `ReceiveHealthDamage` has 1 caller (`AgentHitbox::SolveDamage`),
+  `get_IsGodModeOn` none, `get_IsDead` 49; the three scans took 2.9 s.
+  `field_users(0x58, "AgentStats::ReceiveHealthDamage")` found the one read of
+  the god-mode flag in 0.6 s.
+- `cheats state`: two cheats changed, the saved state put back, and the list
+  read the same as before with nothing left for `restore`.
+- `gen2 rows` now names each row: `AgentGraphics::OnUpdate+50` called from
+  `PlayerController::Update+E8`.
+- `methodwatch` with objects: of the 6 `AgentStats` methods called, two were
+  called on the player's `PlayerStats` (the same address the name path
+  reaches) and four on an enemy's `AgentStats`.
+- `gen2 break` on `get_IsDead` (49 callers, called for every character): with
+  `x0=1234` the game ran 4 s without a stop; with `x0=<the player's stats>` it
+  stopped three times out of three, each with X0 the player's object, and ran
+  on after each `gen2 cont`.
+- `methodwatch start Components.Stats.AgentStats::`: 61 methods. After 10 s
+  standing in a level 6 were called, each with its caller named
+  (`get_CurrentSpeed` from `CustomCameraTarget::LateUpdate`, `get_IsDead` from
+  a footstep coroutine, `OnUpdate` from `EnemyController::EnemyUpdate`), and
+  `ReceiveHealthDamage` was not: nothing was hitting anyone. While it ran the
+  55 uncalled entries held the break and the 6 called ones their own
+  instruction; after `stop` none of the 61 held a break and the game ran on.
 
 Graveyard Keeper II, No restart mode, Breeze full screen in front (Sep 25 2026):
 
