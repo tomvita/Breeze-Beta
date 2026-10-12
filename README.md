@@ -44,6 +44,7 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[Make Cheat](docs/make%20cheat.md)**: Turn the pointer chain in Memory Explorer into a cheat for one value or for every element of an array (all enemies), with screenshots.
 -   **[Watch Fields, Watch Methods, Break on One Object, Code Watch](docs/watch%20fields%20and%20methods.md)**: Find which fields of an object the game reads or writes and which methods of a class are ever called, stop a method only when it runs for one object, and find which classes of the whole game ran when you did one thing.
 -   **[Code Watch Walkthrough](docs/code%20watch%20walkthrough.md)**: From one attack in the game to the class that ran it, the live object and its fields, step by step with screenshots.
+-   **[GameMaker Walkthrough](docs/gamemaker%20walkthrough.md)**: Global variables by name, the object behind an attack, the player's own variables, and a cheat for each, step by step with screenshots.
 -   **[Runtime IL2CPP Metadata](docs/il2cpp_runtime_metadata.md)**: Browse methods and generate function maps without `dump.cs`.
 -   **[Unreal Support Guide](docs/unreal.md)**: Unreal workflow for UE profile scan, root-chain resolution, function map export, and explorer tools.
 -   **[Unreal Primer](docs/unreal_primer.md)**: Core UE runtime concepts (`UObject`, `UClass`, `UFunction`, NamePool, and `OuterPrivate`) used by Breeze.

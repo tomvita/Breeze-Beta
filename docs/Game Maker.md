@@ -9,6 +9,8 @@ This page describes what is available and how to use it.
 
 ## New in beta124.06: variables by name, and Code watch
 
+A step-by-step example with screenshots is in the [GameMaker walkthrough](gamemaker%20walkthrough.md).
+
 For games exported with the YoYo Compiler (YYC), three things need no setup:
 
 - **Main > GameMaker** lists every global variable by name with its live
