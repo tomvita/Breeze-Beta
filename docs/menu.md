@@ -30,6 +30,7 @@ Whether you're a new user getting acquainted with the application or an experien
 - [Gen2 Extra Menu](#gen2-extra-menu)
 - [Field Watch](#field-watch)
 - [Method Watch](#method-watch)
+- [Code Watch](#code-watch)
 - [Search Items Editor (Advance Search)](#search-items-editor-advance-search)
 - [Pointer Search Menu](#pointer-search-menu)
 - [Game Information](#game-information)
@@ -804,6 +805,7 @@ You will typically enter this menu from the Memory Explorer when watching a spec
 | Erase old results | (none) | Erase all the recorded data. |
 | Field watch | (none) | Opens the [Field Watch](#field-watch) screen on the last field watch of this game, with its results. |
 | Method watch | (none) | Opens the [Method Watch](#method-watch) screen on the last method watch of this game, with its results. |
+| Code watch | (none) | Opens the [Code Watch](#code-watch) screen: which functions of the whole game are ever called, by class. |
 | Set Max trigger | (none) | The run stops when total number of trigger reach this number. |
 | Look | ZR + Plus | Look at the game screen. |
 | Class field | Y + ZR | Opens the class field view of the object the selected capture address lies in. |
@@ -908,6 +910,37 @@ caller.
 | Close method watch | ZL + Plus | Stop and open the Gen2 Menu. |
 | Look | ZR + Plus | Look at the game screen. |
 | Back | B | Return to the previous menu. |
+
+## Code Watch
+
+Which functions of the whole game ran, by class. Open it from the Gen2 Menu's
+**Code watch** button. It needs the game's function map. **Start** puts a break
+on the first instruction of every function in the map and each comes off at its
+first call: the game stutters for a few seconds while the code that runs all
+the time is found, then plays at full speed. **Mark**, do one thing in the
+game, and the list shows the classes with a function called for the first time
+since. While the watch runs the Gen2 Action button on Main opens this screen.
+See the [guide](watch%20fields%20and%20methods.md).
+
+Each line reads how many of the class's functions are new since the mark, how
+many were called out of how many watched, and the class. After **Select** on a
+class the lines are its functions: `new`, `called` or `-`, the name, and the
+first caller.
+
+| Button Name | Default Shortcut | Action |
+|---|---|---|
+| Start / Stop | R | Run or end the watch. Stop takes every break off, detaches gen2 and writes `code_watch.txt` in the game's folder. |
+| Mark | Y | From now on `new` counts only functions called for the first time after this. Switches the view to new since the mark. |
+| Clear | - | Every function waiting again, as after Start. |
+| View | Y + ZL | The classes with a function new since the mark, or with any function called. |
+| Select | X | On a class: its functions, the called ones first. On a function: opens its code in ASM Explorer. |
+| Go to caller | X + ZL | Open the code that made the function's first call. |
+| Watch methods | ZL + Left Stick Click | Stops the code watch and starts a method watch on this class, opening the [Method Watch](#method-watch) screen. |
+| Watch | ZL + Up | The game's own code (leaves out the runtime and the engine) or everything in the map. Applies at the next Start. |
+| Close code watch | ZL + Plus | Stop and open the Gen2 Menu. |
+| Expand screen | R + ZR | Toggle the list between half and full width. |
+| Look | ZR + Plus | Look at the game screen. |
+| Back | B | From a class's functions back to the classes; otherwise return to the previous menu. |
 
 ## Search Items Editor (Advance Search)
 

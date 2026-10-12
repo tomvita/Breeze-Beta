@@ -320,6 +320,13 @@ hidden over the game.
 | `methodwatch start <text>` | watches every method whose name in the function map contains the text (`AgentStats::`, a namespace, a word like `Damage`): 768 at most, 3 characters or more |
 | `methodwatch stop` / `clear` | take the breaks off and detach; start again with every method waiting |
 
+| `codewatch` | JSON: the code watch -- `state`, `functions` (watched), `called`, `new` (first called after the mark), `mark`, `not_set`, and how long the start took (`map_ms`, `send_ms`, `arm_ms`) |
+| `codewatch start [own\|all\|<text>]` | a one-shot break on every function in the function map: `own` (the default) leaves out the runtime and the engine (`System.`, `UnityEngine.`, `Unity.` ...), `all` is the whole map, anything else is text the name must contain |
+| `codewatch mark` | from here `new` counts only functions called for the first time after this |
+| `codewatch classes [new] [n]` | the classes by how many of their functions were called (or were new), most first: `class`, `methods`, `called`, `new`; `n` rows, 100 unless given |
+| `codewatch list [new] [text]` | the called (or new) functions, newest first, 300 at most: `order`, `at`, `caller`, `name`; `text` narrows by name |
+| `codewatch clear` / `stop` | every function waiting again; take the breaks off, detach and write `code_watch.txt` |
+
 Code addresses are `M+<hex>` from main, as the gen2 menu shows them, or a plain
 address outside it.
 
@@ -340,6 +347,43 @@ action in the game, then `methodwatch` lists the methods that action ran.
   method is called.
 - `start` reads the function map from the SD card first; if it answers
   `-ERR busy`, it is still starting: ask `methodwatch` a few seconds later.
+
+**Code watch** is the method watch for the whole game, for when the class is
+not known yet. Every function in the function map gets the one-shot break, so
+the code that runs all the time is found in the first seconds (the game
+stutters while it is) and never stops the game again. Then `mark`, do one thing
+in the game, and `classes new` names the classes that thing ran:
+
+```
+codewatch start          39,557 functions armed
+  ... wait until `called` stops climbing ...
+codewatch mark
+  ... one action in the game ...
+codewatch classes new    the classes with a function first called by it
+codewatch list new       the functions, with who called each
+codewatch stop
+```
+
+- A function that already ran before the mark is not new. For an action that
+  has happened once already: `clear`, wait for the count to settle, `mark`, do
+  it again.
+- The list is in `switch/breeze/code_watch.bin` and the calls in
+  `code_watch_hits.bin`; gen2 keeps almost nothing in memory. `stop` writes
+  `code_watch.txt` in the game folder: every called function in the order of
+  the first calls, with its first caller, and a `*` on the ones after the mark.
+- The cautions of the method watch apply: the breaks are in the game's code
+  until `stop`, and `not called` says nothing about inlined code.
+- `clear` and `stop` on the whole map take longer than the 3 s the UI thread is
+  given and answer `-ERR busy`; they finish all the same. Ask `codewatch` again.
+
+Measured (The Walking Dead: Streets of Survival, Unity, 106,022 functions in
+the map): `start` armed the game's own 39,557 functions in 0.7 s; 1,300 were
+called in the first second and the count settled near 2,000 in about ten.
+`start all` armed 106,022 in 2.1 s and settled near 3,650 in five. Six seconds
+after a `mark`, standing still: 0 new. The first `gamepress` after it: 508 new
+functions in 165 classes, the game's controller-connected handlers among them
+(`PlayerInput::HandleControllerConnected`). A second press: 1 new. After
+`stop`, a scan of main's code found no break left.
 
 `bytes` is the result itself and needs no field list. `fields` has names only
 when the same instance was last watched from a field view (*Watch fields*),

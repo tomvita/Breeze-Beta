@@ -1,5 +1,13 @@
 # Changelog
 
+## [Beta 124.05] - 2026-10-12
+
+- **Needs the new gen2 fork (v0.19):** Settings > Install gen2 fork, then reboot.
+- **Code watch** (gen2 menu): a one-shot break on every function in the game's function map. The game stutters for a few seconds while the code that runs all the time is found, then plays at full speed. **Mark**, do one thing in the game, and the classes with a function called for the first time are listed, the most first.
+- **Select** on a class lists its functions with their first callers; **Watch methods** hands the class to the method watch, which gives the live objects.
+- Stop writes `code_watch.txt` in the game's folder: every called function in order.
+- **PC connect:** `codewatch`.
+
 ## [Beta 124.04] - 2026-10-11
 
 - **Needs the new gen2 fork (v0.18):** Settings > Install gen2 fork, then reboot.

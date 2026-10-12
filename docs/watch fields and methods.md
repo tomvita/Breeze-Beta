@@ -1,14 +1,15 @@
 # Watch fields, watch methods, break on one object
 
-Three tools that answer questions about a class while the game plays, all built on the gen2 fork (v0.17 or later; run Settings > Install gen2 fork and reboot after updating Breeze):
+Tools that answer questions about a class while the game plays, all built on the gen2 fork (run Settings > Install gen2 fork and reboot after updating Breeze):
 
 - **Watch fields**: of all the fields in this object, which does the game read or write?
 - **Watch methods**: of all the methods of this class, which are ever called, and by whom?
 - **Break on one object**: stop the game when a method runs for *this* object, and not for the others of its class.
+- **Code watch** (gen2 v0.19): of all the functions in the game, which ran when I did this? For finding the class before any of the above.
 
 Each runs while you play, with Breeze closed. A box at the top left of the game shows what is found as it happens, and the gen2 menu shows the full result when you come back.
 
-The same tools are PC connect commands (`fieldwatch`, `methodwatch`, `gen2 break`); see `pcconnect.md`.
+The same tools are PC connect commands (`fieldwatch`, `methodwatch`, `gen2 break`, `codewatch`); see `pcconnect.md`.
 
 ---
 
@@ -30,7 +31,7 @@ gen2 watches every byte of the object. The Field watch screen opens and the watc
 | Memory Explorer | L | open the field's address |
 | Watch this field | ZL+X | set the ordinary gen2 watch up on that one field, to find the code |
 | Close field watch | ZL+Plus | stop and get the ordinary gen2 menu back |
-| Pre results / Next results | ZL + right stick left / right | step through the saved runs (section 4) |
+| Pre results / Next results | ZL + right stick left / right | step through the saved runs (section 5) |
 | Expand screen | ZR+R | the list over the whole width |
 
 **To find what one action touches** (taking a hit, using an item): Clear, do only that in the game, look at the list.
@@ -57,7 +58,7 @@ A name in a class is no proof the code runs. Before putting time into hooking `g
 | Field view of object | Y | the object it was first called on, in a field view |
 | Break on object | ZL+R | break on this method for that object (section 3) |
 | Close method watch | ZL+Plus | stop and get the ordinary gen2 menu back |
-| Pre results / Next results | ZL + right stick left / right | step through the saved runs (section 4) |
+| Pre results / Next results | ZL + right stick left / right | step through the saved runs (section 5) |
 | Expand screen | ZR+R | the list over the whole width |
 
 Each line reads `called`, `-` (not called so far), `overwritten` or `not set`, then the method, the object it was called on, and its first caller.
@@ -86,7 +87,37 @@ How it works: at a method's first instruction register X0 holds the object the m
 - A static method has no object; the break is on any call.
 - One break at a time, as with Break and Trace.
 
-## 4. Getting back, and saved runs
+## 4. Code watch: which classes ran?
+
+**Where:** gen2 menu > **Code watch** > **Start**. It needs the game's function map (Unity menu, or it is already there if you have used the Methods list).
+
+Watch methods needs a class. Code watch finds the class: it puts the same one-shot break on every function in the function map. The code that runs all the time is called in the first seconds, each function stopping the game once, so the game stutters for a few seconds and then plays at full speed.
+
+1. **Start**, go back to the game, and wait until the box at the top left stops counting.
+2. Open Breeze and press **Mark** (Y).
+3. Do one thing in the game: take a hit, fire, open a chest.
+4. Open Breeze. The list shows the classes with a function called for the first time since the mark, the most first.
+5. **Select** (X) a class to see its functions and who called each. **Watch methods** (ZL + left stick click) stops the code watch and starts a method watch on that class, which gives you the live objects.
+
+| Button | Key | What it does |
+|---|---|---|
+| Start / Stop | R | run or end the watch (Stop takes every break off) |
+| Mark | Y | from now on `new` counts only functions first called after this |
+| Clear | Minus | every function waiting again |
+| View | ZL+Y | new since the mark > called |
+| Select | X | a class: its functions; a function: its code |
+| Go to caller | ZL+X | the code that made the function's first call |
+| Watch methods | ZL + left stick click | stop, and method-watch this class |
+| Watch | ZL+Up | the game's own code > everything in the map; applies at the next Start |
+| Close code watch | ZL+Plus | stop and get the ordinary gen2 menu back |
+| Expand screen | ZR+R | the list over the whole width |
+
+- **The game's own code** leaves out the runtime and the engine (`System`, `UnityEngine`, `Unity` and the like): fewer functions, less stutter, and the classes you are after.
+- A function that ran before the mark is not new. If the action has already happened once, **Clear**, wait for the count to settle, **Mark**, and do it again.
+- Stop writes `code_watch.txt` in the game's Breeze folder: every called function in the order of the first calls.
+- The list on screen is kept until Breeze is restarted; the file stays.
+
+## 5. Getting back, and saved runs
 
 While a watch runs, the gen2 menu button opens that watch's screen. Once it is stopped the gen2 menu is the gen2 menu again, and two buttons there lead back: **Field watch** and **Method watch**.
 
@@ -109,5 +140,7 @@ On The Walking Dead: Streets of Survival (Unity):
 - The Method watch screen: View, and Field view of object, which opened the enemy's object.
 - Saved runs: two method watches and a field watch were stopped and kept; with gen2 holding the field watch, the Method watch button opened `Method watch 4/4`, Pre results and Next results stepped through all four, and Next results past the newest returned to the current watch. Expand screen widened the list from 550 to 1180 pixels on both screens.
 - Break on one object: a break on `get_IsDead` (called for every character) with the player's stats object stopped three times out of three with that object, and never with another.
+
+- Code watch: 39,557 functions (the game's own code) armed in 0.7 seconds; about 2,000 were called in the first ten seconds and then the count stood still. After Mark, 0 new in six seconds; the first button press after it showed 508 new functions in 165 classes (the game noticing a controller), and the next press 1. The whole map, 106,022 functions, armed in 2.1 seconds. Select on a class, and Watch methods from it, opened the method watch with its objects. After Stop no break was left in the game's code.
 
 Driven over PC connect rather than by hand, and not yet pressed on a console: the **Watch methods** and **Break on pinned object** buttons of the Methods list, **Break on object** on the Method watch screen, and **Watch fields** in the Unreal UObject view.

@@ -223,6 +223,13 @@ class Breeze:
         "clear" (start again with every method waiting)."""
         return self.json(" ".join(["methodwatch"] + [str(a) for a in args]))
 
+    def codewatch(self, *args):
+        """codewatch() is the code watch's state; codewatch("start") breaks once
+        on every function of the game's own code ("start", "all" for the whole
+        map, or text the names must contain); "mark", then "classes", "new" or
+        "list", "new" for what was first called after it; "clear", "stop"."""
+        return self.json(" ".join(["codewatch"] + [str(a) for a in args]))
+
     def instances(self, klass_pointer=None):
         """instances(ptr) starts Breeze's scan for the live objects of a Unity
         class (ptr is the first word of any object of it); instances() is the

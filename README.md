@@ -42,7 +42,7 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[Unity Guide](docs/UnityGuide.md)**: Unity-specific workflow: the Unity menu, IL2CPP maps, Find chain, Field View, and class-link based cheat building.
 -   **[Unity Menu Walkthrough](docs/unity_menu_walkthrough.md)**: A money cheat and an HP cheat, step by step.
 -   **[Make Cheat](docs/make%20cheat.md)**: Turn the pointer chain in Memory Explorer into a cheat for one value or for every element of an array (all enemies), with screenshots.
--   **[Watch Fields, Watch Methods, Break on One Object](docs/watch%20fields%20and%20methods.md)**: Find which fields of an object the game reads or writes and which methods of a class are ever called, and stop a method only when it runs for one object.
+-   **[Watch Fields, Watch Methods, Break on One Object, Code Watch](docs/watch%20fields%20and%20methods.md)**: Find which fields of an object the game reads or writes and which methods of a class are ever called, stop a method only when it runs for one object, and find which classes of the whole game ran when you did one thing.
 -   **[Runtime IL2CPP Metadata](docs/il2cpp_runtime_metadata.md)**: Browse methods and generate function maps without `dump.cs`.
 -   **[Unreal Support Guide](docs/unreal.md)**: Unreal workflow for UE profile scan, root-chain resolution, function map export, and explorer tools.
 -   **[Unreal Primer](docs/unreal_primer.md)**: Core UE runtime concepts (`UObject`, `UClass`, `UFunction`, NamePool, and `OuterPrivate`) used by Breeze.
