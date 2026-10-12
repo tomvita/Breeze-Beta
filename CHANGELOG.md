@@ -1,5 +1,14 @@
 # Changelog
 
+## [Beta 124.06] - 2026-10-12
+
+- For **GameMaker** games exported with the YoYo Compiler (YYC). Same gen2 fork as 124.05.
+- **Main > GameMaker:** the game's global variables by name with live values; Edit value, Filter, Sort, Open on a struct.
+- **Code watch** works on GameMaker with no preparation and lists by game object.
+- **Watch methods**, then **Field view of object**, opens an instance's own variables by name (walking speed, jump height and the like).
+- GML function names show in ASM Explorer on GameMaker games without a map made on a PC.
+- **PC connect:** `gmvars`, `prep gm_functions`.
+
 ## [Beta 124.05] - 2026-10-12
 
 - **Needs the new gen2 fork (v0.19):** Settings > Install gen2 fork, then reboot.

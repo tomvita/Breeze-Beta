@@ -7,6 +7,23 @@ This page describes what is available and how to use it.
 
 ---
 
+## New in beta124.06: variables by name, and Code watch
+
+For games exported with the YoYo Compiler (YYC), three things need no setup:
+
+- **Main > GameMaker** lists every global variable by name with its live
+  value. Filter by name, Edit value to write a number. Health, money, upgrades
+  and ability flags are often here.
+- **Code watch** (gen2 menu, second page): Start, wait for the count to stop,
+  Mark, do one thing in the game. The game objects that ran something for the
+  first time are listed. See the
+  [guide](watch%20fields%20and%20methods.md).
+- **An object's own variables** (speed, jump height, gravity): in Code watch
+  press Watch methods on the object, then Field view of object on a line
+  marked `called`.
+
+The pages below describe the older tools in Memory Explorer, which still work.
+
 ## Quick start
 
 1. Launch your GameMaker game, then open Breeze.

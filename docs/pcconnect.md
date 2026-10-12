@@ -225,6 +225,7 @@ builds which file.
 | `ue_objects` | Unreal | `ue_object_cache.bin` | Rescan objects; can take minutes |
 | `ue_fields` | Unreal | `ue_field_map.txt` | every reflected property; needs `ue_objects` first |
 | `ue_functions` | Unreal | `ue_function_map.txt` | reflected native functions with their addresses |
+| `gm_functions` | GameMaker (YYC) | `gm_function_map.txt` | every GML event and script by name with its address, from the table in the running game |
 
 `prep` and `files` are answered on the network thread. The jobs themselves run
 on Breeze's UI thread, where its caches live, started by the next frame. That
@@ -327,6 +328,9 @@ hidden over the game.
 | `codewatch list [new] [text]` | the called (or new) functions, newest first, 300 at most: `order`, `at`, `caller`, `name`; `text` narrows by name |
 | `codewatch clear` / `stop` | every function waiting again; take the breaks off, detach and write `code_watch.txt` |
 
+| `gmvars [global\|<hex object>] [text]` | GameMaker (YYC). JSON: the object's variables by name -- `name`, `id`, `slot`, `at` (where the 16-byte value is), `kind` (`real`, `bool`, `int32`, `int64`, `string`, `array`, `object`, `ref`, `unset`) and `value`; `text` narrows by name; 600 at most. No argument is the global object |
+| `gmvars set <global\|hex object> <name> <number>` | writes a number into that variable, in the form it already has |
+
 Code addresses are `M+<hex>` from main, as the gen2 menu shows them, or a plain
 address outside it.
 
@@ -384,6 +388,31 @@ after a `mark`, standing still: 0 new. The first `gamepress` after it: 508 new
 functions in 165 classes, the game's controller-connected handlers among them
 (`PlayerInput::HandleControllerConnected`). A second press: 1 new. After
 `stop`, a scan of main's code found no break left.
+
+**GameMaker (YYC).** A YYC game has no classes, but every GML event and
+script is a native function and the game keeps a table of them by name.
+`prep gm_functions` writes it as `gm_function_map.txt`, and `codewatch start`
+makes it by itself when it is missing. The object plays the part of the class:
+`gml_Object_oPlayer_Step_0` is listed under `oPlayer`, scripts under
+`(scripts)`. Measured on Well Dweller: 9,616 functions in the map, armed in
+0.2 s, 144 called and still within five seconds. After a `mark`, one attack
+gave 16 new functions in 4 classes with `o_attack` at the top (9 of its 12
+events); the item button gave `o_molotov` alone (3); the spell button
+`o_seep_spell` and `scr_screenshake`. No break was left after `stop`.
+
+**GameMaker variables.** `gmvars` lists `global.` variables by name with
+their live values; `gmvars <object>` does the same for one instance or struct.
+An instance comes from a method watch: `methodwatch start gml_Object_oPlayer_`
+and the `this` of any called event is the player's instance. A value of kind
+`object` reads `struct @<address>` when it has variables of its own (pass the
+address to `gmvars`) and `function @...` when it is a script, which every
+global script is. Every number is a 64-bit float. Before relying on a write,
+check that the game does not work the value out again every frame.
+
+Measured on Well Dweller: 5,060 names, 1,233 globals (413 once the functions
+and unset ones are left out) in 0.9 s; `currency` read 6161 and took a write;
+the player's instance, from `oPlayer_Step_0`'s `this`, held 229 variables
+(`walksp`, `jumpheight`, `grv`, `stamina_max` ...).
 
 `bytes` is the result itself and needs no field list. `fields` has names only
 when the same instance was last watched from a field view (*Watch fields*),

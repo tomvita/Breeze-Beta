@@ -89,7 +89,7 @@ How it works: at a method's first instruction register X0 holds the object the m
 
 ## 4. Code watch: which classes ran?
 
-**Where:** gen2 menu > **Code watch** > **Start**. It needs the game's function map (Unity menu, or it is already there if you have used the Methods list).
+**Where:** gen2 menu > **Code watch** > **Start**. It needs the game's function map (Unity menu, or it is already there if you have used the Methods list). On a GameMaker (YYC) game Start makes the map by itself.
 
 Watch methods needs a class. Code watch finds the class: it puts the same one-shot break on every function in the function map. The code that runs all the time is called in the first seconds, each function stopping the game once, so the game stutters for a few seconds and then plays at full speed.
 
@@ -115,6 +115,8 @@ Watch methods needs a class. Code watch finds the class: it puts the same one-sh
 - **The game's own code** leaves out the runtime and the engine (`System`, `UnityEngine`, `Unity` and the like): fewer functions, less stutter, and the classes you are after.
 - A function that ran before the mark is not new. If the action has already happened once, **Clear**, wait for the count to settle, **Mark**, and do it again.
 - Stop writes `code_watch.txt` in the game's Breeze folder: every called function in the order of the first calls.
+- **GameMaker (YYC): from the object to its variables.** **Watch methods** on an object, then **Field view of object** on a called event, opens that instance's variables by name with live values: Edit value, Filter, and Open on a struct. The global variables are on **Main > GameMaker**.
+- **GameMaker (YYC) games** have no classes; the list is by object instead. `gml_Object_oPlayer_Step_0` is the Step event of `oPlayer`, and scripts are under `(scripts)`. The engine's own code is not in the map, so the list is short: an attack shows the attack object and little else.
 - The list on screen is kept until Breeze is restarted; the file stays.
 
 ## 5. Getting back, and saved runs
@@ -142,5 +144,7 @@ On The Walking Dead: Streets of Survival (Unity):
 - Break on one object: a break on `get_IsDead` (called for every character) with the player's stats object stopped three times out of three with that object, and never with another.
 
 - Code watch: 39,557 functions (the game's own code) armed in 0.7 seconds; about 2,000 were called in the first ten seconds and then the count stood still. After Mark, 0 new in six seconds; the first button press after it showed 508 new functions in 165 classes (the game noticing a controller), and the next press 1. The whole map, 106,022 functions, armed in 2.1 seconds. Select on a class, and Watch methods from it, opened the method watch with its objects. After Stop no break was left in the game's code.
+
+- Code watch on Well Dweller (GameMaker YYC): 9,616 functions, 144 called and still within five seconds. After Mark, one attack: 16 new functions in 4 classes, `o_attack` first with 9 of its 12 events. The item button: `o_molotov` alone. No break left after Stop.
 
 Driven over PC connect rather than by hand, and not yet pressed on a console: the **Watch methods** and **Break on pinned object** buttons of the Methods list, **Break on object** on the Method watch screen, and **Watch fields** in the Unreal UObject view.

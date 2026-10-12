@@ -31,6 +31,7 @@ Whether you're a new user getting acquainted with the application or an experien
 - [Field Watch](#field-watch)
 - [Method Watch](#method-watch)
 - [Code Watch](#code-watch)
+- [GameMaker Variables](#gamemaker-variables)
 - [Search Items Editor (Advance Search)](#search-items-editor-advance-search)
 - [Pointer Search Menu](#pointer-search-menu)
 - [Game Information](#game-information)
@@ -117,6 +118,7 @@ The main entry point of the application, providing access to all major features.
 | Launch sphaira | B + ZL | Leaves Breeze and starts the sphaira homebrew menu. |
 | Unity | L + ZL | Opens the Unity Menu: IL2CPP maps, usual suspects, map search and singletons. For Unity (IL2CPP) games. |
 | Unreal | R + ZL | Open the Unreal Engine workflow for profiles, UWorld chains, functions, objects, and field exploration. |
+| GameMaker | (none) | Opens [GameMaker Variables](#gamemaker-variables) on the global object: every `global.` variable by name with its live value. For GameMaker games exported with the YoYo Compiler (YYC). |
 | Lua | ZL + Plus | Open the Lua workflow. Finds the game's Lua state, measures its struct layout, and browses game data by name instead of by address. |
 | JumpBack Menu | Y + ZR | Opens the JumpBack Menu. |
 | Memory Explorer | ZL + Minus | Opens the Memory Explorer at the last saved address. |
@@ -941,6 +943,28 @@ first caller.
 | Expand screen | R + ZR | Toggle the list between half and full width. |
 | Look | ZR + Plus | Look at the game screen. |
 | Back | B | From a class's functions back to the classes; otherwise return to the previous menu. |
+
+## GameMaker Variables
+
+What a GameMaker object holds, by name, with live values. **GameMaker** on Main
+opens it on the global object. In Method Watch, **Field view of object** on a
+called event opens it on that event's instance, and **Open** on a struct in
+either list opens the struct. Each line reads the variable's name, its kind
+(`real`, `bool`, `int32`, `int64`, `string`, `array`, `object`, `ref`) and its
+value. For games exported with the YoYo Compiler (YYC).
+
+| Button Name | Default Shortcut | Action |
+|---|---|---|
+| Edit value | Y | Write a number into the variable: a real, a bool (1 or 0) or an integer. A value the game works out again every frame returns at once. |
+| Open | X | On a struct: its own variables. On anything else: Memory Explorer on the value. |
+| Filter | R | Show only the variables whose name contains the text. Empty shows all. |
+| Sort | Y + ZL | By name or by id. |
+| Show | R + ZL | values leaves out the functions (every script is a global too) and the variables never set; all shows them. |
+| Memory Explorer | L | Open the variable's 16-byte value. |
+| Reload | ZL + Right Stick Click | Read the list of variables again: an object gains them as its code runs. The values refresh by themselves. |
+| Expand screen | R + ZR | Toggle the list between half and full width. |
+| Look | ZR + Plus | Look at the game screen. |
+| Back | B | Return to the previous menu. |
 
 ## Search Items Editor (Advance Search)
 
