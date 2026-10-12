@@ -69,6 +69,7 @@ Each line reads `called`, `-` (not called so far), `overwritten` or `not set`, t
 - **`overwritten`** means something else rewrote the method's first instruction during the run, which an enabled cheat hooking that method does. Whether it was called is then not known.
 - A run holds 384 methods.
 - The breaks are real changes to the game's code until the watch is stopped. Stop it (or Close) before doing anything else with a debugger.
+- **If the console sleeps while a watch runs** the watch ends and its breaks come off by themselves (gen2 v0.20). Breeze also keeps what was under every break in `watch_originals.bin` and puts back any it finds left whenever a watch starts or stops. Before v0.20 a sleep left the breaks in the game, and the game crashed when one of those methods was next called.
 
 ## 3. Break on one object
 
@@ -115,6 +116,8 @@ Watch methods needs a class. Code watch finds the class: it puts the same one-sh
 - **The game's own code** leaves out the runtime and the engine (`System`, `UnityEngine`, `Unity` and the like): fewer functions, less stutter, and the classes you are after.
 - A function that ran before the mark is not new. If the action has already happened once, **Clear**, wait for the count to settle, **Mark**, and do it again.
 - Stop writes `code_watch.txt` in the game's Breeze folder: every called function in the order of the first calls.
+- **GameMaker (YYC): a cheat from a variable.** On the variables screen **Make cheat** (ZL+Plus) on a global opens Make cheat with the pointer chain filled in. On an instance's variable it asks for the value and adds the variable to a hook on the object's Step event (`gmobj_<object>` in the cheat list): open that cheat in the cheat editor, **Add ASM** once, turn it on, then turn on the variable's own cheat. It holds the value on every instance of the object. Each line also shows the variable's offset and id.
+- **GameMaker (YYC): every instance.** An ordinary gen2 watch on an event's first instruction with X0 lists every instance the event ran on; **Class field** on a row opens that instance's variables.
 - **GameMaker (YYC): from the object to its variables.** **Watch methods** on an object, then **Field view of object** on a called event, opens that instance's variables by name with live values: Edit value, Filter, and Open on a struct. The global variables are on **Main > GameMaker**.
 - **GameMaker (YYC) games** have no classes; the list is by object instead. `gml_Object_oPlayer_Step_0` is the Step event of `oPlayer`, and scripts are under `(scripts)`. The engine's own code is not in the map, so the list is short: an attack shows the attack object and little else.
 - The list on screen is kept until Breeze is restarted; the file stays.

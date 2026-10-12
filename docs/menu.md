@@ -949,13 +949,16 @@ first caller.
 What a GameMaker object holds, by name, with live values. **GameMaker** on Main
 opens it on the global object. In Method Watch, **Field view of object** on a
 called event opens it on that event's instance, and **Open** on a struct in
-either list opens the struct. Each line reads the variable's name, its kind
+either list opens the struct, and **Class field** in the Gen2 Menu opens it on
+a captured object. Each line reads the variable's offset in the object, its id,
+its name, its kind
 (`real`, `bool`, `int32`, `int64`, `string`, `array`, `object`, `ref`) and its
 value. For games exported with the YoYo Compiler (YYC).
 
 | Button Name | Default Shortcut | Action |
 |---|---|---|
 | Edit value | Y | Write a number into the variable: a real, a bool (1 or 0) or an integer. A value the game works out again every frame returns at once. |
+| Make cheat | ZL + Plus | A cheat for the variable. A global (or a struct opened from the globals): opens Make cheat with the pointer chain filled in. An instance's variable: asks for the value and a label, and adds the variable to a hook on the object's Step event, `gmobj_<object>` in the cheat list, which needs **Add ASM** in the cheat editor once; the variable's own cheat then holds the value on every instance of the object. |
 | Open | X | On a struct: its own variables. On anything else: Memory Explorer on the value. |
 | Filter | R | Show only the variables whose name contains the text. Empty shows all. |
 | Sort | Y + ZL | By name or by id. |

@@ -1,5 +1,13 @@
 # Changelog
 
+## [Beta 124.07] - 2026-10-12
+
+- **Needs the new gen2 fork (v0.20):** Settings > Install gen2 fork, then reboot.
+- **Fixed:** a method watch or code watch running when the console went to sleep left its breaks in the game's code, and the game crashed when one of those functions was next called (beta124.04 to 124.06). The watch now cleans up when it is cut off, and Breeze keeps what it changed and repairs it whenever a watch starts or stops. If the console slept during a watch on an earlier version, restart the game once.
+- **GameMaker: Make cheat** on the variables screen. A global gets a pointer cheat through the Make cheat screen; an object's variable gets a hook on the object's Step event (`gmobj_<object>`, Add ASM once) that holds the value on every instance.
+- The variables screen shows each variable's offset and id; **Class field** in the gen2 menu opens a captured GameMaker object's variables.
+- **PC connect:** `gen2 repair`, `gen2 watch <address> x<n>`.
+
 ## [Beta 124.06] - 2026-10-12
 
 - For **GameMaker** games exported with the YoYo Compiler (YYC). Same gen2 fork as 124.05.

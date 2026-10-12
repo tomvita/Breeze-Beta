@@ -22,6 +22,13 @@ For games exported with the YoYo Compiler (YYC), three things need no setup:
   press Watch methods on the object, then Field view of object on a line
   marked `called`.
 
+**beta124.07** adds **Make cheat** (ZL+Plus) on the variables screen. On a
+global it opens the Make cheat screen with the pointer chain filled in. On an
+object's variable it asks for the value, then adds two cheats: `gmobj_` plus
+the object's name, which needs **Add ASM** in the cheat editor once, and one
+named after the variable. With both on, the value is held on every instance of
+that object.
+
 The pages below describe the older tools in Memory Explorer, which still work.
 
 ## Quick start

@@ -312,6 +312,8 @@ hidden over the game.
 | `gen2 break <hexaddr\|M+hexoffset> [x<n>=<hex>]` | Break and Trace on that instruction: the game stops when it is reached. With `x<n>=<hex>` only when register n (0 to 30) holds that value; other hits pass without stopping |
 | `gen2 cont` | lets a game stopped at the break run on, to the next hit |
 | `gen2 stop` | detaches gen2. The rows stay readable |
+| `gen2 watch <hexaddr\|M+hexoffset> x<n>` | an instruction watch: every time that instruction runs, what register `n` holds is recorded, one row per different value with its count. At a method's first instruction `x0` is the object, so the rows are every object the method ran on |
+| `gen2 repair` | puts back any instruction a method or code watch's break still sits on, from `watch_originals.bin`; answers `repaired`. Refused while such a watch runs |
 | `fieldwatch` | JSON: the field watch -- `state` (`capturing`, `sweeping`, `stopped`, `none`), `class`, `base`, `size`, `read`, `write`, `trig`, `bytes` (every run of accessed bytes as `[offset, length]`) and `fields` (`off`, `name`, `type`, `value`, `new`) |
 | `fieldwatch start <hexaddr> <hexsize> [r\|w\|rw]` | watches every byte of an instance; write only unless said |
 | `fieldwatch sweep` | goes on with only the bytes not accessed yet, at full game speed |
@@ -346,7 +348,12 @@ action in the game, then `methodwatch` lists the methods that action ran.
   the watch ran -- an enabled cheat that hooks it does that twelve times a
   second -- so whether it was called is not known.
 - The breaks are in the game's code for as long as the watch runs. `stop`
-  removes every one. Do not leave a watch running across anything that detaches
+  removes every one. Since gen2 v0.20 they also come off when gen2 loses the
+  game any other way (the console sleeping, a GDB client), and Breeze keeps
+  what was under them in `watch_originals.bin`: `gen2 repair` puts back any
+  that are left, and every `start` and `stop` does the same first.
+  `xref insn FFFFFFFF E7FFFFFF` lists breaks still in main's code; with no
+  watch running it should find none. Do not leave a watch running across anything that detaches
   gen2 another way (a GDB client): a break left behind crashes the game when its
   method is called.
 - `start` reads the function map from the SD card first; if it answers
@@ -408,6 +415,14 @@ and the `this` of any called event is the player's instance. A value of kind
 address to `gmvars`) and `function @...` when it is a script, which every
 global script is. Every number is a 64-bit float. Before relying on a write,
 check that the game does not work the value out again every frame.
+
+`gmvars` gives each variable's `slot`; its offset in the object is
+`slot * 16`, and from a pointer to the object the value is
+`[[[object+8]+10]+offset]+0`. On the console the variables screen shows that
+offset and the id on every line, and its Make cheat button writes the cheat:
+a pointer chain from main for a global, and for an instance a hook on the
+object's Step event that finds the variable by id on every instance
+(`gmobj_<object>`, which needs Add ASM in the cheat editor once).
 
 Measured on Well Dweller: 5,060 names, 1,233 globals (413 once the functions
 and unset ones are left out) in 0.9 s; `currency` read 6161 and took a write;
