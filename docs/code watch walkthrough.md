@@ -81,11 +81,11 @@ This reads like the attack's story: `DoMeleeAttack`, called from `PlayerMelee::D
 
 Code watch tells you which functions ran, not which object they ran on. For that, hand the class to the method watch: with the cursor on the class (or inside it), press **Watch methods** (ZL + left stick click).
 
-The code watch stops and a method watch starts on that one class. Go back to the game for a moment, let something happen, and open Breeze again. Press **View** until it reads "called, newest first".
+The code watch stops and a method watch starts on that one class. Go back to the game, attack once or twice more, and open Breeze again. Press **View** until it reads "called, newest first".
 
 ![The method watch on AgentMelee: each called method with the object it ran on](./images/codewatch_09_method_watch.jpg)
 
-Each called method shows `on` followed by an address: the object it was called on. Here `InterruptAttackByDamage` ran on `30AB4E48C0`, called from `BaseAgentController::TakeDamage`.
+Each called method shows `on` followed by an address: the object it was called on. Here 17 of the class's 45 methods were called, all on `30AB4E48C0`: `DoMeleeAttack`, called from `PlayerMelee::DoMeleeAttack`, `HitStop`, `StartMeleeInputCooldown` and the rest. One address on every line means one object did all of it: the player's.
 
 ## 9. Open its fields
 
@@ -99,7 +99,7 @@ From here the usual tools take over: Edit value, Watch fields to see which of th
 
 ## 10. Stop
 
-Go back to the Method watch screen and press **Stop** (R). Stop takes every remaining break out of the game's code. Do not leave a watch running when you are done.
+Go back to the Method watch screen and press **Stop** (R) if the watch is still running; the screenshot above was taken after stopping. Stop takes every remaining break out of the game's code. Do not leave a watch running when you are done.
 
 ---
 
