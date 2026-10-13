@@ -333,6 +333,10 @@ hidden over the game.
 
 | `gmvars [global\|<hex object>] [text]` | GameMaker (YYC). JSON: the object's variables by name -- `name`, `id`, `slot`, `at` (where the 16-byte value is), `kind` (`real`, `bool`, `int32`, `int64`, `string`, `array`, `object`, `ref`, `unset`) and `value`; `text` narrows by name; 600 at most. No argument is the global object |
 | `gmvars set <global\|hex object> <name> <number>` | writes a number into that variable, in the form it already has |
+| `gmvars objects [name]` | a sweep of the heap for every GameMaker object (instances, structs, the global object), or only those holding a variable of that name: `objects`, `candidates`, `ms`, `list` (400 at most). Takes about 5 s, longer than the answer window: it replies busy, and `gmvars last` gives the answer |
+| `gmvars owner <hexaddr>` | the object that owns the variable whose value (or map element) is at that address, by the same sweep: `object`, `id`, `name`. Answer through `gmvars last` |
+| `gmvars open <global\|hex object>` | opens the GameMaker variables screen on that object |
+| `gmvars last` | the answer of the last `objects` or `owner` |
 
 Code addresses are `M+<hex>` from main, as the gen2 menu shows them, or a plain
 address outside it.
