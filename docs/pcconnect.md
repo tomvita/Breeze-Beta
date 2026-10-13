@@ -328,6 +328,7 @@ hidden over the game.
 | `codewatch mark` | from here `new` counts only functions called for the first time after this |
 | `codewatch classes [new] [n]` | the classes by how many of their functions were called (or were new), most first: `class`, `methods`, `called`, `new`; `n` rows, 100 unless given |
 | `codewatch list [new] [text]` | the called (or new) functions, newest first, 300 at most: `order`, `at`, `caller`, `name`; `text` narrows by name |
+| `codewatch search <words>` | every watched function whose name has all the words (any case), called or not, the called ones first, 300 at most: `state` (`new`, `called`, `not called`), `order`, `at`, `caller`, `name` |
 | `codewatch clear` / `stop` | every function waiting again; take the breaks off, detach and write `code_watch.txt` |
 
 | `gmvars [global\|<hex object>] [text]` | GameMaker (YYC). JSON: the object's variables by name -- `name`, `id`, `slot`, `at` (where the 16-byte value is), `kind` (`real`, `bool`, `int32`, `int64`, `string`, `array`, `object`, `ref`, `unset`) and `value`; `text` narrows by name; 600 at most. No argument is the global object |

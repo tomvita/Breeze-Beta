@@ -108,6 +108,7 @@ Watch methods needs a class. Code watch finds the class: it puts the same one-sh
 | View | ZL+Y | new since the mark > called |
 | Select | X | a class: its functions; a function: its code |
 | Go to caller | ZL+X | the code that made the function's first call |
+| Search | ZL+R | find watched functions by name: words separated by spaces, all must be in `Class::Method`, any case (`player melee`). The list shows each match as new, called or not called; an empty search, or Back, ends it. Select, Go to caller and Watch methods work on its lines |
 | Watch methods | ZL + left stick click | stop, and method-watch this class |
 | Watch | ZL+Up | the game's own code > everything in the map; applies at the next Start |
 | Close code watch | ZL+Plus | stop and get the ordinary gen2 menu back |

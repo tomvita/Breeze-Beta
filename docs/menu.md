@@ -937,6 +937,7 @@ first caller.
 | View | Y + ZL | The classes with a function new since the mark, or with any function called. |
 | Select | X | On a class: its functions, the called ones first. On a function: opens its code in ASM Explorer. |
 | Go to caller | X + ZL | Open the code that made the function's first call. |
+| Search | R + ZL | Find watched functions by name: words separated by spaces, all must match. |
 | Watch methods | ZL + Left Stick Click | Stops the code watch and starts a method watch on this class, opening the [Method Watch](#method-watch) screen. |
 | Watch | ZL + Up | The game's own code (leaves out the runtime and the engine) or everything in the map. Applies at the next Start. |
 | Close code watch | ZL + Plus | Stop and open the Gen2 Menu. |
