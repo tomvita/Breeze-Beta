@@ -1,5 +1,15 @@
 # Changelog
 
+## [Beta 124.08] - 2026-10-13
+
+- Same gen2 fork as 124.07 (v0.20).
+- **GameMaker: from a memory search to a cheat.** In Memory Explorer, **Class field** (ZL+ZR+Y) on a value opens the object that owns it, with the cursor on that variable; Make cheat works from there. A global opens at once, an object's variable after a sweep of the heap (about 5 s on Well Dweller). See the [GameMaker walkthrough](docs/gamemaker%20walkthrough.md).
+- **Code watch: Search** (ZL+R): watched functions by name, words separated by spaces, all must match. See the [Code watch walkthrough](docs/code%20watch%20walkthrough.md).
+- **Fixed:** Mark in a code watch did nothing with the Home toggle on Fast restart.
+- **Fixed:** a field view could show a pointer chain left over from another object.
+- **Fixed:** the GameMaker button on Main is lit only on a GameMaker game.
+- **PC connect:** `codewatch search`, `gmvars objects`, `gmvars owner`, `gmvars open`, `gmvars last`.
+
 ## [Beta 124.07] - 2026-10-12
 
 - **Needs the new gen2 fork (v0.20):** Settings > Install gen2 fork, then reboot.
