@@ -1,5 +1,15 @@
 # Changelog
 
+## [Beta 125.00] - 2026-10-13
+
+- Same gen2 fork as 124.07 (v0.20).
+- **Fixed:** an ordinary watch started from the gen2 menu after a code watch started another code watch instead, and after a change of game this could freeze the game (beta124.05 to 124.08). If a game froze this way, restart it once.
+- **Code watch on any game.** A game with no function map (native C or C++) is watched from its unwind table: functions are `func_<offset>`, grouped by the block of code they sit in.
+- **PC app: Text view.** Breeze's screen as text: 400 rows at once, every action as a button, the screens you came through side by side, Find, Filter, Copy and Save. See the [PC App Guide](docs/pc%20connect%20app.md).
+- **PC app: Disassembler** (needs `pip install capstone`): a whole function at a time with calls, branches and data addresses worked out, the function list, Callers, and the last code watch's result.
+- **PC app: Debugger**, in the disassembler window, on Break and Trace's breakpoints: Break, Run to, Step, Over, Continue; registers (general and float), stack, and memory in seven formats.
+- **PC connect:** `action`, `rows` with a stack depth, more in `state`, quicker change events, `dbg`.
+
 ## [Beta 124.08] - 2026-10-13
 
 - Same gen2 fork as 124.07 (v0.20).

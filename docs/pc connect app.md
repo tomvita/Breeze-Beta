@@ -1,6 +1,6 @@
 # Breeze PC App Guide
 
-The Breeze PC app shows Breeze's screen in a window on your PC and lets you drive it with the keyboard and mouse over Wi-Fi. It also lets you play the game with the PC's keyboard or a controller plugged into the PC, takes snapshots of a game's save, stops and starts the game, and copies files between the Switch and the PC.
+The Breeze PC app shows Breeze's screen in a window on your PC and lets you drive it with the keyboard and mouse over Wi-Fi. It also lets you play the game with the PC's keyboard or a controller plugged into the PC, takes snapshots of a game's save, stops and starts the game, and copies files between the Switch and the PC. From beta125.00 it can show Breeze's screen as text, disassemble the game's code and debug it.
 
 ![The Breeze PC app showing Breeze's main menu over a game](./images/pcapp_02_main_window.png)
 
@@ -18,8 +18,11 @@ What you can do from the PC:
 - **Snapshot and restore the game's save**, with a picture of the game for each snapshot.
 - **Stop and start the game.**
 - **Copy files** both ways in a two-panel file manager: cheats, the game's own files, its save, the album, the whole SD card.
+- **Read Breeze as text** in the text view: hundreds of rows at once, every action as a button, search, copy and save.
+- **Read the game's code** in the disassembler, a whole function at a time.
+- **Debug the game**: breakpoints, stepping, registers, stack and memory.
 
-PC connect never attaches to the game as a debugger, so the game keeps running while the app is connected.
+PC connect itself never attaches to the game as a debugger, so the game keeps running while the app is connected. Only a breakpoint you set in the debugger stops it.
 
 The app answers only while Breeze is running. With the SwitchU HOME daemon, Breeze keeps running behind the game, so the app stays connected while you play.
 
@@ -27,11 +30,11 @@ The app answers only while Breeze is running. With the SwitchU HOME daemon, Bree
 
 ### What you need
 
-- Breeze **beta124.00** or later on the Switch; **beta124.01** or later for Game input and the HOME button.
+- Breeze **beta124.00** or later on the Switch; **beta124.01** or later for Game input and the HOME button; **beta125.00** or later for the text view, the disassembler and the debugger.
 - The Switch and the PC on the same network.
 - **Python 3** on the PC, with Tk. The Windows installer from python.org includes Tk; on Linux install `python3-tk`.
-- The **Pillow** package.
-- The app's files in one folder: `pcconnect_app.py`, `pcconnect_files.py`, `pcconnect_album.py` and `pcconnect.py`. (`breeze_unity.py`, which comes in the same zip, is for scripts and is not needed by the app; see [PC Connect](pcconnect.md).) They are in the root of this repository, and attached to the Breeze release as `pc_app.zip`. `pcconnect_app.bat`, beside them, is optional: on Windows it starts the app with a double click.
+- The **Pillow** package. For the disassembler and the debugger, the **capstone** package as well.
+- The app's files in one folder: `pcconnect_app.py`, `pcconnect_files.py`, `pcconnect_album.py`, `pcconnect_text.py`, `pcconnect_asm.py` and `pcconnect.py`. (`breeze_unity.py`, which comes in the same zip, is for scripts and is not needed by the app; see [PC Connect](pcconnect.md).) They are in the root of this repository, and attached to the Breeze release as `pc_app.zip`. `pcconnect_app.bat`, beside them, is optional: on Windows it starts the app with a double click.
 
 ### 1. Install Pillow
 
@@ -40,6 +43,14 @@ python -m pip install pillow
 ```
 
 Without it the app stops at once with `ModuleNotFoundError: No module named 'PIL'`.
+
+For the disassembler and the debugger, also:
+
+```
+python -m pip install capstone
+```
+
+The rest of the app works without it; the **Disassembler** button says so when it is missing.
 
 ### 2. Turn on PC connect in Breeze
 
@@ -79,14 +90,14 @@ From top to bottom:
 |---|---|
 | Screen | Breeze's screen. It refreshes only while the app window has the focus. |
 | First row | **Show**, **Hide**, **Reset**, the **Keys** box, the **fps** setting and the status text. |
-| Second row | **Save redirect to SD**, **Save snapshot**, **Restore...**, **Stop game**, **Start game**, **Files...** and the save status. |
+| Second row | **Save redirect to SD**, **Save snapshot**, **Restore...**, **Stop game**, **Start game**, **Files...**, **Text view**, **Disassembler** and the save status. |
 | Third row | **Game input**, **Player**, **A/B by label**, **HOME**, **Screenshot**, **Album**, **Record** and the game input status. |
 | Text box | Appears only while Breeze's keyboard is open. |
 | Bottom line | The connection status, or the list of keys. |
 
 The status text in the first row reads, for example, `normal | Main | 5.2 fps |`:
 
-- the overlay state: `normal` (Breeze is full screen), `shown` or `hidden` (HOME daemon overlay mode);
+- the overlay state: `normal` (Breeze is full screen), or `overlay` (Breeze is drawn over the game) and `hidden` (Breeze is behind the game) in HOME daemon overlay mode;
 - the title of the menu Breeze is on;
 - the refresh rate the app is getting;
 - the last error Breeze returned, if any. It clears on the next command that succeeds.
@@ -370,15 +381,122 @@ Several items can be selected with Ctrl and Shift. Before a copy that would over
 
 Copying runs at about 3 MB/s in either direction.
 
+## The text view
+
+**Text view** opens a second window that shows Breeze's screen as text. The app asks Breeze what its screen holds instead of taking a picture of it, so it is quick (a refresh takes about an eighth of the time), the text can be selected and copied, and nothing is limited to what fits on the Switch's screen.
+
+From left to right the window holds the screens Breeze came through, the screen it is on now, and that screen's actions.
+
+### The list
+
+- It shows the 400 rows around the cursor, in Breeze's colours. Button pictures are written as `[A]`, `[ZL]`. Rows with columns, such as Memory Explorer's, are lined up.
+- **Click** a row to move Breeze's cursor there. **Double-click** to press A on it.
+- **Drag** to select text and press **Ctrl+C** to copy it.
+- A row whose text has just changed is shown in orange for a moment.
+
+### The actions
+
+Every action of the screen is a button here, whichever page or shift layer it is on in Breeze, with its key beside the name. The buttons take as many columns as the panel is wide and scroll when there are still too many. The ones not on Breeze's current page are a shade darker; a click runs any of them.
+
+### Earlier screens
+
+When Breeze opens a screen from another, the one it came from stays to the left, as it was left. **Earlier screens** in the toolbar sets how many are kept (0 to 6). They are for reading: Find, copy and Save work in them, and keys never go to them.
+
+**Pin** on any panel keeps a copy of it until you close it, whatever Breeze shows next. Use it to compare two screens side by side.
+
+### Toolbar
+
+| Control | What it does |
+|---|---|
+| **Find** | Searches every row of the list, not only the ones on show. Enter or F3 goes to the next match and moves Breeze's cursor there; Shift+Enter or Shift+F3 goes back. |
+| **Filter** | Shows only the rows that match what is in Find. |
+| **Copy row**, **Copy all** | Copy the cursor's row, or the whole list, from the panel you last clicked. |
+| **Save...** | Writes that panel to a text file in `panels` inside the game's folder on the PC. |
+| **Font**, **Actions** | The font size of the lists and of the action buttons. |
+| **Column gap** | The space between the columns of rows that have them. |
+| **Row numbers** | Shows each row's number. |
+| **Picture too** | Keeps the main window's picture updating. Off, the connection is left to the text, which is quicker. |
+| **Detach actions** | Puts the action panel in a window of its own. |
+
+The bars between the panels can be dragged to resize them.
+
+Keys are the Switch's buttons as in the main window, apart from Ctrl+F (Find), Ctrl+C (copy), Ctrl+S (Save) and F3 (next match). When Breeze opens its keyboard, a text box opens in this window.
+
+The line at the top shows the way to the current screen and the overlay state: `[normal]`, `[overlay]` or `[hidden]`.
+
+## The disassembler
+
+**Disassembler** opens the running game's code in a window of its own. It needs the capstone package (see Install) and uses a connection of its own.
+
+### The listing
+
+The middle of the window is one whole function, however long. Each line has the address as main+offset, the instruction word and the instruction, and a comment that works things out for you:
+
+- the name of the function a `bl` calls;
+- whether a branch lands above or below; the line it lands on has a `>` in front;
+- the address an `adrp` pair builds, and what is there: a string, a pointer into the game, or a number.
+
+**Double-click** a line, or press Enter on it, to follow its call, branch or address. **Back** and **Forward** (Alt+Left, Alt+Right) retrace your steps. **Func up** and **Func down** step through the functions.
+
+### Finding a function
+
+- **Go** takes an address (`M+1CBC40`, `1CBC40`, or an absolute address) or words from a function's name.
+- **Functions**, on the left, lists the game's functions and filters as you type. On a Unity, Unreal or GameMaker game the names come from the function map Breeze made; on any other game the functions are listed as `func_<offset>`.
+- **Callers** lists every place that calls the function shown. Click one to go there.
+- **Code watch**, on the left, lists what your last code watch recorded, in the order the functions were first called, with a `*` on the ones after the mark; **new only** shows just those. Click a function to read it; double-click to see where it was first called from.
+
+**Find** searches the function shown. **Copy** takes the selection or the whole function. **Save...** writes it into `asm` inside the game's folder on the PC. **Reload** reads the code again, for after a cheat or a hook has changed it.
+
+## The debugger
+
+The disassembler window is also a debugger. It uses the breakpoints of Breeze's Break and Trace, so a break set on the PC and one set on the Switch are the same, and when the game stops Breeze opens its own Break and Trace view too.
+
+| Key | Button | Action |
+|---|---|---|
+| F9 | Break | Set or remove a breakpoint on the line under the cursor. The line turns red. |
+| F4 | Run to | Run the game to that line once. |
+| F11 | Step | One instruction, going into a call. |
+| F10 | Over | One instruction, running a call as one step. |
+| F5 | Continue | Let the game run to the next break. |
+| | Stop | Remove every breakpoint and let the game run. |
+| | Show PC | Go back to the line the game is stopped on. |
+
+When the game stops, the listing goes to the line it stopped on, shown in green, and the panel on the right fills in.
+
+### Registers
+
+**General** shows x0 to x28, fp, lr, sp, pc and the flags. The ones that changed since the stop before are orange, and a value that is an address in the game is named.
+
+**Float** shows v0 to v31. The list beside it picks how: **d and s** (the value as a double and as a float, with all 128 bits), **4 s** (four floats) or **2 d** (two doubles).
+
+**Click** a register to see the memory it points at. **Double-click** to change its value: hex for a general register; hex or a number for a float register (`1.5` is a double, `1.5f` a float).
+
+### Stack and memory
+
+The lower panel shows the stack, with return addresses named. Type into **Memory at** to see memory anywhere instead: an address, `M+offset`, `heap+offset`, a register, or a sum such as `x0+48`. Type `sp` for the stack again. `<` and `>` move a page.
+
+The list beside the box picks the format: 8-byte values with what each points at, 4-byte hex, signed, float, double, 2-byte, or bytes with their text. Memory at an address can be read while the game runs too; it is read again at every stop.
+
+Double-click a line whose value is an address to follow it: into the listing for code, into this panel for data.
+
+### Good to know
+
+- The game stands still while it is stopped at a breakpoint. Press **Continue** or **Stop** before going back to play.
+- A breakpoint needs Breeze's gen2 fork (Settings > **Install gen2 fork**), as Break and Trace does.
+- A line under a breakpoint shows the instruction that was there, not the break.
+
 ## Troubleshooting
 
 | What you see | What it means |
 |---|---|
 | `ModuleNotFoundError: No module named 'PIL'` | Pillow is not installed for the Python you started. Run `python -m pip install pillow`. |
-| `ModuleNotFoundError: No module named 'pcconnect'` (or `pcconnect_album`, `pcconnect_files`) | The app's files are not all in the same folder. |
+| `ModuleNotFoundError: No module named 'pcconnect'` (or `pcconnect_album`, `pcconnect_files`, `pcconnect_text`) | The app's files are not all in the same folder. |
 | `disconnected: ... (retrying)` | Breeze is not running, PC connect is off, or the address is wrong. The app tries again every 3 seconds. |
 | `disconnected: ... wrong code ...` | The code does not match the one Settings > PC connect shows. Start the app with the right address and code on the command line. |
-| The connection closes at once | Three programs are already connected. Close one. |
+| The connection closes at once | Three programs are already connected. The main window, the file manager, Game input and the disassembler each use one: close one of them. |
+| **Disassembler** says it needs capstone | Run `python -m pip install capstone`. |
+| The text view's buttons are refused | Breeze is hidden behind the game. Press **Show** in the main window. |
+| The game does not move | It is stopped at a breakpoint. Press **Continue** or **Stop** in the disassembler window. |
 | The screen stops refreshing | The app window lost the focus. Click it. |
 | Keys do nothing | The cursor is in the Keys box or a text box. Click the screen. |
 | `-ERR busy` in the status text | Breeze is in the middle of a long job. Wait; do not repeat the key. |

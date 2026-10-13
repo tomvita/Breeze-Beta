@@ -58,6 +58,14 @@ The last ip and code are remembered in ~/.breeze_pc.json.
   since the box was ticked, with `log.txt` listing in the same clock what was
   sent to the Switch and what Breeze's screen was. It keeps going while the
   window is not in front. It is a few pictures a second, not a video.
+- Text view opens Breeze's screen as text drawn on the PC (pcconnect_text.py):
+  the list with many more rows than the Switch shows, every action of the
+  screen as a button, the screens Breeze came through beside the current one,
+  Find / Filter, Copy and Save. It is much quicker than the picture.
+- Disassembler opens the game's code in a window of its own
+  (pcconnect_asm.py, needs the capstone package): a whole function at a time
+  with calls, branches and data addresses worked out, the function list, the
+  callers of a function, and the last code watch's result.
 - Files... opens a two-panel file manager: the Switch on the left (the game's
   directory, the game's own files, its save on the SD card, the album, the SD
   card), this PC on the right, where a list offers a folder for the game by
@@ -90,6 +98,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pcconnect import Breeze  # noqa: E402
 from pcconnect_files import FileManager, pc_folder_name  # noqa: E402
 from pcconnect_album import Album  # noqa: E402
+from pcconnect_text import TextView, plain  # noqa: E402
 
 CONFIG = os.path.join(os.path.expanduser("~"), ".breeze_pc.json")
 SCREEN_W, SCREEN_H = 1280, 720
@@ -172,7 +181,7 @@ class Recorder:
 
 
 # Commands the app sends by itself every few seconds; they are not worth a line in a recording.
-QUIET = ("save", "fs", "ping", "capture")
+QUIET = ("save", "fs", "ping", "capture", "state", "rows")
 
 
 class Link(threading.Thread):
@@ -185,6 +194,7 @@ class Link(threading.Thread):
         self.capture_on = threading.Event()
         self.capture_on.set()
         self.fps = 6.0
+        self.picture = True          # the text view turns the pictures off: they take most of the time
         self.stop = False
         self.recorder = None
 
@@ -206,7 +216,7 @@ class Link(threading.Thread):
         for e in b.events:
             if e.startswith("*EVENT state "):
                 try:
-                    self.out.put(("state", json.loads(e[len("*EVENT state "):])))
+                    self.out.put(("state", json.loads(e[len("*EVENT state "):]), "event"))
                 except ValueError:
                     pass
         b.events.clear()
@@ -245,11 +255,15 @@ class Link(threading.Thread):
                     reply = reply[0]
                 self.out.put(("reply", line, reply))
                 if reply.startswith("+OK {") and line.startswith("state"):
-                    self.out.put(("state", json.loads(reply[4:])))
+                    self.out.put(("state", json.loads(reply[4:]), "reply"))
                 self.drain_events(b)
                 next_capture = 0.0  # show the result of the press soon
                 continue
-            if self.capture_on.is_set() and time.time() >= next_capture:
+            if not self.picture:
+                # Text only: nothing to fetch, just keep reading events.
+                b.cmd("ping")
+                time.sleep(0.03)
+            elif self.capture_on.is_set() and time.time() >= next_capture:
                 next_capture = time.time() + 1.0 / max(self.fps, 0.5)
                 reply = b.cmd("capture")
                 if isinstance(reply, tuple):
@@ -488,6 +502,11 @@ class App:
         self.start_btn.pack(side="left")
         self.files = None
         tk.Button(sbar, text="Files...", command=self.on_files).pack(side="left")
+        self.text = None
+        self.rows_logged = None
+        tk.Button(sbar, text="Text view", command=self.on_text).pack(side="left")
+        self.asm = None
+        tk.Button(sbar, text="Disassembler", command=self.on_asm).pack(side="left")
         self.save_info = tk.Label(sbar, text="", anchor="w", fg="#555")
         self.save_info.pack(side="left", fill="x", expand=True)
 
@@ -692,8 +711,33 @@ class App:
             rec.close()
             self.status.config(text="recorded %d pictures in %s" % (rec.frames, rec.folder))
 
+    def on_text(self):
+        if self.text_open():
+            self.text.win.lift()
+        else:
+            self.text = TextView(self)
+
+    def on_asm(self):
+        if self.asm is not None and self.asm.alive():
+            self.asm.win.lift()
+            return
+        try:
+            from pcconnect_asm import Disassembler
+        except ImportError as e:
+            messagebox.showerror("Disassembler", "The disassembler needs the capstone package:\n\n"
+                                 "    pip install capstone\n\n(%s)" % e, parent=self.root)
+            return
+        self.asm = Disassembler(self.root, self.cfg["host"], self.cfg["code"], self.cfg, self.save_cfg, self.game_dir)
+
+    def text_open(self):
+        return self.text is not None and self.text.alive()
+
     def on_close(self):
         self.stop_record()
+        if self.text_open():
+            self.text.close()
+        if self.asm is not None and self.asm.alive():
+            self.asm.close()
         pad = self.stop_pad()
         if pad is not None:
             pad.join(1.5)
@@ -818,7 +862,20 @@ class App:
         self.canvas.itemconfigure(self.image_id, image=self.photo)
         self.frames += 1
 
-    def apply_state(self, s):
+    def apply_state(self, s, source="reply"):
+        if self.text_open():
+            self.text.on_state(s, source)
+        elif self.recorder is not None and source == "event":
+            self.link.send("state 400")   # a recording also keeps the screen as text
+        if self.recorder is not None and source == "reply":
+            m = s.get("menu", {})
+            rows = (m.get("left_title"), m.get("left_status"), m.get("rows_start"), tuple(m.get("rows", [])))
+            if rows != self.rows_logged and m.get("rows") is not None:
+                self.rows_logged = rows
+                self.recorder.note("rows", json.dumps({"title": m.get("left_title"), "status": plain(m.get("left_status", "")),
+                                                       "index": m.get("index"), "count": m.get("row_count"),
+                                                       "start": m.get("rows_start"), "rows": [plain(r) for r in m["rows"]]},
+                                                      ensure_ascii=False))
         self.state = s
         if self.recorder is not None:
             m = s.get("menu", {})
@@ -826,6 +883,8 @@ class App:
                 s.get("overlay", "?"), m.get("left_title") or m.get("text") or "", m.get("index", "-"),
                 "keyboard" if s.get("keyboard") else ""))
         kb = s.get("keyboard")
+        if self.text_open():
+            kb = None                     # the text view has the keyboard box while it is open
         if kb and not self.kbd_open:
             self.kbd_open = True
             head = kb.get("header", "")
@@ -1116,7 +1175,8 @@ class App:
         if now - self.fps_t0 > 2:
             self.frames, self.fps_t0 = 0, now
         rec = " | REC %d" % self.recorder.frames if self.recorder is not None else ""
-        self.info.config(text="  %s | %s | %.1f fps%s | %s" % (self.state.get("overlay", "?"), title[:60], fps, rec, self.last_reply[:60]))
+        self.info.config(text="  %s | %s | %.1f fps%s | %s" % ({"shown": "overlay"}.get(self.state.get("overlay"), self.state.get("overlay", "?")), title[:60], fps, rec,
+                                                         self.last_reply[:60]))
 
     def pump(self):
         latest_frame = None
@@ -1126,7 +1186,10 @@ class App:
                 if item[0] == "frame":
                     latest_frame = item[1]
                 elif item[0] == "state":
-                    self.apply_state(item[1])
+                    self.apply_state(item[1], item[2])
+                elif item[0] == "reply" and item[1].split()[0] == "rows":
+                    if self.text_open():
+                        self.text.on_rows(item[1], item[2])
                 elif item[0] == "shot":
                     self.show_shot(item[1], item[2])
                 elif item[0] == "screenshot":

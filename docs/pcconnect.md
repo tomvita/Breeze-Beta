@@ -101,11 +101,12 @@ operation answers `-ERR busy`.
 | command | does |
 |---|---|
 | `state [rows]` | JSON, see below; `rows` around the cursor, default 60 |
-| `rows <start> <count>` | more rows of the current list |
-| `events on` / `off` | sends `*EVENT state <json>` whenever the screen changes (checked every 200 ms) |
+| `rows <start> <count> [depth]` | more rows of the current list; with `depth`, of a screen further down the stack (1 = the screen this one was opened from), as it was left |
+| `events on` / `off` | sends `*EVENT state <json>` whenever the screen changes (checked every 100 ms). A change in any row near the cursor, in a button or in an action counts, not only the cursor's row |
 | `press <keys>` | presses buttons for one frame; combine with `+` (`press L+ZR`) |
 | `keydown <keys>` / `keyup [keys]` | holds buttons down until `keyup` (no keys = all), 30 s at most. `press` adds to them, so `keydown ZL` then `press Y` is ZL+Y. Use it to see a Dynamic view layer: `keydown ZL`, `state`, `keyup` |
 | `button <id>` | selects that button on the current page and presses A |
+| `action <id>` | runs an action of the screen by id whether or not its button is on the page or shift layer in view (`state`'s `actions` lists them). On the page it is `button`; off it, the screen's handler gets the id on its next frame and the reply is `+OK off page` |
 | `tap <x> <y>` | touches the screen there for two frames (1280x720), exactly as a finger would: Breeze's keyboard keys, rows, buttons. A tap on a menu button selects it; a second tap presses it |
 | `select <row>` | moves the list cursor |
 | `text <string>` | fills the open keyboard with the string and confirms it |
@@ -126,7 +127,7 @@ directions `LSUP LSDOWN LSLEFT LSRIGHT RSUP RSDOWN RSLEFT RSRIGHT`.
   "overlay": "normal | hidden | shown",
   "menu": {
     "kind": "air | box | alert | main | file | menu",
-    "menu_id": 8,
+    "menu_id": 8, "uid": "8C042AE50",
     "left_title": "...", "left_status": "...", "left_help": "...",
     "right_title": "...", "right_status": "...", "right_help": "...",
     "context_help": "...",
@@ -135,9 +136,12 @@ directions `LSUP LSDOWN LSLEFT LSRIGHT RSUP RSDOWN RSLEFT RSRIGHT`.
     "selected_button": 2,
     "buttons": [{"id": 1, "text": "Back", "enabled": true, "selected": false,
                  "rect": [1060, 544, 180, 56]}],
+    "actions": [{"id": 10, "label": "Write Cheat to atm", "key": "ZL+RSDOWN",
+                 "enabled": true, "on_page": false}],
     "row_rects": [[4, 60, 330, 950, 40]]
   },
-  "stack": [{"kind": "box", "menu_id": 1, "title": "Main"}],
+  "stack": [{"kind": "air", "menu_id": 8, "uid": "8C042AE50", "title": "Cheats",
+             "row_count": 14, "index": 7, "current_row": "..."}],
   "keyboard": {"header": "Edit Value", "subheader": "...", "text": "31"},
   "game": {"attached": true, "title_id": "0100853015E86000",
            "build_id": "27749f7144b46203", "main": "0x1289006000", "...": "..."}
@@ -148,6 +152,18 @@ directions `LSUP LSDOWN LSLEFT LSRIGHT RSUP RSDOWN RSLEFT RSRIGHT`.
 button grids like Main and Settings; `alert` menus are message boxes (`text`,
 `subtext`). `keyboard` is present only while the keyboard is open. Button text
 carries Switch button glyphs (Unicode private-use characters).
+
+`buttons` are the ones on the page; `actions` is every action the screen has,
+in its programmed order, with the key in use (`-` for none), whether it is
+enabled and whether its button is on the page now. `uid` tells one menu object
+from another: a screen that keeps its `uid` while its title changes was rebuilt
+in place. A screen whose rows have columns also reports `column` and
+`columns`. The file picker (`file`) reports its entries as rows, and `select`
+moves its cursor.
+
+`stack` is the screens this one was opened through, nearest first. Each list
+screen there gives its row count, cursor and cursor row; `rows <start> <count>
+<depth>` reads its rows, which stay as they were when it was left.
 
 `rect` and `row_rects` are screen pixels (1280x720, the size of `capture`):
 `rect` is `[x, y, w, h]` of a button on the current page, and `row_rects`
@@ -464,6 +480,36 @@ A watch runs while the game runs. gen2 is attached for as long as it does, and
 an ordinary watch slows a busy address; `gen2 stop` or `fieldwatch stop` when
 done.
 
+### The debugger
+
+`dbg` drives Break and Trace's debugger (UI thread). Its breakpoints are the
+ones Breeze's Break and Trace view lists, so a break set from the PC and one
+set on the Switch are the same breaks, and when the game stops Breeze opens
+its own view as it always does. Addresses are `M+<offset>` or absolute hex.
+
+| command | does |
+|---|---|
+| `dbg` | where things stand: `attached`, `stopped`, `ours` (stopped at a break of Breeze's), `armed`, the Break and Trace `watch` address, `main`, `thread`, and `bps` (each with `at`, the `word` it replaced, `temp`, `enabled`, `armed`). Stopped, also `pc`, `sp`, `pstate` and `x` (x0 to x28, fp, lr) |
+| `dbg attach` | attaches gen2 to the game if it is not attached; a watch that is running is left alone |
+| `dbg bp <addr> [temp]` | sets a breakpoint there, or takes it off when there is one of that kind; `temp` is one that goes when it is hit. Attaches first when needed. Up to 0x80 |
+| `dbg bp clear` | takes every breakpoint off |
+| `dbg runto <addr>` | a one-shot breakpoint there, and the game runs on if it is stopped |
+| `dbg step` / `dbg over` | one instruction; `over` runs a call as one step. Replies once the game has stopped again |
+| `dbg cont` | lets the game run to the next break (the breakpoints that are enabled go back in first) |
+| `dbg stop` | disarms every breakpoint and the Break and Trace watch and lets the game run |
+| `dbg reg <x0-x30\|fp\|lr\|sp\|pc\|pstate\|v0-v31> <hex>` | changes a register of the stopped thread |
+| `dbg v` | the vector registers (low and high halves), `fpcr`, `fpsr` |
+| `dbg threads` / `dbg thread <id>` | every thread with its pc, lr, sp and name; picks the one step, cont and the registers work with |
+
+Every form but `v` and `threads` answers with the status `dbg` gives.
+Memory is read with `peek` as usual while the game is stopped.
+
+Measured on The Walking Dead (Oct 13 2026): a breakpoint on
+`PlayerController::Update` stopped the game 0.6 s after it was set, three
+steps moved the pc 4 bytes each, `over` went on to the next line, a register
+written read back, `cont` and `runto` behaved, and after `stop` the code held
+no break word.
+
 ### Search
 
 There is no search command yet. A memory search is driven through Breeze's
@@ -748,6 +794,96 @@ The ip and code are remembered in `~/.breeze_pc.json`, so later it is just
   goes on while the window is not in front. About 5 pictures a second at the
   default fps setting. Made so that a session can be gone through afterwards,
   by a person or a script, instead of being watched live.
+- **Text view** opens a second window that draws Breeze's screen from `state`
+  instead of showing a picture of it (`pcconnect_text.py`). Measured on the
+  Cheats screen: a full `state` takes 16 ms and 2.7 KB where a picture takes
+  136 ms and 284 KB.
+  - **The list** shows the 400 rows around the cursor in Breeze's colours,
+    button glyphs written as `[A]`, `[ZL]`. A click moves Breeze's cursor to
+    the row, a double-click presses A on it, a drag selects text and Ctrl+C
+    copies it. A row whose text has just changed is shown in orange for a
+    moment.
+  - **The actions** are every action of the screen at once, each with its
+    key, in as many columns as the panel is wide; the ones not on Breeze's
+    page are a shade darker. A click runs one (`action <id>`).
+  - **Earlier screens** stay to the left of the current one as they were
+    left: the screens on Breeze's stack, and a copy of the screen before when
+    Breeze rebuilt a screen in place. *Earlier screens* sets how many (0 to
+    6). They are for reading: search, copy and save work in them, keys do
+    not go to them. **Pin** on any panel keeps a copy of it until it is
+    closed, so two screens can be compared side by side.
+  - **Find** looks through every row of the list, fetching the rows the
+    window does not have yet; Enter or F3 goes to the next match and moves
+    Breeze's cursor there, Shift+Enter or Shift+F3 to the one before.
+    **Filter** shows only the rows that match. **Copy row**, **Copy all** and
+    **Save...** act on the panel last clicked; Save writes a text file into
+    `panels` inside the game's folder on the PC, the title and status lines
+    first.
+  - **Font** and **Actions** set the two font sizes; the bars between the
+    panels are dragged to resize them; **Column gap** is the space between
+    the columns of rows that have them (Memory Explorer); **Detach actions** puts the action
+    panel in a window of its own. **Picture too** keeps the main window's
+    picture updating; without it the connection is left to the text.
+  - Keys are the Switch's buttons as in the main window, apart from Ctrl+F,
+    Ctrl+C, Ctrl+S and F3. Breeze's keyboard opens as a text box in this
+    window while it is open.
+  - While **Record** is on, the screen's text goes into `log.txt` too, as
+    `rows` lines (JSON: title, status, cursor, rows) whenever it changes.
+- **Disassembler** opens the running game's code in a window of its own
+  (`pcconnect_asm.py`; it needs the `capstone` package, `pip install capstone`).
+  The code is read with `peek`, 4 KB at a time, kept, and disassembled on the
+  PC, on a connection of its own.
+  - **The listing** is one whole function, however long: the address as
+    main+offset, the instruction word, the instruction, and a comment column
+    with the function a `bl` goes to, whether a branch lands above or below
+    (its target line carries a `>`), and the address an `adrp` pair builds with
+    what is there: a string, a pointer into the game, or a number. Double-click
+    or Enter follows a line's call, branch or address; **Back** / **Forward**
+    (Alt+Left / Alt+Right) retrace; **Func up** / **Func down** step through
+    the functions.
+  - **Functions** (left) is the game's function map when Breeze has made one
+    (Unity, Unreal, GameMaker), else the unwind table's list as
+    `func_<offset>`, with script-table names where there are any. Typing in
+    the box filters it by every word typed, or by address. The files are
+    fetched once and kept in `~/.breeze_pc/<title id>_<build id>/`.
+  - **Go** takes `M+1CBC40`, `1CBC40`, an absolute address, or words from a
+    function's name.
+  - **Callers** lists every `b` / `bl` to the function shown (`xref call`,
+    about 0.1 s on a small game), each with the function it is in.
+  - **Code watch** (left) is `code_watch.txt`, the last code watch: the
+    functions in the order they were first called, a `*` on the ones after
+    the mark; **new only** shows just those. A click opens the function, a
+    double-click the place it was first called from.
+  - **Debugging** (the second row of buttons; PC connect's `dbg`, on the
+    breakpoints of Breeze's Break and Trace). **Break** (F9) sets or takes off
+    a breakpoint on the line under the cursor, shown in red; **Run to** (F4)
+    runs the game to that line once. When the game stops the listing goes to
+    the line it stopped on, shown in green, and the panel on the right fills:
+    the registers, the ones that changed since the stop before in orange, each
+    value that is an address named; under them the stack, 48 values from sp.
+    **Step** (F11) runs one instruction, into a call; **Over** (F10) runs a
+    call as one step; **Continue** (F5) lets the game run to the next break;
+    **Stop** takes every breakpoint off and lets it run; **Show PC** goes
+    back to the line the game is stopped on. Click a register to see the
+    memory it points at in place of the stack (click `sp` for the stack
+    again); double-click one to change its value; double-click a stack or
+    memory line whose value is an address in the game to go there. A line
+    under a breakpoint shows the instruction that was there, not the break.
+    **Float** above the registers shows v0 to v31 in their place, each as a
+    double, as a float and as its 128 bits, with `fpcr` and `fpsr`; the list
+    beside it shows all four floats (`4 s`) or both doubles (`2 d`) of
+    each register instead, lane 0 first; a new
+    value is typed as hex or as a number (`1.5` = double, `1.5f` = float).
+    The memory panel shows the stack, or memory at whatever is typed into
+    its box, read again at every stop: an address, `M+offset`,
+    `heap+offset`, a register, or a sum such as `x0+48`; `<` and `>` move a
+    page. The list beside the box picks the format: 8-byte values with what
+    each points at, 4-byte hex, signed, float, double, 2-byte, or bytes
+    with their text. Memory at an address shows while the game runs too.
+  - **Find** searches the function shown; **Copy** takes the selection or the
+    whole function; **Save...** writes it into `asm` inside the game's folder
+    on the PC. **Reload** reads the code again, for after a cheat or a hook
+    has changed it.
 - **Files...** opens the file manager (`pcconnect_files.py`): the Switch on the
   left, with a list of places for the running game (Breeze's directory for it
   by title id and by name, with a `*` on the one in use, Atmosphere's directory
