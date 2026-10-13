@@ -123,6 +123,20 @@ The player's `jumpheight` now reads 40, and writing 25 into it by hand is undone
 
 ---
 
+## Part 3: starting from a memory search (beta124.08)
+
+Often a memory search finds the value before you know which object it belongs to. From beta124.08 that is enough.
+
+Open the value in Memory Explorer and, with the cursor on it, press **Class field** (ZL+ZR+Y). Breeze finds the object that owns the value and opens its variables with the cursor on yours.
+
+![Class field on the jumpheight value opened the player's variables on it](./images/gmwalk_15_from_search.jpg)
+
+Here the value was the player's `jumpheight`. The title names the object, `oPlayer`, and **Make cheat** (ZL+Plus) continues exactly as in step 9.
+
+A global variable opens at once. A variable of an object takes about five seconds, because Breeze looks through the game's memory for the owner; the screen stands still meanwhile.
+
+---
+
 ## Good to know
 
 - **The object's cheat holds the value on every instance of that object.** For the player there is one. For an enemy object it is every enemy of that kind, which is usually what you want.
