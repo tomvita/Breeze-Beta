@@ -1,5 +1,15 @@
 # Changelog
 
+## [Beta 125.01] - 2026-10-14
+
+- Same gen2 fork as 124.07 (v0.20).
+- **Fixed:** a list could be drawn empty, or with its cursor off the screen or past the end (a title like "71/18"), after a screen changed its rows: opening a class and going back, a filter, a search, another saved result. Fixed for every list screen.
+- **Fixed:** Code watch said "No function matches" on Unreal games. It now reads the Unreal function map: classes like `/Script/Zenith.HPComponent`, Search by name, and one row for the Blueprint script interpreter. Only functions Unreal knows by name are watched.
+- **Fixed:** Jump to target and Trace cheat (Edit Cheats) opened Memory Explorer without the pointer chain when the cheat's last line was a type 0 write such as `044F0000 00000110 000000C8`.
+- **Code watch:** Back from a class's functions returns to that class.
+- **PC app debugger:** in the Float view, a double-click changes one value of a vector register. Take the new `pcconnect_asm.py`.
+- **PC connect:** `dbg reg v<n> <low> <high>` writes all 128 bits.
+
 ## [Beta 125.00] - 2026-10-13
 
 - Same gen2 fork as 124.07 (v0.20).

@@ -497,7 +497,7 @@ its own view as it always does. Addresses are `M+<offset>` or absolute hex.
 | `dbg step` / `dbg over` | one instruction; `over` runs a call as one step. Replies once the game has stopped again |
 | `dbg cont` | lets the game run to the next break (the breakpoints that are enabled go back in first) |
 | `dbg stop` | disarms every breakpoint and the Break and Trace watch and lets the game run |
-| `dbg reg <x0-x30\|fp\|lr\|sp\|pc\|pstate\|v0-v31> <hex>` | changes a register of the stopped thread |
+| `dbg reg <x0-x30\|fp\|lr\|sp\|pc\|pstate\|v0-v31> <hex> [<high hex>]` | changes a register of the stopped thread. A vector register gets its low 64 bits, or all 128 when the high half is given too |
 | `dbg v` | the vector registers (low and high halves), `fpcr`, `fpsr` |
 | `dbg threads` / `dbg thread <id>` | every thread with its pc, lr, sp and name; picks the one step, cont and the registers work with |
 
@@ -872,8 +872,9 @@ The ip and code are remembered in `~/.breeze_pc.json`, so later it is just
     **Float** above the registers shows v0 to v31 in their place, each as a
     double, as a float and as its 128 bits, with `fpcr` and `fpsr`; the list
     beside it shows all four floats (`4 s`) or both doubles (`2 d`) of
-    each register instead, lane 0 first; a new
-    value is typed as hex or as a number (`1.5` = double, `1.5f` = float).
+    each register instead, lane 0 first. Double-click a value to change
+    that one lane, the float or the double under the mouse: a number, or
+    `0x` and its bits (the upper lanes need a Breeze newer than beta125.00).
     The memory panel shows the stack, or memory at whatever is typed into
     its box, read again at every stop: an address, `M+offset`,
     `heap+offset`, a register, or a sum such as `x0+48`; `<` and `>` move a

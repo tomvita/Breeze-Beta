@@ -41,8 +41,9 @@ breaks:
 - Click a register to see the memory it points at; double-click to change its
   value. "Float" shows v0 to v31 in place of the general registers, each as
   a double, as a float, and as its 128 bits; the list beside it shows all
-  four floats or both doubles of each register instead, lane 0 first. A new
-  value can be typed as hex or as a number (1.5 = double, 1.5f = float).
+  four floats or both doubles of each register instead, lane 0 first.
+  Double-click a value to change that one lane: the float or the double under
+  the mouse, typed as a number, or as 0x and its bits.
 - The memory panel shows the stack, or memory at whatever is typed into its
   box: an address, M+offset, heap+offset, a register, or a sum such as x0+48.
   The list beside it picks the format: 8-byte values with what each points
@@ -406,6 +407,14 @@ class Game:
             reply = self.b.cmd("dbg v")
             if reply.startswith("+OK"):
                 st.update(json.loads(reply[4:]))
+        return st
+
+    def set_vector(self, n, low, high):
+        """Writes all 128 bits of v<n> and checks they took: beta125.00 sets the low half only."""
+        st = self.debug("reg v%d %X %X" % (n, low, high), vectors=True)
+        got = st.get("v", [])
+        if n < len(got) and (int(got[n][0], 16), int(got[n][1], 16)) != (low, high):
+            raise RuntimeError("only the low half of v%d was written: this needs a newer Breeze on the Switch" % n)
         return st
 
     def callers(self, rva):
@@ -1065,7 +1074,7 @@ class Disassembler:
             t.config(state="disabled")
             return
         if self.reg_mode.get() == "v":
-            self.regs_title.config(text="double-click = change (hex, 1.5 = double, 1.5f = float)")
+            self.regs_title.config(text="double-click a value = change that lane")
             before = self.v_before or []
             for n, (lo, hi) in enumerate(st.get("v", [])):
                 lo_i, hi_i = int(lo, 16), int(hi, 16)
@@ -1222,12 +1231,62 @@ class Disassembler:
         self.mem_var.set(name)
         self.on_mem()
 
+    def vector_lane(self, col):
+        """Which part of a vector register a column of the Float view is: (format, lane), or None."""
+        view = self.vview_var.get()
+        col -= 5                                    # past the name
+        if col < 0:
+            return None
+        if view == VECTOR_VIEWS[1]:
+            return ("f", col // 15) if col // 15 < 4 else None
+        if view == VECTOR_VIEWS[2]:
+            return ("d", col // 24) if col // 24 < 2 else None
+        if col < 26:
+            return ("d", 0)
+        return ("f", 0) if col < 43 else None
+
+    def on_vector_edit(self, name, col):
+        """Changes the one float or double of a vector register that was double-clicked."""
+        from tkinter import simpledialog
+        n = int(name[1:])
+        lane = self.vector_lane(col)
+        vectors = self.dbg.get("v", [])
+        if lane is None or n >= len(vectors):
+            self.status.config(text="double-click the value to change, not the name or the hex")
+            return
+        fmt, index = lane
+        size = 4 if fmt == "f" else 8
+        raw = bytearray(struct.pack("<QQ", int(vectors[n][0], 16), int(vectors[n][1], 16)))
+        old = struct.unpack_from("<" + fmt, raw, index * size)[0]
+        kind = "float" if fmt == "f" else "double"
+        value = simpledialog.askstring("Register", "v%d, %s %d of 0 to %d (now %.9g).\nA number, or 0x and its bits:" % (
+            n, kind, index, 16 // size - 1, old), parent=self.win)
+        if not value:
+            return
+        value = value.strip()
+        try:
+            if value.lower().startswith("0x"):
+                bits = int(value, 16)
+                if bits >> (size * 8):
+                    raise ValueError
+                raw[index * size:(index + 1) * size] = bits.to_bytes(size, "little")
+            else:
+                struct.pack_into("<" + fmt, raw, index * size, float(value))
+        except (ValueError, struct.error, OverflowError):
+            self.status.config(text="\"%s\" is not a %s" % (value, kind))
+            return
+        low, high = struct.unpack("<QQ", raw)
+        self.job(lambda game: game.set_vector(n, low, high), self.on_debug, "setting v%d..." % n)
+
     def on_reg_edit(self, e):
         _row, name = self.reg_at(e)
         if name is None or not self.dbg.get("stopped"):
             return "break"
+        if name.startswith("v"):
+            self.on_vector_edit(name, int(self.regs.index("@%d,%d" % (e.x, e.y)).split(".")[1]))
+            return "break"
         from tkinter import simpledialog
-        vector = name.startswith("v")
+        vector = False
         value = simpledialog.askstring("Register", "New value for %s (hex%s):" % (
             name, "; or a number: 1.5 = double, 1.5f = float" if vector else ""), parent=self.win)
         if not value:
