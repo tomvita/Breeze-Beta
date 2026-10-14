@@ -1,5 +1,12 @@
 # Changelog
 
+## [Beta 125.02] - 2026-10-14
+
+- Same gen2 fork as 124.07 (v0.20).
+- **Unreal object view: the pointer chain by name.** The bottom line shows how Breeze reached the object, by property name: `GWorld > OwningGameInstance > LocalPlayers[0] > PlayerController > Pawn > HPComponent`. It comes from the object browser, a bookmark, or Open on a pointer row.
+- **Unreal: Find chain** (ZR+Down in the object view) searches back from the object to a static slot in main or to the GWorld route, and lists that route first. Use chain hands it to Make cheat; Bookmark saves it. A few seconds a search on ENDER LILIES.
+- **Breezehand watch overlay 0.10.3c** in the package: works with the v0.20 fork again (it said "version mismatch"), names a Breeze field, method or code watch with its total instead of misreading it, and turns L3+Y off for those.
+
 ## [Beta 125.01] - 2026-10-14
 
 - Same gen2 fork as 124.07 (v0.20).
