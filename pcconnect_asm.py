@@ -748,6 +748,12 @@ class Disassembler:
 
         self.win.bind("<Alt-Left>", lambda e: self.step(-1))
         self.win.bind("<Alt-Right>", lambda e: self.step(1))
+        # The mouse's back / forward buttons: 4 and 5 in Tk 8.6 on Windows (where the wheel is <MouseWheel>),
+        # 8 and 9 on X11 and from Tk 8.7.
+        side = {8: -1, 9: 1}
+        if sys.platform == "win32" and tk.TkVersion < 8.7:
+            side.update({4: -1, 5: 1})
+        self.win.bind("<ButtonRelease>", lambda e: self.step(side[e.num]) if e.num in side else None)
         self.win.bind("<Control-f>", lambda e: (self.find.focus_set(), self.find.select_range(0, "end")))
         self.win.bind("<Control-g>", lambda e: (self.go.focus_set(), self.go.select_range(0, "end")))
         self.win.bind("<F3>", lambda e: self.find_next(1))

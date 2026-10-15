@@ -846,7 +846,7 @@ The ip and code are remembered in `~/.breeze_pc.json`, so later it is just
     (its target line carries a `>`), and the address an `adrp` pair builds with
     what is there: a string, a pointer into the game, or a number. Double-click
     or Enter follows a line's call, branch or address; **Back** / **Forward**
-    (Alt+Left / Alt+Right) retrace; **Func up** / **Func down** step through
+    (Alt+Left / Alt+Right, or the mouse's back and forward buttons) retrace; **Func up** / **Func down** step through
     the functions.
   - **Functions** (left) is the game's function map when Breeze has made one
     (Unity, Unreal, GameMaker), else the unwind table's list as

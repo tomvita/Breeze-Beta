@@ -441,7 +441,7 @@ The middle of the window is one whole function, however long. Each line has the 
 - whether a branch lands above or below; the line it lands on has a `>` in front;
 - the address an `adrp` pair builds, and what is there: a string, a pointer into the game, or a number.
 
-**Double-click** a line, or press Enter on it, to follow its call, branch or address. **Back** and **Forward** (Alt+Left, Alt+Right) retrace your steps. **Func up** and **Func down** step through the functions.
+**Double-click** a line, or press Enter on it, to follow its call, branch or address. **Back** and **Forward** (Alt+Left, Alt+Right, or the mouse's back and forward buttons) retrace your steps. **Func up** and **Func down** step through the functions.
 
 ### Finding a function
 

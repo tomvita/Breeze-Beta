@@ -7,6 +7,7 @@
 - **PC app disassembler on Unreal games:** function names (there were none), and every call target opens as its own function.
 - **Unreal:** C++ virtual functions are named from class vtables as `Class::vf_<slot>` in code watch, method watch and the disassembler. Method watch reads Unreal names.
 - **PC app:** Connect... changes the address and code without a restart; starting the app again brings the open window forward (tick Multiple instances for more).
+- **PC app disassembler** (added after publishing, in the re-uploaded `pc_app.zip`): the mouse's back and forward buttons go Back and Forward.
 
 ## [Beta 125.02] - 2026-10-14
 
