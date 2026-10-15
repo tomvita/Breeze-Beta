@@ -742,6 +742,13 @@ The ip and code are remembered in `~/.breeze_pc.json`, so later it is just
 - **Reset** restarts Breeze (`restart now`) from whatever screen it is on,
   after asking. It is the way out of a menu that cannot be left with buttons;
   the game and its cheats are not touched, and the app reconnects by itself.
+- **Connect...** changes the address and the code without restarting the app.
+  The main window connects to the new one at once; the file manager, the
+  disassembler and Game input, which hold connections of their own, are closed
+  first. The new address and code are remembered.
+- **Multiple instances** (check box, off by default): while it is off, starting
+  the app again brings the window already open to the front instead of opening
+  a second one (the first app listens on 127.0.0.1:6809 for that). Remembered.
 - **Save redirect to SD** (check box) turns Atmosphere's save redirect on or
   off for the running game, and says what has to happen next: a reboot the
   first time, a restart of the game, and one save in the game. The text beside
@@ -885,6 +892,22 @@ The ip and code are remembered in `~/.breeze_pc.json`, so later it is just
     whole function; **Save...** writes it into `asm` inside the game's folder
     on the PC. **Reload** reads the code again, for after a cheat or a hook
     has changed it.
+  - **Decompile** (F6) opens a pane beside the listing with the function as
+    C, made by Ghidra's decompiler on the PC (`pcconnect_decomp.py`). It
+    needs Ghidra, a Java 21 JDK and the `pyghidra` package; the first time,
+    the pane offers **Download and set up** (Windows: a 740 MB download into
+    `%LOCALAPPDATA%\BreezePC`), or **Ghidra folder...** / **JDK folder...** for
+    copies already installed. Ghidra gets only the function's own code pages,
+    the strings it uses, and the functions it calls with Breeze's names, at
+    the game's real addresses; nothing else is analysed, so a function takes
+    a fraction of a second once Ghidra is up (about 20 s the first time ever,
+    3 s after). Globals show as `DAT_M<offset>`, calls by name or as
+    `func_<offset>`. The pane follows the listing: the C rows of the
+    instruction under the cursor are marked, a click on a C row moves the
+    listing cursor there, and a double-click on a call opens that function.
+    **Copy** and **Save...** (a `.c` file in `asm` inside the game's folder)
+    as in the listing. The pane stays open for the next game if it was open
+    when the window closed.
 - **Files...** opens the file manager (`pcconnect_files.py`): the Switch on the
   left, with a list of places for the running game (Breeze's directory for it
   by title id and by name, with a `*` on the one in use, Atmosphere's directory

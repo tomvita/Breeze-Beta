@@ -25,6 +25,9 @@ It needs the capstone package (pip install capstone).
   Switch.
 - Find searches the listing; Copy and Save take the selection or the whole
   function.
+- Decompile (F6) opens a pane beside the listing with the function as C, made
+  by Ghidra's decompiler and kept in step with the listing (pcconnect_decomp.py;
+  the first time it offers to download and set up Ghidra).
 
 It is also a debugger, on the breakpoints of Breeze's Break and Trace (PC
 connect's `dbg`), so a break set here and one set on the Switch are the same
@@ -70,11 +73,14 @@ from capstone import arm64_const as A
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pcconnect import Breeze  # noqa: E402
+import pcconnect_decomp  # noqa: E402
+from pcconnect_decomp import CPane  # noqa: E402
 
 CONFIG = os.path.join(os.path.expanduser("~"), ".breeze_pc.json")
 CACHE = os.path.join(os.path.expanduser("~"), ".breeze_pc")
 PAGE = 0x1000
 MAX_VIEW = 0x10000          # bytes of one function shown at most
+MAX_DECOMP = 0x20000        # code loaded for the decompiler at most; Ghidra follows the code to find the end
 LIST_MAX = 3000             # rows the function list shows at once
 MAPS = ("il2cpp_function_map.txt", "ue_function_map.txt", "gm_function_map.txt")
 
@@ -98,6 +104,53 @@ def short(name):
     namespace takes the width a list has."""
     cls, sep, method = name.partition("::")
     return cls.rsplit(".", 1)[-1] + sep + method
+
+
+def map_names(text, text_size):
+    """rva -> name from a function map. Unity and GameMaker write 'Name = main+0xRVA | ...'; Unreal writes
+    '/Script/Module.Class.Function=main+0xRVA | abs=... class=Function ...', read the way Breeze's code watch
+    reads it (gen2menu.cpp): functions as Module.Class::Function, a class's own row as its constructor, C++
+    virtuals as named, and the script interpreter that every Blueprint function's row holds named once."""
+    names, unreal = {}, []
+    for line in text.splitlines():
+        if line.startswith("#"):
+            continue
+        at = line.find(" = main+0x")
+        if at >= 0:
+            try:
+                names.setdefault(int(line[at + 10:].split()[0].split("|")[0], 16), line[:at])
+            except (ValueError, IndexError):
+                pass
+            continue
+        at = line.find("=main+0x")
+        if at < 0:
+            continue
+        try:
+            rva = int(line[at + 8:].split()[0], 16)
+        except (ValueError, IndexError):
+            continue
+        m = re.search(r" class=(\S+)", line[at:])
+        unreal.append((line[:at], rva, m.group(1) if m else ""))
+    shared = {}
+    for _n, rva, kind in unreal:
+        if kind == "Function":
+            shared[rva] = shared.get(rva, 0) + 1
+    shared = {rva: n for rva, n in shared.items() if n > 8}
+    for name, rva, kind in unreal:
+        if kind not in ("Function", "Class", "BlueprintGeneratedClass", "VTable") or rva & 3 or rva >= text_size:
+            continue
+        if rva in shared:
+            if shared[rva]:
+                names.setdefault(rva, "(Blueprint)::script interpreter, for %d Blueprint functions" % shared[rva])
+                shared[rva] = 0
+            continue
+        if kind == "Function":
+            owner, _dot, fn = name.rpartition(".")
+            name = "%s::%s" % (owner, fn) if owner else name
+        elif kind != "VTable":
+            name += "::(constructor)"
+        names.setdefault(rva, name)
+    return names
 
 
 class Game:
@@ -189,18 +242,10 @@ class Game:
                 source.append("%d script names" % n)
         for name in MAPS:
             if name in have:
-                n = 0
-                for line in self.cached_file(name, have[name]).decode("utf-8", "replace").splitlines():
-                    at = line.find(" = main+0x")
-                    if at < 0:
-                        continue
-                    try:
-                        rva = int(line[at + 10:].split()[0].split("|")[0], 16)
-                    except (ValueError, IndexError):
-                        continue
-                    names.setdefault(rva, line[:at])
-                    n += 1
-                source.append("%d names from %s" % (n, name))
+                found = map_names(self.cached_file(name, have[name]).decode("utf-8", "replace"), self.text_size)
+                for rva, fname in found.items():
+                    names.setdefault(rva, fname)
+                source.append("%d names from %s" % (len(found), name))
                 break
         starts.update(names)
         self.starts = sorted(x for x in starts if x < self.text_size)
@@ -359,7 +404,59 @@ class Game:
                         del pages[reg]
         for line in lines:
             line["label"] = line["rva"] in local
+            # A bl lands on a function's first instruction: where the unwind table is thin (an Unreal game
+            # can list one function in ten), that is how the ones in between become functions of their own.
+            t = line["target"]
+            if line["mnem"] == "bl" and t is not None and 0 <= t < self.text_size:
+                i = bisect.bisect_left(self.starts, t)
+                if i == len(self.starts) or self.starts[i] != t:
+                    self.starts.insert(i, t)
         return start, end, title, lines
+
+    def code_page(self, rva):
+        """A page of code as the game has it, with the instructions under breakpoints put back."""
+        data = bytearray(self.read(self.main + rva, PAGE))
+        for at, word in self.bp_words.items():
+            if rva <= at < rva + len(data) - 3 and struct.unpack_from("<I", data, at - rva)[0] == BREAK_WORD:
+                struct.pack_into("<I", data, at - rva, word)
+        return bytes(data)
+
+    def decomp_input(self, rva):
+        """What the decompiler needs for the function holding rva: its code, the names of what it calls and the
+        strings it uses (see pcconnect_decomp.Engine)."""
+        f = self.func_of(rva) if rva < self.text_size else None
+        if f is None:
+            raise RuntimeError("M+%X is not in a function: nothing to decompile" % rva)
+        start, end = f
+        capped = end > start + MAX_DECOMP
+        end = min(end, start + MAX_DECOMP)
+        pages = {self.main + p: self.code_page(p) for p in range(start & ~(PAGE - 1), end, PAGE)}
+        callees, strings, ro = {}, {}, set()
+        known = set(self.starts)
+        for line in self.view(start)[3]:
+            t = line["target"]
+            if t is None or start <= t < end:
+                continue
+            if t < self.text_size:
+                # A branch out of the function is a tail call even when no start is known there: without a
+                # function at the target Ghidra follows it into memory it was not given ("bad instruction").
+                if t in known and line["kind"] in ("call", "jump", "code"):
+                    callees[self.main + t] = short(self.name_of(t))
+                elif line["kind"] in ("call", "jump"):
+                    callees[self.main + t] = "func_%X" % t
+            elif line["kind"] == "str":
+                data = self.read(self.main + t, 512)
+                n = data.find(b"\0")
+                if n < 0:
+                    continue
+                strings[self.main + t] = n
+                for p in range(t & ~(PAGE - 1), t + n + 1, PAGE):
+                    if self.main + p not in pages:
+                        pages[self.main + p] = self.read(self.main + p, PAGE)
+                        ro.add(self.main + p)
+        return {"key": "%s_%s_%X" % (self.tid, self.bid, self.main), "main": self.main,
+                "main_end": self.main + self.main_size, "start": self.main + start, "end": self.main + end,
+                "end_is_next": not capped, "name": short(self.name_of(start)), "pages": pages, "ro": ro, "callees": callees, "strings": strings}
 
     # ------------------------------------------------------------ the debugger
     def live(self, addr, n):
@@ -507,7 +604,7 @@ class Disassembler:
         self.go.bind("<Return>", lambda e: self.on_go())
         for text, cmd in (("Back", lambda: self.step(-1)), ("Forward", lambda: self.step(1)),
                           ("Func up", lambda: self.neighbour(-1)), ("Func down", lambda: self.neighbour(1)),
-                          ("Callers", self.on_callers), ("Reload", self.on_reload)):
+                          ("Callers", self.on_callers), ("Reload", self.on_reload), ("Decompile F6", self.toggle_c)):
             tk.Button(bar, text=text, command=cmd, takefocus=0).pack(side="left")
         tk.Label(bar, text="  Find:").pack(side="left")
         self.find_var = tk.StringVar()
@@ -536,8 +633,9 @@ class Disassembler:
         self.status = tk.Label(self.win, text="connecting...", anchor="w", fg="#555")
         self.status.pack(fill="x", side="bottom")
 
-        panes = tk.PanedWindow(self.win, orient="horizontal", sashwidth=6, bg="#0f121b", bd=0)
+        panes = self.panes = tk.PanedWindow(self.win, orient="horizontal", sashwidth=6, bg="#0f121b", bd=0)
         panes.pack(fill="both", expand=True)
+        self.cpane, self.c_open = None, False
 
         left = tk.Frame(panes, bg=BG_PANEL)
         top = tk.Frame(left, bg=BG_PANEL)
@@ -564,7 +662,7 @@ class Disassembler:
         self.list.bind("<Double-Button-1>", lambda e: self.on_pick(e, caller=True))
         panes.add(left, minsize=160, width=380)
 
-        mid = tk.Frame(panes, bg=BG_PANEL)
+        mid = self.mid = tk.Frame(panes, bg=BG_PANEL)
         self.title = tk.Label(mid, text="", anchor="w", bg=BG_PANEL, fg="white", font=("Segoe UI", max(size, 9), "bold"))
         self.title.pack(fill="x")
         tf = tk.Frame(mid)
@@ -658,6 +756,7 @@ class Disassembler:
         self.win.bind("<F11>", lambda e: self.debug("step"))
         self.win.bind("<F10>", lambda e: (self.debug("over"), "break")[1])
         self.win.bind("<F5>", lambda e: self.debug("cont"))
+        self.win.bind("<F6>", lambda e: self.toggle_c())
         self.win.protocol("WM_DELETE_WINDOW", self.close)
 
         self.worker = Worker(host, code)
@@ -673,6 +772,9 @@ class Disassembler:
     def close(self):
         self.cfg["asm_geometry"] = self.win.geometry()
         self.cfg["asm_bytes"] = bool(self.bytes_var.get())
+        self.cfg["asm_c_open"] = self.c_open
+        if self.c_open:
+            self.cfg["asm_c_width"] = self.cpane.frame.winfo_width()
         self.save_cfg()
         self.worker.stop = True
         self.worker.jobs.put((None, None))
@@ -701,6 +803,8 @@ class Disassembler:
                     done(result)
         except queue.Empty:
             pass
+        if self.cpane is not None:
+            self.cpane.pump()
         self.win.after(40, self.pump)
 
     def on_game(self, game):
@@ -711,6 +815,8 @@ class Disassembler:
         self.fill_list()
         last = self.cfg.get("asm_last", {}).get(game.bid)
         self.goto(last if last is not None and last < game.text_size else (game.starts[0] if game.starts else 0))
+        if self.cfg.get("asm_c_open") and not self.c_open:
+            self.toggle_c()
 
     def set_font(self):
         try:
@@ -722,6 +828,8 @@ class Disassembler:
         self.font = ("Consolas", size)
         for w in (self.text, self.list, self.callers, self.regs, self.data):
             w.config(font=self.font)
+        if self.cpane is not None:
+            self.cpane.text.config(font=self.font)
 
     # ------------------------------------------------------------ the function list
     def fill_list(self):
@@ -865,6 +973,29 @@ class Disassembler:
         self.callers.delete(0, "end")
         self.caller_rows = []
         self.callers_title.config(text="Callers (press Callers)")
+        self.request_c()
+
+    # ------------------------------------------------------------ the C pane
+    def toggle_c(self):
+        if self.c_open:
+            self.cfg["asm_c_width"] = self.cpane.frame.winfo_width()
+            self.panes.forget(self.cpane.frame)
+            self.c_open = False
+        else:
+            if self.cpane is None:
+                self.cpane = CPane(self.panes, self)
+            self.panes.add(self.cpane.frame, after=self.mid, minsize=200, width=int(self.cfg.get("asm_c_width", 560)),
+                           stretch="always")
+            self.c_open = True
+            self.request_c()
+        return "break"
+
+    def request_c(self):
+        """Decompiles the function the listing shows into the C pane, when it is open."""
+        if not self.c_open or self.game is None or not self.lines:
+            return
+        at = self.cur if self.cur is not None and self.start <= self.cur < self.end else self.start
+        self.job(lambda g: g.decomp_input(at), self.cpane.submit)
 
     def line_text(self, line):
         """One line as plain text, and the column ranges of its parts."""
@@ -906,6 +1037,8 @@ class Disassembler:
         t.see("%d.0" % min(row + 6, len(self.lines)))
         t.see("%d.0" % row)
         self.go_var.set("M+%X" % self.cur)
+        if self.c_open:
+            self.cpane.highlight(self.cur)
 
     def line_at(self, e):
         row = int(self.text.index("@%d,%d" % (e.x, e.y)).split(".")[0])
@@ -1392,6 +1525,7 @@ def main():
     d = Disassembler(root, host, code, cfg)
     d.win.protocol("WM_DELETE_WINDOW", lambda: (d.close(), root.destroy()))
     root.mainloop()
+    pcconnect_decomp.exit_process()
 
 
 if __name__ == "__main__":

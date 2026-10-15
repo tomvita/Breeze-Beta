@@ -14,6 +14,9 @@ The last ip and code are remembered in ~/.breeze_pc.json.
 - Click a button to press it; click a row to select it, double-click to select
   it and press A. Anywhere else, and on Breeze's keyboard, a click is a touch on
   the screen. The mouse wheel scrolls.
+- Connect... changes the Switch's IP and PC connect code (remembered for the
+  next start). The file manager, the disassembler and Game input are closed,
+  since they talk to the old Switch.
 - Reset restarts Breeze from whatever screen it is on (PC connect's
   "restart now"), for when a menu is stuck. It asks first.
 - Save redirect to SD / Save snapshot / Restore: Atmosphere can keep a game's
@@ -65,7 +68,9 @@ The last ip and code are remembered in ~/.breeze_pc.json.
 - Disassembler opens the game's code in a window of its own
   (pcconnect_asm.py, needs the capstone package): a whole function at a time
   with calls, branches and data addresses worked out, the function list, the
-  callers of a function, and the last code watch's result.
+  callers of a function, and the last code watch's result. Decompile there
+  shows the function as C beside the listing (pcconnect_decomp.py, made by
+  Ghidra; the first time it offers to download and set Ghidra up).
 - Files... opens a two-panel file manager: the Switch on the left (the game's
   directory, the game's own files, its save on the SD card, the album, the SD
   card), this PC on the right, where a list offers a folder for the game by
@@ -75,6 +80,10 @@ The last ip and code are remembered in ~/.breeze_pc.json.
 The game's folder on this PC is the one the file manager uses: named after
 the game, under the base folder picked there ("Breeze games" in the home
 folder until one is picked).
+
+Starting the app again while it is running brings the running window to the
+front instead of opening a second one. Tick "Multiple instances" to allow more
+than one (remembered for the next start).
 
 One connection is used for everything but the file manager and Game input,
 which each open one of their own while they are in use. PC connect takes three
@@ -86,6 +95,7 @@ import json
 import math
 import os
 import queue
+import socket
 import sys
 import threading
 import time
@@ -102,6 +112,39 @@ from pcconnect_text import TextView, plain  # noqa: E402
 
 CONFIG = os.path.join(os.path.expanduser("~"), ".breeze_pc.json")
 SCREEN_W, SCREEN_H = 1280, 720
+
+# One instance at a time unless "Multiple instances" is ticked: the first one listens
+# here, and a second start asks it to come to the front, then exits.
+INSTANCE_PORT = 6809
+INSTANCE_HELLO = b"BREEZEPC raise\n"
+
+
+def claim_instance():
+    """The listening socket if no other instance has it, else None."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+    try:
+        s.bind(("127.0.0.1", INSTANCE_PORT))
+        s.listen(4)
+        return s
+    except OSError:
+        s.close()
+        return None
+
+
+def raise_running():
+    """Ask the running instance to come to the front; True if it answered."""
+    try:
+        ctypes.windll.user32.AllowSetForegroundWindow(-1)  # ASFW_ANY: let it take the foreground
+    except (AttributeError, OSError):
+        pass
+    try:
+        with socket.create_connection(("127.0.0.1", INSTANCE_PORT), timeout=2) as s:
+            s.sendall(INSTANCE_HELLO)
+            return s.recv(16).startswith(b"OK")
+    except OSError:
+        return False
 
 # Tk keysym -> Switch button.
 KEYS = {
@@ -197,12 +240,21 @@ class Link(threading.Thread):
         self.picture = True          # the text view turns the pictures off: they take most of the time
         self.stop = False
         self.recorder = None
+        self.retarget_to = None      # (host, code) to switch to
 
     def send(self, line):
         self.jobs.put(line)
 
+    def retarget(self, host, code):
+        """Drop the connection and connect to another Switch (or with another code)."""
+        self.retarget_to = (host, code)
+
     def run(self):
         while not self.stop:
+            if self.retarget_to is not None:
+                (self.host, self.code), self.retarget_to = self.retarget_to, None
+                self.out.put(("status", "connecting to %s..." % self.host))
+            b = None
             try:
                 b = Breeze(self.host, self.code, timeout=10)
                 self.out.put(("status", "connected: " + b.banner))
@@ -210,7 +262,13 @@ class Link(threading.Thread):
                 self.loop(b)
             except Exception as e:  # noqa: BLE001 - shown, then retried
                 self.out.put(("status", "disconnected: %s (retrying)" % e))
-                time.sleep(3)
+                for _ in range(30):
+                    if self.stop or self.retarget_to is not None:
+                        break
+                    time.sleep(0.1)
+            finally:
+                if b is not None:
+                    b.close()
 
     def drain_events(self, b):
         for e in b.events:
@@ -223,7 +281,7 @@ class Link(threading.Thread):
 
     def loop(self, b):
         next_capture = 0.0
-        while not self.stop:
+        while not self.stop and self.retarget_to is None:
             try:
                 line = self.jobs.get(timeout=0.02)
             except queue.Empty:
@@ -470,6 +528,7 @@ class App:
         tk.Button(bar, text="Show", command=lambda: self.link.send("show")).pack(side="left")
         tk.Button(bar, text="Hide", command=lambda: self.link.send("hide")).pack(side="left")
         tk.Button(bar, text="Reset", command=self.reset).pack(side="left")
+        tk.Button(bar, text="Connect...", command=self.on_connect).pack(side="left")
         tk.Label(bar, text=" Keys:").pack(side="left")
         self.chord = tk.Entry(bar, width=14)
         self.chord.pack(side="left")
@@ -478,6 +537,9 @@ class App:
         self.fps_var = tk.StringVar(value="6")
         fps = tk.Spinbox(bar, from_=1, to=15, width=3, textvariable=self.fps_var, command=self.set_fps)
         fps.pack(side="left")
+        self.multi_var = tk.BooleanVar(value=bool(self.cfg.get("multi_instance", False)))
+        tk.Checkbutton(bar, text="Multiple instances", variable=self.multi_var,
+                       command=self.on_multi_instance).pack(side="left")
         self.info = tk.Label(bar, text="", anchor="w")
         self.info.pack(side="left", fill="x", expand=True)
 
@@ -999,6 +1061,89 @@ class App:
             return
         self.files = FileManager(self.root, self.cfg["host"], self.cfg["code"], self.cfg, self.save_cfg)
 
+    def on_connect(self):
+        win = tk.Toplevel(self.root)
+        win.title("Connect")
+        win.transient(self.root)
+        win.resizable(False, False)
+        tk.Label(win, text="Switch IP (Settings > PC connect):").grid(row=0, column=0, sticky="w", padx=8, pady=(8, 2))
+        ip = tk.Entry(win, width=24)
+        ip.insert(0, self.cfg["host"])
+        ip.grid(row=0, column=1, padx=8, pady=(8, 2))
+        tk.Label(win, text="PC connect code:").grid(row=1, column=0, sticky="w", padx=8, pady=2)
+        code = tk.Entry(win, width=24)
+        code.insert(0, self.cfg["code"])
+        code.grid(row=1, column=1, padx=8, pady=2)
+
+        def ok(_e=None):
+            host, c = ip.get().strip(), code.get().strip()
+            if not host or not c:
+                return
+            win.destroy()
+            self.connect_to(host, c)
+
+        btns = tk.Frame(win)
+        btns.grid(row=2, column=0, columnspan=2, pady=8)
+        tk.Button(btns, text="Connect", width=10, command=ok).pack(side="left", padx=4)
+        tk.Button(btns, text="Cancel", width=10, command=win.destroy).pack(side="left", padx=4)
+        win.bind("<Return>", ok)
+        win.bind("<Escape>", lambda e: win.destroy())
+        ip.focus_set()
+        ip.select_range(0, "end")
+        win.grab_set()
+
+    def connect_to(self, host, code):
+        if (host, code) == (self.cfg["host"], self.cfg["code"]):
+            return
+        # The windows with connections of their own are talking to the old Switch.
+        if self.files is not None and self.files.win.winfo_exists():
+            self.files.close()
+        if self.asm is not None and self.asm.alive():
+            self.asm.close()
+        if self.game_var.get():
+            self.game_var.set(False)
+            self.on_game_input()
+        self.cfg.update(host=host, code=code)
+        self.save_cfg()
+        self.root.title("Breeze PC - %s" % host)
+        self.state = {}
+        self.link.retarget(host, code)
+
+    def on_multi_instance(self):
+        self.cfg["multi_instance"] = bool(self.multi_var.get())
+        self.save_cfg()
+
+    def serve_instance(self, sock):
+        """Answer later starts of the app: they ask this window to come to the front."""
+        def run():
+            while True:
+                try:
+                    c, _ = sock.accept()
+                except OSError:
+                    return
+                try:
+                    c.settimeout(2)
+                    if c.recv(64) == INSTANCE_HELLO:
+                        self.out.put(("raise",))
+                        c.sendall(b"OK\n")
+                except OSError:
+                    pass
+                finally:
+                    c.close()
+        threading.Thread(target=run, daemon=True).start()
+
+    def bring_to_front(self):
+        r = self.root
+        r.deiconify()
+        r.lift()
+        r.attributes("-topmost", True)
+        r.after(300, lambda: r.attributes("-topmost", False))
+        try:
+            ctypes.windll.user32.SetForegroundWindow(ctypes.windll.user32.GetParent(r.winfo_id()))
+        except (AttributeError, OSError):
+            pass
+        r.focus_force()
+
     def save_cfg(self):
         try:
             with open(CONFIG, "w") as f:
@@ -1185,6 +1330,8 @@ class App:
                 item = self.out.get_nowait()
                 if item[0] == "frame":
                     latest_frame = item[1]
+                elif item[0] == "raise":
+                    self.bring_to_front()
                 elif item[0] == "state":
                     self.apply_state(item[1], item[2])
                 elif item[0] == "reply" and item[1].split()[0] == "rows":
@@ -1228,6 +1375,9 @@ def main():
             cfg = json.load(f)
     except (OSError, ValueError):
         pass
+    instance = claim_instance()
+    if instance is None and not cfg.get("multi_instance", False) and raise_running():
+        return
     host = sys.argv[1] if len(sys.argv) > 1 else cfg.get("host")
     code = sys.argv[2] if len(sys.argv) > 2 else cfg.get("code")
     root = tk.Tk()
@@ -1240,8 +1390,13 @@ def main():
     cfg.update(host=host, code=code)
     with open(CONFIG, "w") as f:
         json.dump(cfg, f)
-    App(root, host, code, cfg)
+    app = App(root, host, code, cfg)
+    if instance is not None:
+        app.serve_instance(instance)
     root.mainloop()
+    decomp = sys.modules.get("pcconnect_decomp")
+    if decomp is not None:
+        decomp.exit_process()   # Ghidra's JVM would keep the process alive
 
 
 if __name__ == "__main__":

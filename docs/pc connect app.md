@@ -1,6 +1,6 @@
 # Breeze PC App Guide
 
-The Breeze PC app shows Breeze's screen in a window on your PC and lets you drive it with the keyboard and mouse over Wi-Fi. It also lets you play the game with the PC's keyboard or a controller plugged into the PC, takes snapshots of a game's save, stops and starts the game, and copies files between the Switch and the PC. From beta125.00 it can show Breeze's screen as text, disassemble the game's code and debug it.
+The Breeze PC app shows Breeze's screen in a window on your PC and lets you drive it with the keyboard and mouse over Wi-Fi. It also lets you play the game with the PC's keyboard or a controller plugged into the PC, takes snapshots of a game's save, stops and starts the game, and copies files between the Switch and the PC. From beta125.00 it can show Breeze's screen as text, disassemble the game's code and debug it; from beta125.03 it can show a function as C, with Ghidra's decompiler.
 
 ![The Breeze PC app showing Breeze's main menu over a game](./images/pcapp_02_main_window.png)
 
@@ -19,7 +19,7 @@ What you can do from the PC:
 - **Stop and start the game.**
 - **Copy files** both ways in a two-panel file manager: cheats, the game's own files, its save, the album, the whole SD card.
 - **Read Breeze as text** in the text view: hundreds of rows at once, every action as a button, search, copy and save.
-- **Read the game's code** in the disassembler, a whole function at a time.
+- **Read the game's code** in the disassembler, a whole function at a time, and as C beside it.
 - **Debug the game**: breakpoints, stepping, registers, stack and memory.
 
 PC connect itself never attaches to the game as a debugger, so the game keeps running while the app is connected. Only a breakpoint you set in the debugger stops it.
@@ -34,7 +34,8 @@ The app answers only while Breeze is running. With the SwitchU HOME daemon, Bree
 - The Switch and the PC on the same network.
 - **Python 3** on the PC, with Tk. The Windows installer from python.org includes Tk; on Linux install `python3-tk`.
 - The **Pillow** package. For the disassembler and the debugger, the **capstone** package as well.
-- The app's files in one folder: `pcconnect_app.py`, `pcconnect_files.py`, `pcconnect_album.py`, `pcconnect_text.py`, `pcconnect_asm.py` and `pcconnect.py`. (`breeze_unity.py`, which comes in the same zip, is for scripts and is not needed by the app; see [PC Connect](pcconnect.md).) They are in the root of this repository, and attached to the Breeze release as `pc_app.zip`. `pcconnect_app.bat`, beside them, is optional: on Windows it starts the app with a double click.
+- For the C view only: Ghidra, a Java 21 JDK and the **pyghidra** package. On Windows the app downloads and sets these up itself the first time (see [Decompile](#decompile)).
+- The app's files in one folder: `pcconnect_app.py`, `pcconnect_files.py`, `pcconnect_album.py`, `pcconnect_text.py`, `pcconnect_asm.py`, `pcconnect_decomp.py` and `pcconnect.py`. (`breeze_unity.py`, which comes in the same zip, is for scripts and is not needed by the app; see [PC Connect](pcconnect.md).) They are in the root of this repository, and attached to the Breeze release as `pc_app.zip`. `pcconnect_app.bat`, beside them, is optional: on Windows it starts the app with a double click.
 
 ### 1. Install Pillow
 
@@ -89,7 +90,7 @@ From top to bottom:
 | Part | What it is |
 |---|---|
 | Screen | Breeze's screen. It refreshes only while the app window has the focus. |
-| First row | **Show**, **Hide**, **Reset**, the **Keys** box, the **fps** setting and the status text. |
+| First row | **Show**, **Hide**, **Reset**, **Connect...**, the **Keys** box, the **fps** setting, **Multiple instances** and the status text. |
 | Second row | **Save redirect to SD**, **Save snapshot**, **Restore...**, **Stop game**, **Start game**, **Files...**, **Text view**, **Disassembler** and the save status. |
 | Third row | **Game input**, **Player**, **A/B by label**, **HOME**, **Screenshot**, **Album**, **Record** and the game input status. |
 | Text box | Appears only while Breeze's keyboard is open. |
@@ -105,6 +106,10 @@ The status text in the first row reads, for example, `normal | Main | 5.2 fps |`
 **fps** sets how often the screen is asked for, from 1 to 15 (default 6). Each picture is a JPEG of about 200 KB, and the Switch delivers about 7 a second at most.
 
 The window can be resized; the screen keeps its 16:9 shape.
+
+**Connect...** switches to another address or code without restarting the app, for another Switch or after the code changed. The file manager, the disassembler and Game input close first, since each holds a connection of its own. The new address and code are remembered.
+
+Only one copy of the app runs at a time: starting it again brings the window already open to the front. Tick **Multiple instances** to allow more, for example one window per Switch. The setting is remembered.
 
 ## Driving Breeze
 
@@ -447,6 +452,28 @@ The middle of the window is one whole function, however long. Each line has the 
 
 **Find** searches the function shown. **Copy** takes the selection or the whole function. **Save...** writes it into `asm` inside the game's folder on the PC. **Reload** reads the code again, for after a cheat or a hook has changed it.
 
+### Decompile
+
+**Decompile** (F6) opens a pane beside the listing with the function as C, made by Ghidra's decompiler on your PC. Press F6 again to close it.
+
+The first time, the pane says what is missing and offers:
+
+- **Download and set up** (Windows): downloads Ghidra and a Java 21 JDK, about 740 MB, into `%LOCALAPPDATA%\BreezePC`, and installs the pyghidra package from Ghidra's own copy. About a minute on a fast connection.
+- **Ghidra folder...** and **JDK folder...**, if you have them installed already. On macOS and Linux, install Ghidra, a JDK 21 and `pip install pyghidra`, then pick the folders.
+
+The first C after starting the app waits for Ghidra to start: about 20 seconds the very first time, 3 seconds after that. Then a function takes well under a second, and one already seen is shown at once.
+
+The C follows the listing:
+
+- The C lines made from the instruction under the cursor are marked.
+- **Click** a C line to move the listing cursor to its instructions.
+- **Double-click** a call to open that function, in both panes. **Back** returns.
+- Calls show Breeze's names for the functions (the same as in the listing), or `func_<offset>`. Globals show as `DAT_M<offset>`, so `DAT_MC51C5B6` is `M+C51C5B6`.
+
+**Copy** and **Save...** above the pane take the C; Save writes a `.c` file into `asm` inside the game's folder on the PC. Drag the bar between the panes to resize it. The pane is open again next time if it was open when you closed the window.
+
+Ghidra is given only the function's own code, the strings it uses and the names of what it calls, nothing else from the game. So parameter types are often guesses (`long`, `undefined8`), and a structure shows as a pointer plus an offset: `*(long *)(param_1 + 0x20)`. Lines starting with `/* WARNING` are Ghidra's own notes. `Subroutine does not return` on a call at the end is normal: it is the game's error throw.
+
 ## The debugger
 
 The disassembler window is also a debugger. It uses the breakpoints of Breeze's Break and Trace, so a break set on the PC and one set on the Switch are the same, and when the game stops Breeze opens its own Break and Trace view too.
@@ -495,6 +522,8 @@ Double-click a line whose value is an address to follow it: into the listing for
 | `disconnected: ... wrong code ...` | The code does not match the one Settings > PC connect shows. Start the app with the right address and code on the command line. |
 | The connection closes at once | Three programs are already connected. The main window, the file manager, Game input and the disassembler each use one: close one of them. |
 | **Disassembler** says it needs capstone | Run `python -m pip install capstone`. |
+| The C pane says Ghidra, the JDK or pyghidra is missing | Press **Download and set up**, or pick the folders of the copies you have. |
+| Starting the app again does nothing but bring a window forward | That is the app already running. Tick **Multiple instances** to run more than one. |
 | The text view's buttons are refused | Breeze is hidden behind the game. Press **Show** in the main window. |
 | The game does not move | It is stopped at a breakpoint. Press **Continue** or **Stop** in the disassembler window. |
 | The screen stops refreshing | The app window lost the focus. Click it. |

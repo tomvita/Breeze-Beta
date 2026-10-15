@@ -1,5 +1,13 @@
 # Changelog
 
+## [Beta 125.03] - 2026-10-15
+
+- Same gen2 fork as 124.07 (v0.20).
+- **PC app: Decompile** (F6 in the disassembler) shows the function as C beside the listing, made by Ghidra's decompiler on the PC. The first time it offers to download and set up Ghidra and Java (Windows, about 740 MB). The C follows the listing; a double-click on a call opens it. New app file: `pcconnect_decomp.py`. See the [PC App Guide](docs/pc%20connect%20app.md#decompile).
+- **PC app disassembler on Unreal games:** function names (there were none), and every call target opens as its own function.
+- **Unreal:** C++ virtual functions are named from class vtables as `Class::vf_<slot>` in code watch, method watch and the disassembler. Method watch reads Unreal names.
+- **PC app:** Connect... changes the address and code without a restart; starting the app again brings the open window forward (tick Multiple instances for more).
+
 ## [Beta 125.02] - 2026-10-14
 
 - Same gen2 fork as 124.07 (v0.20).
