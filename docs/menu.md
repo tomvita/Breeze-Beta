@@ -160,18 +160,33 @@ This menu provides more advanced cheating functionalities.
 | Load from DB | Right Stick Right | Load a cheat from the database. |
 | More | ZL + ZR + Plus | Opens the Extended Cheat Menu. |
 | key hint to file | Right Stick Click + ZL | Save conditional key combo in cheat name. |
-| Assemble all ASM | L + ZL | Clear all ASM in memory and re-assemble them. |
+| Assemble all ASM | L + ZL | Clear all ASM in memory and re-assemble them from their scripts, packing the caves together. Caves of cheats without a script are listed when they can be moved safely; press again within a minute to move them too. |
 | Type0 map toggle | ZR + Plus | Map type 0 address to cheats. |
 | Expand Screen | R + ZR | Toggle the left panel width between half and full. |
 | Clear clipboard | ZR + Right Stick Left | Clears the clipboard, which is useful for duplicating cheats. |
 | Watch ASM | B + ZR | Apply and watch line 1 of the selected cheat. |
 | Module loaded cheats only | Y + ZL | Toggle to only show cheats for the currently loaded module. |
 | Get Latest Cheat from TomVita | ZR + Right Stick Down | Download the latest cheats from TomVita's repository. |
-| Relocate Code Cave | R + ZL | Relocate an ASM cheat's code cave when its current allocation is unsuitable or conflicts with other code. Retest all branches and return paths after relocation. |
+| Make cheat | R + ZL | Make cheats from the recipes in the game folder's `make_cheat.ini` and their table. See [Make Cheat Recipes](make%20cheat%20recipes.md). |
 | Edit Note | ZL + Plus | Create or edit the note associated with the selected cheat. Record important conditions and warnings so they remain available with the cheat workflow. |
 | Show Notes | ZL + Minus | Display saved notes for the selected cheat. Notes can record requirements, conflicts, controls, provenance, or testing results. |
 | AOB 2 cheat | B + ZL | Select one .aob file and create a cheat containing one original-instruction write line for every matching occurrence. Review all lines; target_index identifies the original hook's position. |
 | Reset CheatVM | Left Stick Click + ZL | Closes and reopens the cheat process and reloads the cheats from file. Frozen addresses and cheat edits not written to file are lost, so it asks twice. |
+
+## Make cheat
+
+Opened by **Make cheat** (`R + ZL`) on the Cheats screen. Lists the rows of the recipe's table. See [Make Cheat Recipes](make%20cheat%20recipes.md).
+
+| Button Name | Default Shortcut | Action |
+|---|---|---|
+| Make cheat | X | Make a cheat from the row under the cursor: asks the recipe's values and the key, then adds the cheat switched on and saves the cheat file. |
+| Search | Y | Show only rows containing every typed word (empty shows all). |
+| Filter > / Filter < | R / L | Step through the values of the recipe's filter column, or all. |
+| Mark | - | Mark or unmark the row. |
+| Make marked | ZL + X | Make one cheat for each marked row. |
+| Clear marks | ZL + - | Unmark every row. |
+| Recipe | + | Next recipe in `make_cheat.ini`. |
+| Back | B | Return to the Cheats screen. |
 
 ## Extended Cheat Menu (More Menu)
 

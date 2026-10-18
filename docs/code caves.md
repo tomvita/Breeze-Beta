@@ -53,18 +53,20 @@ Where free space starts can only be measured in a game that no cheat has written
 | Expand screen | R + ZR | Use the full width for the list. |
 | Back | B | Return to Game Information. |
 
-A cave whose cheat has no script is marked `NO SOURCE, cannot be moved`. Breeze never removes it; everything else is packed around it.
+A cave whose cheat has no script is marked `NO SOURCE, cannot be moved`. Breeze never removes it. Assemble all ASM can still move it as code words when that is safe (below); otherwise everything else is packed around it.
 
 ## Assemble all ASM
 
 Assembling cheats one at a time cannot pack their caves, because each one only knows about itself. **Assemble all ASM** on the Cheats screen (`L + ZL`) rebuilds every cheat that has a script in one pass and packs the caves together.
 
 - A cheat is included once it has a script: saved from Asm Composer, or assembled with Add ASM from its own `.txt`. The list is kept in `<build id>.ini` in the game folder, one line of `<cheat name>=<script file>`.
-- A cave cheat with no script is left alone and packed around.
+- A cave cheat with no script is moved as it is when Breeze can prove the move is safe: it follows the cave's code from the hook and fixes every branch, `adr`, `adrp` and literal load so each still reaches what it did. The first press lists these cheats; press Assemble all ASM again within a minute to move them as well. A cave it cannot prove safe (a target out of range, another cheat writing into it) stays where it is and is packed around.
 - A cheat hooked inside another cheat's cave moves with its owner.
 - The original instructions are put back before the rebuild, so no branch points at a cave that has moved.
+- A long cave is written two instructions per line, so caves up to about 125 instructions stay one cheat. Parts of an older split (`<name> (n/m)`) are removed when the cheat is rebuilt.
+- Assemble all ASM can be run again and again: each run packs from the same start.
 
-**Relocate Code Cave** on the Cheats screen (`R + ZL`) moves the cave of the cheat at the cursor.
+Relocate Code Cave has been removed (beta125.06): Assemble all ASM moves caves now.
 
 ## How an ASM cheat is run
 

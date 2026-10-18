@@ -1,5 +1,26 @@
 # Changelog
 
+## [Beta 125.06] - 2026-10-18
+
+- Same gen2 fork as 124.07 (v0.20).
+- **Make cheat** (Cheats menu, `R + ZL`): makes cheats from a recipe and a table that a cheat maker puts in the game's folder (`make_cheat.ini` and a `.tsv`). Search, filter, mark rows, and make one cheat or one per marked row. A helper cheat the recipe needs is installed from its script if missing. First recipe: give any item in Harvest Moon The Winds of Anthos. See [Make Cheat Recipes](docs/make%20cheat%20recipes.md).
+- **Fixed: Assemble all ASM** could crash the game (every rebuilt cave got the previous cheat's original instruction), and each run pushed the caves further up. It is now safe to run again and again.
+- **Fewer split ASM cheats:** caves up to about 125 instructions stay one cheat.
+- **Assemble all ASM moves caves that have no script**, when the move is safe: it lists them, and moves them if you press it again within a minute. **Relocate Code Cave is removed**; its key `R + ZL` is now Make cheat.
+- **Unity field view:** a game's own structs inside an object (a date, a time) open into their fields, once the field map is built. Const fields are no longer shown.
+
+## [Beta 125.05] - 2026-10-16
+
+- gen2 fork v0.20 rebuilt on Atmosphere 1.12.1; reinstalling it is optional.
+- **Games with code in a module** (Tales of Eternia Remastered): ASM Explorer names the module's functions and Function Up / Down steps through them; Code watch lists and watches the module's functions; watch rows name callers in the module. Game information's engine analysis reports each module on its own.
+- Breeze.nro is about 700 KB smaller, with searches as fast as before.
+
+## [Beta 125.04] - 2026-10-15
+
+- Same gen2 fork as 124.07 (v0.20).
+- **Games with code in a module** (Tales of Eternia Remastered): the automatic master code takes R1 from the system loader's records, so it works every time; the cheat makers that use R1 and code caves were fixed for such games.
+- **Fixed:** cheat lines like `580F3100` (type 2 and 3 with a second register) were decoded with the wrong register in the cheat text, the trace and Jump to target.
+
 ## [Beta 125.03] - 2026-10-15
 
 - Same gen2 fork as 124.07 (v0.20).

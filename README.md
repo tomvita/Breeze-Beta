@@ -51,6 +51,7 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[AOB Guide](docs/aob.md)**: Create version-3 signatures with Make AOB or Make AOB M and rebuild hooks after a game update.
 -   **[Lua Tools](docs/lua.md)**: Browse and cheat games that keep their data in a Lua state.
 -   **[Rebase](docs/rebase.md)**: Carry cheats to a new version of the same game.
+-   **[Make Cheat Recipes](docs/make%20cheat%20recipes.md)**: Make cheats from a recipe and a table in the game's folder (give any item, and so on), and how to write one.
 -   **[Code Caves and ASM Cheats](docs/code%20caves.md)**: How caves are placed, the Code Cave Map, Assemble all ASM, and the three stages of Toggle Cheat.
 -   **[Beta 124.00 Release Note](release%20note%20124.00.md)**: Game files, Unity without `dump.cs`, save snapshots, and the PC app's file manager. See also the shorter **[user note](release%20note%20124.00%20user%20note.md)**.
 -   **[Basic Cheat Making Tutorial](basic_cheat_making_tutorial.md)**: A step-by-step guide to creating your first cheat.
