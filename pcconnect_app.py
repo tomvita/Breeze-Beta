@@ -236,7 +236,7 @@ class Link(threading.Thread):
         self.jobs = queue.Queue()
         self.capture_on = threading.Event()
         self.capture_on.set()
-        self.fps = 6.0
+        self.fps = 15.0
         self.picture = True          # the text view turns the pictures off: they take most of the time
         self.stop = False
         self.recorder = None
@@ -281,9 +281,18 @@ class Link(threading.Thread):
 
     def loop(self, b):
         next_capture = 0.0
+        # "capture ahead" sends the frame Breeze encoded while the last one was
+        # on its way, so frames come about twice as fast; but that frame can be
+        # from before a press. The first frame after a command, and every frame
+        # at a rate plain capture keeps up with, is a fresh one.
+        fresh = True
         while not self.stop and self.retarget_to is None:
+            # Wait for a command only until the next frame is due.
+            wait = 0.02
+            if self.picture and self.capture_on.is_set():
+                wait = min(wait, max(0.0, next_capture - time.time()))
             try:
-                line = self.jobs.get(timeout=0.02)
+                line = self.jobs.get(timeout=wait) if wait > 0 else self.jobs.get_nowait()
             except queue.Empty:
                 line = None
             if line is not None and line.startswith("#rows "):
@@ -299,6 +308,7 @@ class Link(threading.Thread):
                 self.out.put(("reply", line, reply))
                 self.drain_events(b)
                 next_capture = 0.0
+                fresh = True
                 continue
             if line is not None:
                 rec = self.recorder
@@ -316,6 +326,7 @@ class Link(threading.Thread):
                     self.out.put(("state", json.loads(reply[4:]), "reply"))
                 self.drain_events(b)
                 next_capture = 0.0  # show the result of the press soon
+                fresh = True
                 continue
             if not self.picture:
                 # Text only: nothing to fetch, just keep reading events.
@@ -323,7 +334,8 @@ class Link(threading.Thread):
                 time.sleep(0.03)
             elif self.capture_on.is_set() and time.time() >= next_capture:
                 next_capture = time.time() + 1.0 / max(self.fps, 0.5)
-                reply = b.cmd("capture")
+                reply = b.cmd("capture" if fresh or self.fps < 8 else "capture ahead")
+                fresh = False
                 if isinstance(reply, tuple):
                     self.out.put(("frame", reply[1]))
                     rec = self.recorder
@@ -534,8 +546,8 @@ class App:
         self.chord.pack(side="left")
         self.chord.bind("<Return>", self.send_chord)
         tk.Label(bar, text=" fps:").pack(side="left")
-        self.fps_var = tk.StringVar(value="6")
-        fps = tk.Spinbox(bar, from_=1, to=15, width=3, textvariable=self.fps_var, command=self.set_fps)
+        self.fps_var = tk.StringVar(value="15")
+        fps = tk.Spinbox(bar, from_=1, to=30, width=3, textvariable=self.fps_var, command=self.set_fps)
         fps.pack(side="left")
         self.multi_var = tk.BooleanVar(value=bool(self.cfg.get("multi_instance", False)))
         tk.Checkbutton(bar, text="Multiple instances", variable=self.multi_var,

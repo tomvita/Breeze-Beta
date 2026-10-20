@@ -597,6 +597,7 @@ its file manager, and a script.
 | `capture` | a JPEG of the screen (caps:sc), including Breeze's overlay when shown |
 | `capture game` | the same from the screenshot layer stack |
 | `capture <n>` | the same from vi layer stack n. **6** (`ApplicationForDebug`) is the game alone, even with Breeze full screen in front; 0, 1, 2 and 4 include Breeze; 3 is refused |
+| `capture ahead [game \| <n>]` | the same JPEG, encoded one frame ahead: the reply is the frame Breeze encoded while the last one was being sent, and it starts on the next at once, so asking again as soon as a frame arrives gives max(encode, transfer) per frame instead of their sum. The header adds `age=` (ms since that frame was taken). A frame older than 250 ms is dropped and one is taken on the spot. The frame can be from before a press: ask with plain `capture` when it must show what a press did |
 | `capture raw <n>` | 1280x720 RGBA from stack n, saved as `capture.raw`. Refused on this console (0x7FECE) on every stack |
 | `timeprobe` | the six steps libnx takes to open the time service, done in a fresh session, each with its result, plus `uptime_s` and the game |
 | `timecount [time:u\|time:s\|time:a] [max]` | how many more sessions, clocks of each type and time zones the time service will hand out right now (taken until refused, then released). Clock objects are one small pool shared by every program; see `timeprobe_log.py` |
@@ -616,6 +617,19 @@ No Man's Sky, overlay mode, game in front:
 - `state` round trip: 20-50 ms, also with the overlay hidden.
 - `capture`: 49-90 ms for a 200-310 KB JPEG. Hidden, it is the live game;
   shown, it is the overlay over the game.
+
+Deep Rock Galactic: Survivor, frames back to back for 6-10 s (Oct 20 2026).
+The encode is `ms=`; the rest of each frame is the Wi-Fi transfer (a 300 KB
+`fsget` takes about as long as a capture: 2.7-4 MB/s):
+
+| | `capture` | `capture ahead` | encode |
+|---|---|---|---|
+| Breeze full screen, default stack | 10.4 fps | 18.2 fps | ~45 ms |
+| Breeze full screen, stack 6 | 8.2 fps | 13.2 fps | ~45 ms |
+| game in front (hidden), `events on` | 5.5 fps | 9.1 fps | ~95 ms |
+
+With `capture ahead` the encode is the limit; a faster link (USB) would add
+little.
 
 The Walking Dead: Streets of Survival (Unity), Breeze hidden over the game
 (Oct 11 2026):
@@ -724,7 +738,10 @@ The ip and code are remembered in `~/.breeze_pc.json`, so later it is just
 `python pcconnect_app.py`.
 
 - **Screen:** PC connect's `capture`, refreshed while the window has focus
-  (1-15 fps, default 6). With the overlay hidden it is the game.
+  (1-30 fps, default 15). With the overlay hidden it is the game. From 8 fps up
+  it uses `capture ahead`, except for the first frame after a command, so a
+  press still shows at once; the encode limits it to about 9 fps with the game
+  in front and 18 with Breeze's menus.
 - **Breeze's keyboard:** when Breeze opens its keyboard, a text box opens at
   the bottom of the window with the keyboard's header and current text. Type,
   then Enter sends it (`text`); Esc cancels. Watch the header: a number pad
@@ -953,7 +970,8 @@ every command but `ping` and `help` until `auth <code>`. Change `code=` in
   and starts a thread per client (two at most). Commands that touch menus go
   into a queue that `pcconnect::Poll()` empties on the UI thread, one per call.
   Memory commands run on the client's thread. `cheats off`/`restore` and
-  `capture` are serialised between the clients.
+  `capture` are serialised between the clients. `capture ahead` encodes on a
+  worker thread of its own, started at its first use.
 - `cheats add`/`remove`/`save` end in `air::pc_cheats_changed()` and
   `air::pc_write_cheat_file()` at the end of `action.cpp`.
 - Row rectangles: `AirMenu::Draw` records where it drew the rows

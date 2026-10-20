@@ -1,5 +1,16 @@
 # Changelog
 
+## [Beta 126.00] - 2026-10-20
+
+- Same gen2 fork as 124.07 (v0.20). Install the SwitchU daemon **1.2.0n** for the Nintendo applets below.
+- **Games** (Main, `ZR + X`): your installed games with icons, last played first, so Breeze can be the HOME screen on its own (SwitchU's Breeze first). A launches a game, or goes back to the running one; launching another while one runs asks before closing it. X closes the running game after a warning. Minus shows details, ZL + Y searches, R switches grid / list, L toggles airplane mode (Wi-Fi), Plus opens Nintendo's applets (Controllers, Change Button Mapping, Album, Mii Maker, Internet connection, Add user).
+- With Jump to Last Menu on and no game running, Breeze opens on Games.
+- **Fixed:** a game started from homebrew showed an old picture of another game while it loaded.
+- **Fixed:** a PC that went to sleep while connected over PC connect could hang the Switch later.
+- **Fixed:** Breeze could crash at start while the PC app was showing its screen.
+- **PC app:** the screen is about twice as fast (`capture ahead`): up to 18 fps on Breeze's menus, 9 with a game in front. The fps box goes to 30.
+- **Field view:** Make cheat on an Extract row makes the cheat for the extracted value; a cheat made from another screen shows on the Cheats screen at once, also with folders.
+
 ## [Beta 125.06] - 2026-10-18
 
 - Same gen2 fork as 124.07 (v0.20).
