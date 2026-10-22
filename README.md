@@ -53,6 +53,7 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[Rebase](docs/rebase.md)**: Carry cheats to a new version of the same game.
 -   **[Make Cheat Recipes](docs/make%20cheat%20recipes.md)**: Make cheats from a recipe and a table in the game's folder (give any item, and so on), and how to write one.
 -   **[Code Caves and ASM Cheats](docs/code%20caves.md)**: How caves are placed, the Code Cave Map, Assemble all ASM, and the three stages of Toggle Cheat.
+-   **[Cheat Source Tutorial](docs/cheat%20source%20tutorial.md)**: Keep a game's ASM and pointer cheats as source in one file, so a game update needs only new addresses: the Cheat composer, mods, the shelf and the PC editor, step by step with screenshots. Reference: **[Cheat Source](docs/cheat%20source.md)**.
 -   **[Beta 124.00 Release Note](release%20note%20124.00.md)**: Game files, Unity without `dump.cs`, save snapshots, and the PC app's file manager. See also the shorter **[user note](release%20note%20124.00%20user%20note.md)**.
 -   **[Basic Cheat Making Tutorial](basic_cheat_making_tutorial.md)**: A step-by-step guide to creating your first cheat.
 -   **[Advance Cheat Making Tutorial](docs/advance_cheat_making_tutorial.md)**: A step-by-step guide to creating advanced ASM cheat.
