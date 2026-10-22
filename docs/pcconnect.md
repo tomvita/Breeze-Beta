@@ -568,6 +568,26 @@ the game has saved once there is nothing to snapshot, and a game closed before
 that comes up with an empty save. The save inside the console is never changed,
 and turning redirect off returns the game to it.
 
+### The cheat source file
+
+For the PC app's Cheat source editor (pcconnect_source.py): the running game's
+`<TitleID>.ini` (see `cheat_source.md`). The file itself is read and written
+with `fsget` / `fsput` on the path `source` gives; these say what Breeze makes
+of it. They run on Breeze's UI thread; `build` and `install` wait up to 120 s.
+
+| Command | Does |
+|---|---|
+| `source` | JSON: `path`, `exists`, `build_id`, `cheats` (each with `label`, `kind` asm/codes, `chain`, `template`, `shelved` (with `was_after`, `was_in`), `fixed`, `hook`, `source`, `loaded`, and when loaded `on` and `split`, with `cave` and `hook_at` for a split one) and `mods` (`name`, `cheat`, `at`, `type`, `values`) |
+| `source check <label>` | JSON: `section` (the section the code comes from: `cheat <label>`, or `routine <name>` for a cheat with `source =`), its code `lines` as the Cheat composer shows them, and a Check ASM note per line (`notes`, "" for none) for the running build |
+| `source listing <label>` | the same `lines` with `listing`: per line `M+<addr>  <word>  <instruction>` from the cave in the game, `M+<addr>` for a line that takes no bytes, "" when the cave is not in the game or past a line whose size is unknown |
+| `source build <label>` | saves nothing; rebuilds that cheat from the file where it is (Cheat composer > Build). Refused while Breeze shows Edit Cheat or the Cheat composer. The report's lines are separated by `|` |
+| `source install` | Cheats > Install from source; report lines separated by `|` |
+| `source name <n> <label>` | JSON: what Name address on code line `n` (0 based, the `lines` of `source check`) would name: `text` (the number on the line), `value` (`M+<addr>`), `page` and `lo_line` for an adrp page and the line using its low 12 bits, and `suggest`, the name Breeze knows the address by. For a pointer cheat (`chain` true) it is the chain's base, whatever `n` is |
+| `source name <n> <label>\|<name>` | does it: the name goes in the running build's `[build]` section and into the code (or the chain). Refused while Breeze shows Edit Cheat or the Cheat composer |
+| `source mod <n> <label>` | JSON: what Make mod on line `n` would make: `type`, `reg`, `slot` (a data line's), `have` (the `[mod]` that has that slot already, "" for none), and `suggest` and `values` to start from. For a pointer cheat it is the values its `write` can take |
+| `source mod <n> <label>\|<name>\|<values>` | does it (`values` `;` between, `label = value` allowed; `name` is ignored when `have` is set), then rebuilds the cheat. A shelved cheat is saved, not built. Report lines separated by `|` |
+| `source restore <label>` / `source discard <label>` | Shelf > Restore / Discard. Refused while Breeze shows Edit Cheat or the Cheat composer |
+
 ### Files
 
 For the PC app's file manager. Paths name a device: `sdmc:/` is the SD card,

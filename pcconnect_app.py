@@ -76,6 +76,10 @@ The last ip and code are remembered in ~/.breeze_pc.json.
   card), this PC on the right, where a list offers a folder for the game by
   title name or title id under a base folder of your choice. See
   pcconnect_files.py.
+- Cheat source opens the running game's <TitleID>.ini (cheat_source.md) in an
+  editor (pcconnect_source.py): sections listed with each cheat's state in
+  Breeze, Save, and Check / Listing / Build of the cheat at the cursor done by
+  Breeze on the Switch.
 
 The game's folder on this PC is the one the file manager uses: named after
 the game, under the base folder picked there ("Breeze games" in the home
@@ -581,6 +585,8 @@ class App:
         tk.Button(sbar, text="Text view", command=self.on_text).pack(side="left")
         self.asm = None
         tk.Button(sbar, text="Disassembler", command=self.on_asm).pack(side="left")
+        self.source = None
+        tk.Button(sbar, text="Cheat source", command=self.on_source).pack(side="left")
         self.save_info = tk.Label(sbar, text="", anchor="w", fg="#555")
         self.save_info.pack(side="left", fill="x", expand=True)
 
@@ -802,6 +808,13 @@ class App:
                                  "    pip install capstone\n\n(%s)" % e, parent=self.root)
             return
         self.asm = Disassembler(self.root, self.cfg["host"], self.cfg["code"], self.cfg, self.save_cfg, self.game_dir)
+
+    def on_source(self):
+        if self.source is not None and self.source.alive():
+            self.source.win.lift()
+            return
+        from pcconnect_source import SourceEditor
+        self.source = SourceEditor(self.root, self.cfg["host"], self.cfg["code"], self.cfg, self.save_cfg)
 
     def text_open(self):
         return self.text is not None and self.text.alive()

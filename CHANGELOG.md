@@ -1,5 +1,16 @@
 # Changelog
 
+## [Beta 127.00] - 2026-10-22
+
+- Same gen2 fork as 124.07 (v0.20).
+- **Cheat source file:** one `<TitleID>.ini` per game holds the source of its ASM and pointer cheats; addresses that change with a game update are names in a section per game version. Cheats menu: Import scripts to source, Install from source (ZL+ZR+Y), Shelf. See [Cheat source](docs/cheat%20source.md).
+- **Split ASM cheats:** a cheat from the file is a guarded hook in the list; its cave code sits in a `[code cave]` folder that Breeze writes itself, with an `(off)` cheat for other cheat managers.
+- **Cheat composer** (was the ASM Composer) edits a cheat of the file in place: Name address (ZR+X), Build (ZR+B), Make mod (ZR+Down), Key (ZR+Right). Build checks that a grown cave has room and finds it a new place if not.
+- **Mods:** a value in a cheat becomes a list of cheats, one on at a time (`Move speed = 2.0`), with labels (`Set clock 6:00 AM`). Edit Cheat on a value changes the list; clearing it removes the mod.
+- **Shelf:** a cheat of the file deleted from the list is kept; Restore puts it back where it was.
+- **PC app: Cheat source** editor for the same file (Check, Listing, Build, Name address, Make mod, Shelf). New app file: `pcconnect_source.py`.
+- **Diagnostics** (Main, ZR+R): the facts for a problem report; Write to file saves `/switch/Breeze/diagnostics.txt`.
+
 ## [Beta 126.00] - 2026-10-20
 
 - Same gen2 fork as 124.07 (v0.20). Install the SwitchU daemon **1.2.0n** for the Nintendo applets below.
