@@ -534,9 +534,10 @@ Breeze uses that for save snapshots. Details are in `savesnap.hpp`.
 | `saveshot <name>` | the snapshot's picture: header line, then the JPEG |
 | `gamestop` | ends the running game at once, as if it had crashed: what it has not saved is lost. Works with Breeze behind the game |
 | `gamestart <title id>` | asks the system to start a game, the way a homebrew menu does. Refused while a game runs. The HOME program acts on it once the applet in front has closed, so Breeze exits, and comes back the way it does after any exit |
-| `gamepad` | the virtual controller: attached or not, its player slot, what it holds, and every pad the system has |
-| `gamepad player <1-8>` | attaches it and takes that slot; a pad already there takes the slot it leaves. A game for one player reads player 1 only, so with a real controller connected the virtual one (player 2) is ignored until this is sent |
-| `gamepad off` | puts the slots back as they were and removes it. Also done when PC connect stops |
+| `gamepad` | the virtual controller: attached or not, its player slot, what it holds, every pad the system has, and `borrowed` (slot and handle) while it drives a real controller |
+| `gamepad player <1-8>` | attaches it and takes that slot; a pad already there takes the slot it leaves. A game for one player reads player 1 only, so with a real controller connected the virtual one (player 2) is ignored until this is sent. When the system gives the virtual controller no slot at all, it borrows the controller in that slot instead (see below) |
+| `gamepad borrow [1-8]` | sends the virtual controller's buttons and sticks to the real controller in that slot (1 unless given). The real controller keeps working at the same time |
+| `gamepad off` | puts the slots back as they were, hands a borrowed controller back with nothing held, and removes the virtual one. Also done when PC connect stops |
 | `gamepress <keys> [ms]` | presses buttons for `ms` (80 unless given, 20 to 5000) and releases; the reply (`+OK player 2`) comes after the release and names the slot. Key names as for `press`, joined with `+`, plus `HOME` and `CAPTURE`; no stick directions |
 | `gamedown <keys>` / `gameup [keys]` | holds buttons until `gameup`; no keys = everything up |
 | `gamestick <L\|R> <x> <y>` | tilts a stick, -32767 to 32767, until set again (`0 0` = centre) |
@@ -558,6 +559,24 @@ sends its input to whatever is in front: the game while Breeze is behind it
 screen. `gamepress HOME` is a real HOME press, so it is also the way to put a
 full-screen Breeze behind the game from the PC. They run on the network
 thread and work while `state` answers busy.
+
+Sometimes the system attaches the virtual controller but gives it no player
+slot (seen with FINAL FANTASY RESONANCE running and a Pro Controller as player
+1; the same setup gave it player 2 at other times). With no slot, hid refuses
+every state written to it (202-3602), HOME included. The reply then says so in
+words: who holds player 1 and what to do (turn that controller off, or connect
+before starting the game). `gamepad player <n>` borrows the controller in slot
+`n` in that case, so the PC app keeps working without a change: its input goes
+to the borrowed controller, whose own input still gets through (tested on the
+console: B from the PC and the Pro Controller's buttons both worked). If the
+borrowed controller goes away (asleep, disconnected), borrowing ends and the
+next `gamepad player` borrows again or gets a slot.
+
+Every change to the virtual controller goes to `pcconnect.log` as `pad [up
+<seconds since boot>] ...`: attach (with every controller hid knows: slot,
+handle, type, connection, body and grip colours; Breeze's own is white with
+green grips), slot moves and changes, the system dropping it, borrowing, and
+detach. A failing state write is logged once with that table, then counted.
 
 Turning redirect on does nothing to a game that is already running: the game
 gets the SD folder the next time it opens its save, which for almost every game

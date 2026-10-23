@@ -72,7 +72,7 @@ a section or a comment, never code.
 | `place` | `fixed`: the cave always goes at its build's pin and Assemble all ASM never moves it. For caves placed by hand in a spot the planner would not choose. |
 | `shelved` | `yes`: deleted from the cheat list and kept here (see The shelf). Install from source and Make cheat's `requires` leave it alone. |
 | `part_of` | The cheat this one belongs with, such as the key cheat that sets the flag a hook's cave reads: it goes in that cheat's folder (see Units). |
-| `unit` | The name of the folder this cheat and its parts go in; the cheat's name without " hook" when not given. |
+| `unit` | The name of the folder this cheat and its parts go in; the cheat's name without " hook" when not given; `none` for no folder of its own. Kept in step with the list on every save (see Units). |
 | `was_after`, `was_in` | Written with `shelved`: the cheat it followed and the folder it was in, where Restore puts it back. |
 
 ## Pointer cheats
@@ -223,7 +223,21 @@ cheat is in the list (inside the folder it is in, if any):
 ```
 
 Install from source, Build and Assemble all ASM do this; a unit already in
-order is left alone.
+order is left alone. Cheats without parts that give the same `unit` go in one
+folder of that name too.
+
+The list is where cheats are arranged, so the file follows it: every time the
+cheat file is saved, Breeze writes the list's layout into the `unit` lines. A
+folder holding only source cheats and their parts is their unit (rename the
+folder and `unit` follows); a cheat loose in a bigger folder of your own gets
+`unit = none` when it has parts (so it is not put in a folder again) and no
+`unit` when it has none. A `part_of` cheat goes with its cheat and has no
+`unit` of its own.
+
+Editing `unit` by hand (or in the PC editor) is fine: Breeze keeps a hash of
+the file as it last left it in `<TitleID>.ini.synced`, and when the file has
+changed since, the next save applies its units to the list instead of
+writing over them. Install from source applies them at once.
 
 ## Mods
 

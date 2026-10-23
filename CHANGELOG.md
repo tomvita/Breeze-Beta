@@ -1,5 +1,14 @@
 # Changelog
 
+## [Beta 127.02] - 2026-10-23
+
+- Same gen2 fork as 124.07 (v0.20).
+- **Cheat source file and the list stay in step:** renaming a cheat in Edit Cheat renames it in the `.ini`; folders you arrange in the list become the units in the `.ini` (`unit = none` for a cheat kept loose); a hand-edited `.ini` wins over the list. See [Cheat source](docs/cheat%20source.md).
+- **Build follows a changed `hook =`:** the old site gets the game's code back and the cheat keeps its place in the list.
+- The `[code cave]` folder no longer keeps the pieces of removed cheats.
+- **PC connect:** when the virtual pad gets no player slot, the reply says why, and `gamepad borrow` (automatic from the PC app) sends its input through the real controller; `pcconnect.log` records the pad. See [PC connect](docs/pcconnect.md).
+- FINAL FANTASY RESONANCE cheats in MyNXCheats (WIP): encounter rate, move speed, teleport to the map cursor, moon jump.
+
 ## [Beta 127.01] - 2026-10-23
 
 - Same gen2 fork as 124.07 (v0.20).
