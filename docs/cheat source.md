@@ -254,6 +254,12 @@ turning one off writes the default back. When the cave is rebuilt somewhere
 else (Assemble all ASM), the values follow it. A shelved cheat's values leave
 the list with it.
 
+A value cheat is known by its name, so every mod needs a name of its own. Two
+`[mod]` sections of one name are both left alone (their value cheats stay as
+they are) and Install from source and Build say so until one is renamed. One
+name may start another (`Gil` and `Gil earned`): a value cheat belongs to the
+longest mod name its own name starts with.
+
 To add, change or take out values, Edit Cheat on any of the value cheats: the
 keyboard shows the whole list (`1.0; 2.0; 4.0`). What is written goes into the
 section's `values` and the cheats follow it: a value still in the list keeps
@@ -293,7 +299,7 @@ Cheats menu > **Shelf** lists the shelved cheats:
 | Action | What it does |
 |---|---|
 | Restore (X) | Installs it again with a new cave, off, after the cheat it followed (else at the end of its folder, else at the end of the list), and takes `shelved` off. When it cannot be built (for example no room for its cave) it stays on the shelf and the caves in the game are listed, largest first, so one can be shelved to make room. |
-| Discard (Minus, twice) | Removes its section and its pins in every build from this file for good. Names in `[build]` sections stay. |
+| Discard (Minus, twice) | Removes its section and its pins in every build from this file for good, with its mods, and the `[build]` names it used (its hook, the `{names}` in its code) that nothing else in this file or in make_cheat.ini uses. A `[build]` section left empty goes too. A `place = fixed` cave's place becomes a `free` range, merged with the ones it touches. |
 
 ## On the PC
 

@@ -1,5 +1,13 @@
 # Changelog
 
+## [Beta 127.01] - 2026-10-23
+
+- Same gen2 fork as 124.07 (v0.20).
+- **Get Latest Cheat from TomVita:** when a game has no released cheats, Breeze loads the ones committed to MyNXCheats so far and says "WIP loaded": work in progress, maybe unfinished or untested.
+- **Cheat source fixes:** a unit rename no longer nests folders; Build moves a cave that grew too big; two mods of one name are reported instead of mixed up; `Gil earned` values stay on next to a `Gil` mod; Shelf Discard also removes the cheat's mods and the names only it used; Import adds to the existing build section. See [Cheat source](docs/cheat%20source.md).
+- **ASM Check** accepts `mrs` / `msr nzcv`.
+- **Breezehand 0.10.4** reads these cheat files (code caves, mods) and finds the game folder as Breeze does.
+
 ## [Beta 127.00] - 2026-10-22
 
 - Same gen2 fork as 124.07 (v0.20).
