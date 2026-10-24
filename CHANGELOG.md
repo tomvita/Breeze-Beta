@@ -1,5 +1,11 @@
 # Changelog
 
+## [Beta 128.01] - 2026-10-24
+
+- Same gen2 fork (v0.20) and HOME daemon (SwitchU 1.2.0o) as 128.00; only Breeze.nro changed.
+- **Overlay at start:** with the Home toggle on Overlay, the controller now reaches Breeze as soon as it starts over a game. In 128.00 the buttons did nothing in Breeze until HOME was pressed twice.
+- **Faster start in Unreal games:** about a second less on every start and restart (FINAL FANTASY RESONANCE: 2.0 s to 0.8 s).
+
 ## [Beta 128.00] - 2026-10-24
 
 - Same gen2 fork as 124.07 (v0.20). The package's HOME daemon is SwitchU **1.2.0o**: install it from Settings for the overlay change.
