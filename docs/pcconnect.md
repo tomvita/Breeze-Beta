@@ -230,6 +230,7 @@ builds which file.
 | `prep <job>` | starts a job. One at a time |
 | `prep abort` | stops a job that runs in slices; what it wrote so far stays |
 | `files` | JSON: the game folder (`dir`), `title_id`, `build_id`, `engine`, and every file in it with `size`, `mtime`, `age_s`, a `kind` and, for the ones worth knowing, a `use` line. `global` lists `Klass.dat`, which lives outside the folder |
+| `cheatupdate` | moves the cheats of the newest earlier build that has a code dump and a cheat file to the running build, as Breeze does by itself at attach when the build has no cheat file. Writes `<BID>.txt`, or `<BID>_updated.txt` when the build already has one, and the report `cheat_update.txt`; answers with the counts, e.g. `+OK 28 moved, 0 to check, 0 not moved (4186 ms) -> 9800A62AB3E6716B_updated.txt`. Up to two minutes |
 
 | job | engine | makes | |
 |---|---|---|---|
@@ -533,6 +534,7 @@ Breeze uses that for save snapshots. Details are in `savesnap.hpp`.
 | `save delete <name>` | removes a snapshot |
 | `saveshot <name>` | the snapshot's picture: header line, then the JPEG |
 | `gamestop` | ends the running game at once, as if it had crashed: what it has not saved is lost. Works with Breeze behind the game |
+| `ftp <command> [args]` | runs one command of the sys-ftp sysmodule over a loopback FTP session and returns its reply after `+OK` (a 2xx reply) or `-ERR`. It logs in with sys-ftp's own settings in `config.ini`. Its commands: `MEM` (each memory pool's used/total/free MB, then every process by program id and MB, largest first; system programs by their last digits, `1013` is Breeze), `TID` (the running title), `TIDS`, `HOME` (presses HOME), `TRMT <tid>` (terminates a program), `ACC` (the user account), `REBT`, `SHUT`. A command that needs a data connection is refused. `REBT` and `SHUT` may end before a reply comes |
 | `gamestart <title id>` | asks the system to start a game, the way a homebrew menu does. Refused while a game runs. The HOME program acts on it once the applet in front has closed, so Breeze exits, and comes back the way it does after any exit |
 | `gamepad` | the virtual controller: attached or not, its player slot, what it holds, every pad the system has, and `borrowed` (slot and handle) while it drives a real controller |
 | `gamepad player <1-8>` | attaches it and takes that slot; a pad already there takes the slot it leaves. A game for one player reads player 1 only, so with a real controller connected the virtual one (player 2) is ignored until this is sent. When the system gives the virtual controller no slot at all, it borrows the controller in that slot instead (see below) |
@@ -1037,3 +1039,4 @@ every command but `ping` and `help` until `auth <code>`. Change `code=` in
 - `[PC connect]` in `/switch/Breeze/config.ini` -- `enable`, `code`, `port`.
 - `capture.jpg` in the PC's working directory, written by `pcconnect.py`.
 - `~/.breeze_pc.json` on the PC -- the PC app's last ip and code.
+- `cheat_update.txt` and `<BID>_updated.txt` in the game folder, written by `cheatupdate`.

@@ -29,7 +29,7 @@ These appear in Settings once a compatible daemon is installed.
 |---|---|
 | **HOME daemon=on/off** | Uses the daemon or the Nintendo HOME menu, from the next restart. |
 | **Home toggle** | How HOME behaves while Breeze and a game are both open. See below. |
-| **Overlay pauses game=Yes/No** | In Overlay mode, pauses the game while Breeze is shown. |
+| **Overlay pauses game=Yes/No** | In Overlay mode, pauses the game while Breeze is shown. **Toggle overlay pause** (ZR+Y on Focused Actions, L+ZR) switches it from anywhere, and pauses or resumes the game at once. |
 | **Breeze first=on/off** | The console starts in Breeze, and HOME from a game returns to Breeze. Shown only when the SwitchU menu is installed; without it Breeze is HOME anyway. |
 
 ### Home toggle
@@ -46,10 +46,9 @@ Press the button to step through the modes.
 ## Using Overlay mode
 
 1. Set **Home toggle** to **Overlay**.
-2. Start a game and open Breeze.
-3. Press HOME. The game comes back.
-4. Press HOME again. Breeze appears over the running game and takes the controller, so the game ignores your presses.
-5. Press HOME to hide Breeze and hand the controller back.
+2. Start a game and open Breeze. With fork **1.2.0o** or newer, Breeze opens as the overlay over the game. With an older fork it opens full screen: press HOME to return to the game, and HOME again for the overlay.
+3. While Breeze is shown it takes the controller, so the game ignores your presses.
+4. Press HOME to hide Breeze and hand the controller back; press HOME again to show it.
 
 Things to know:
 

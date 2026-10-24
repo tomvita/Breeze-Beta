@@ -1,5 +1,13 @@
 # Changelog
 
+## [Beta 128.00] - 2026-10-24
+
+- Same gen2 fork as 124.07 (v0.20). The package's HOME daemon is SwitchU **1.2.0o**: install it from Settings for the overlay change.
+- **Cheats follow a game update:** for a game with cheats, Breeze saves each game version's code in the game folder (`codedump/`, in the background). When the game is updated and the new version has no cheats, Breeze moves the old version's cheats to it by itself and the Cheats screen loads them; `cheat_update.txt` says what moved and what did not. Well Dweller's update: 28 of 28 moved. PC connect `cheatupdate` does it on demand.
+- **Overlay from the start:** with the Home toggle on Overlay, Breeze started over a game opens as the overlay, not full screen (needs the 1.2.0o daemon). See [HOME toggle and overlay](docs/home%20toggle%20and%20overlay.md).
+- **Toggle overlay pause** (ZR+Y on Focused Actions, L+ZR): pauses or runs the game under the overlay at once and keeps the choice for the next HOME.
+- **sys-ftp:** new FTP commands `HOME` (starts Breeze after a game restart), `MEM` (memory pools and the largest programs) and `KEY` (presses buttons, e.g. `KEY A` for the user picker). PC connect `ftp <command>`, and the PC app's **System...** window, which works without Breeze. See [PC connect](docs/pcconnect.md).
+
 ## [Beta 127.02] - 2026-10-23
 
 - Same gen2 fork as 124.07 (v0.20).
