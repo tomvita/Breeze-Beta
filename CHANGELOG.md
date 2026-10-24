@@ -1,5 +1,14 @@
 # Changelog
 
+## [Beta 128.02] - 2026-10-25
+
+- **Needs the v0.21 gen2 fork:** Settings > Install gen2 fork, then reboot. The HOME daemon and sys-ftp are the same as 128.01.
+- **Launch for gen2** (Games, **ZR+Y**): starts a game with gen2 on it, held before its first instruction. Press HOME and Breeze opens Break and Trace there: set breaks, step or Continue, and catch code that only runs while the game starts up. PC connect `gamestart <title id> held`. See [Break on a game's start-up](docs/break%20on%20game%20start.md).
+- **Launch** on Games has a key of its own: **ZR+X**.
+- Breeze started while the game is stopped at a break now loads the game (main, cheat list); before, it showed main as 0.
+- Break and Trace shows real addresses for code below the game's main module instead of `M+0xffffffff...`.
+- gen2 fork v0.21: GDB `monitor wait application` is fixed (it failed while the cheat engine ran); not yet tried on a console.
+
 ## [Beta 128.01] - 2026-10-24
 
 - Same gen2 fork (v0.20) and HOME daemon (SwitchU 1.2.0o) as 128.00; only Breeze.nro changed.

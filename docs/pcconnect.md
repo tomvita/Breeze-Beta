@@ -187,6 +187,7 @@ cheat process` otherwise).
 | `hold <hexaddr> [width]` / `unhold <hexaddr>` / `holds` | dmnt's frozen addresses |
 | `freeze` / `resume` | pauses and resumes the game |
 | `cheats` | every cheat: `id on\|off name`; the header gives the counts and how many are parked |
+| `cheats open` | asks dmnt to open the game's cheat process (ForceOpenCheatProcess) and reports the result code, the pid and main base dmnt then holds, whether it is attached at once and 200 ms later, and pm's application pid. For telling "dmnt has no cheat process" apart from "Breeze did not pick it up" |
 | `cheats off [all\|<id>...]` | turns cheats off (all when no id is given) and remembers which ones it turned off |
 | `cheats on <all\|id...>` | turns cheats on (and forgets them) |
 | `cheats restore` | turns back on everything `cheats off` turned off since the last restore; cheats that were already off stay off |
@@ -490,7 +491,7 @@ its own view as it always does. Addresses are `M+<offset>` or absolute hex.
 
 | command | does |
 |---|---|
-| `dbg` | where things stand: `attached`, `stopped`, `ours` (stopped at a break of Breeze's), `armed`, the Break and Trace `watch` address, `main`, `thread`, and `bps` (each with `at`, the `word` it replaced, `temp`, `enabled`, `armed`). Stopped, also `pc`, `sp`, `pstate` and `x` (x0 to x28, fp, lr) |
+| `dbg` | where things stand: `attached`, `stopped`, `ours` (stopped at a break of Breeze's), `armed`, the Break and Trace `watch` address, `main`, `thread`, and `bps` (each with `at`, the `word` it replaced, `temp`, `enabled`, `armed`). `launch` is `waiting` after `gamestart <title id> held` until the game is created, then `held` while gen2 holds it before its first instruction. Stopped, also `pc`, `sp`, `pstate` and `x` (x0 to x28, fp, lr) |
 | `dbg attach` | attaches gen2 to the game if it is not attached; a watch that is running is left alone |
 | `dbg bp <addr> [temp]` | sets a breakpoint there, or takes it off when there is one of that kind; `temp` is one that goes when it is hit. Attaches first when needed. Up to 0x80 |
 | `dbg bp clear` | takes every breakpoint off |
@@ -536,6 +537,7 @@ Breeze uses that for save snapshots. Details are in `savesnap.hpp`.
 | `gamestop` | ends the running game at once, as if it had crashed: what it has not saved is lost. Works with Breeze behind the game |
 | `ftp <command> [args]` | runs one command of the sys-ftp sysmodule over a loopback FTP session and returns its reply after `+OK` (a 2xx reply) or `-ERR`. It logs in with sys-ftp's own settings in `config.ini`. Its commands: `MEM` (each memory pool's used/total/free MB, then every process by program id and MB, largest first; system programs by their last digits, `1013` is Breeze), `TID` (the running title), `TIDS`, `HOME` (presses HOME), `TRMT <tid>` (terminates a program), `ACC` (the user account), `REBT`, `SHUT`. A command that needs a data connection is refused. `REBT` and `SHUT` may end before a reply comes |
 | `gamestart <title id>` | asks the system to start a game, the way a homebrew menu does. Refused while a game runs. The HOME program acts on it once the applet in front has closed, so Breeze exits, and comes back the way it does after any exit |
+| `gamestart <title id> held` | the same, with gen2 (v0.21) holding the game before its first instruction, as Games > Launch for gen2 (ZR+Y) does. Bring Breeze back with HOME, then place breaks (`dbg bp`, `dbg runto`) and `dbg cont`. The game stays held until it is continued or stepped |
 | `gamepad` | the virtual controller: attached or not, its player slot, what it holds, every pad the system has, and `borrowed` (slot and handle) while it drives a real controller |
 | `gamepad player <1-8>` | attaches it and takes that slot; a pad already there takes the slot it leaves. A game for one player reads player 1 only, so with a real controller connected the virtual one (player 2) is ignored until this is sent. When the system gives the virtual controller no slot at all, it borrows the controller in that slot instead (see below) |
 | `gamepad borrow [1-8]` | sends the virtual controller's buttons and sticks to the real controller in that slot (1 unless given). The real controller keeps working at the same time |
