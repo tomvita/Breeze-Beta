@@ -1,5 +1,14 @@
 # Changelog
 
+## [Beta 128.03] - 2026-10-26
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.02; only Breeze.nro changed.
+- **Cheat update on Unity games:** pointer cheats now follow a game update too. Breeze finds a fixed address's new place by a majority of the game code that loads it, sampled from all over the code. Kong Survivor Instinct's update: all 20 cheats moved (the first try left the 9 pointer cheats behind).
+- Code caves with a gap the cheat fills while it runs move in one piece, a cave with two hooks keeps both, and register stores into a cave move with it.
+- **Code saved while cheats were on:** Breeze lists the words the loaded cheats write (`codedump/patched_<BID>.txt`) and the update takes the game's originals from the cheat file, or marks the cheat to check. A later start without cheats loaded (hold L as the game starts) saves a clean copy by itself.
+- Cheats loaded from the file wait about 10 seconds while a game version's code is saved, once per version, with the progress on the Cheats screen. Closing Breeze meanwhile loads them first.
+- Unreal Engine 5.6 (Moadra): Rescan objects finds every object and its properties again.
+
 ## [Beta 128.02] - 2026-10-25
 
 - **Needs the v0.21 gen2 fork:** Settings > Install gen2 fork, then reboot. The HOME daemon and sys-ftp are the same as 128.01.
