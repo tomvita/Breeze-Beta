@@ -1,5 +1,11 @@
 # Changelog
 
+## [Beta 128.05] - 2026-10-27
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.04; only Breeze.nro changed.
+- **Faster start on Unity games with cheats:** 128.04 recorded the cheats' field names at every Breeze start (about 1.1 s on Graveyard Keeper 2); it now records only when the cheats changed or something is still unnamed. The function map is built only once per game version.
+- **Cheat update after cheats were removed without restarting the game:** their bytes stay in the game's code. The update now compares the code with the clean copy Breeze saved and moves the code cave cheats anyway (before, none of them moved).
+
 ## [Beta 128.04] - 2026-10-27
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.03; only Breeze.nro changed.
