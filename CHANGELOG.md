@@ -1,5 +1,14 @@
 # Changelog
 
+## [Beta 128.04] - 2026-10-27
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.03; only Breeze.nro changed.
+- **Cheat update, Unity field names:** Breeze records the class and field name of every offset your pointer cheats go through (`codedump/il2cpp_<BID>.txt`, at each attach), and after an update finds the same fields in the new classes. A class that gained fields no longer leaves cheats quietly wrong. A root that is a class's own TypeInfo variable is found through another root. PC connect `cheatupdate names` records on demand.
+- **Cheat update, rebuilt hooks:** when the code around a hook changed, the hook is found by its function (function starts from `.eh_frame`, now saved with every code dump), lined up instruction by instruction and checked both ways. Graveyard Keeper 2's update: all 12 cheats moved (before, 1 moved cleanly and 6 came out wrong).
+- Add ASM: a hooked `bl`, `b`, `adrp` or `cbz` keeps its real target in the code cave.
+- Unreal Engine 4.22 (Disaster Report 4): names, objects and the field map are read right.
+- Games with Epic Online Services (Absolum) are no longer reported as Unreal Engine.
+
 ## [Beta 128.03] - 2026-10-26
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.02; only Breeze.nro changed.

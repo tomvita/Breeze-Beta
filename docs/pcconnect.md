@@ -232,6 +232,7 @@ builds which file.
 | `prep abort` | stops a job that runs in slices; what it wrote so far stays |
 | `files` | JSON: the game folder (`dir`), `title_id`, `build_id`, `engine`, and every file in it with `size`, `mtime`, `age_s`, a `kind` and, for the ones worth knowing, a `use` line. `global` lists `Klass.dat`, which lives outside the folder |
 | `cheatupdate` | moves the cheats of the newest earlier build that has a code dump and a cheat file to the running build, as Breeze does by itself at attach when the build has no cheat file. Writes `<BID>.txt`, or `<BID>_updated.txt` when the build already has one, and the report `cheat_update.txt`; answers with the counts, e.g. `+OK 28 moved, 0 to check, 0 not moved (4186 ms) -> 9800A62AB3E6716B_updated.txt`. Up to two minutes |
+| `cheatupdate names` | Unity: records what every offset of the running build's pointer cheats is (root class, static or field by declaring class and name) in `codedump/il2cpp_<BID>.txt`, as Breeze does at every attach; the next update uses it to find each field in the new classes. A chain that is null now keeps the names an earlier run found. E.g. `+OK 65 offsets named now, 0 kept from before (36 ms: ...) -> codedump/il2cpp_1D69F09FC684A7D1.txt` |
 
 | job | engine | makes | |
 |---|---|---|---|
