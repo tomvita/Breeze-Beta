@@ -1,5 +1,14 @@
 # Changelog
 
+## [Beta 128.06] - 2026-10-28
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.05; only Breeze.nro changed.
+- **Move cheats from earlier build (Cheats, ZL+ZR+X):** after a game update the move is an action with a progress box, no longer done at every start (it took about 25 s with nothing on screen). It loads the moved cheats when done.
+- **Code found by its method name (Unity):** functions the update rewrote, or left in identical copies, are placed by `Class::Method+offset`; a match outside the method of its name is corrected. Breeze keeps an earlier version's function map for this (`codedump/il2cpp_functions_<BID>.txt`). Harvest Moon Echoes of Teradea 1.3.0: all 81 cheats moved (73 moved, 8 to check; before, 22 were left behind and one hook went into the wrong function).
+- Cheat flags kept in the game's bytes stay aligned when those bytes move by an odd amount; every use of a cave's ADRP page is rewritten, also through a copied register; split hooks get their cave's new first word; another cheat's value inside a cave moves with the cave (Teradea's move speed).
+- **Make cheat recipes and the cheat source file move too:** `make_cheat.ini` gets the new addresses (an old Give item recipe wrote into the game's data and crashed it), Make cheat refuses a recipe file made for another version, and the source file gets the new `[build]` section.
+- **What the move left behind is listed:** `cheat_update.txt` ends with every old address still found in the game folder's text files.
+
 ## [Beta 128.05] - 2026-10-27
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.04; only Breeze.nro changed.
