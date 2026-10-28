@@ -8,6 +8,7 @@
 - Cheat flags kept in the game's bytes stay aligned when those bytes move by an odd amount; every use of a cave's ADRP page is rewritten, also through a copied register; split hooks get their cave's new first word; another cheat's value inside a cave moves with the cave (Teradea's move speed).
 - **Make cheat recipes and the cheat source file move too:** `make_cheat.ini` gets the new addresses (an old Give item recipe wrote into the game's data and crashed it), Make cheat refuses a recipe file made for another version, and the source file gets the new `[build]` section.
 - **What the move left behind is listed:** `cheat_update.txt` ends with every old address still found in the game folder's text files.
+- When cheats can be moved, the Cheats screen no longer downloads cheats for the new version by itself (they would take the place of yours); the status line says what to press. Y still downloads.
 
 ## [Beta 128.05] - 2026-10-27
 
