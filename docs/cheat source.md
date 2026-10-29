@@ -337,6 +337,40 @@ lists the shelved cheats with where they were, for Restore or Discard.
 
 ## After a game update
 
-Add a `[build <new BID>]` section with the same names (an AOB search or the
-function map finds them), then Install from source. Cheats whose names are
-missing are reported and left out.
+Moving the cheats to the new build (Cheats, Move cheats from earlier build)
+writes the `[build <new BID>]` section itself: every name of the old build's
+section is looked for with the cheats' own addresses (by code, by IL2CPP method
+name, by what loads a static), with the new `stock` words and pins. It goes at
+the end of the file, in the file's own line endings; the file as it was is kept
+as `codedump/<TID>_<old BID>.ini`. A name that was not found is written as a
+`// name = ?` comment with the reason, and `cheat_update.txt` lists it. Then
+Install from source. Cheats whose names are missing are reported and left out.
+
+A plain value can say which field it is the offset of:
+
+```ini
+[build 8B335CCAAF09C7C8]
+game_info_slot = M+A744820
+App.Savedata.ItemInfo._money = 0x58 field App.Savedata.ItemInfo._money
+```
+
+Building ignores `field ...`; the move gives the new section the offset the
+field has in the new build, read through the moved cheats' chains (Unity and
+Unreal, from the names Breeze records), and reports a change. A field no moved
+cheat goes through keeps its value, with a `?` line in `cheat_update.txt`. A
+plain value without `field` is the same in every build and is not carried.
+
+Make cheat (Memory Explorer, the field views, the Unity chain screen) writes a
+pointer cheat of the plain chain shape into this file when the game has one:
+the base as a `[build]` name (an existing one with that address, else
+`<Class>_slot`) and every step Breeze can name as a field name, e.g.
+`chain = {game_info_slot} B8 0 {App.Savedata.GameInfo._itemInfo}
+{App.Savedata.ItemInfo._money}`. Loops, copies and conditions are not of that
+shape and stay in the cheat file only.
+
+By hand: add a `[build <new BID>]` section with the same names (an AOB search
+or the function map finds them).
+
+Write an address in code as a name, also where a register holds a page made
+earlier: `ldr w0, [x19, #{give_id:lo12}]`, not `#0x10c`. A number typed into
+the code stays the old build's.

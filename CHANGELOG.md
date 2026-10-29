@@ -1,5 +1,17 @@
 # Changelog
 
+## [Beta 128.07] - 2026-10-29
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.06; only Breeze.nro changed.
+- **Names kept when a cheat is made:** Make cheat (Memory Explorer, field views, the Unity menu) saves the cheat file and records the fields the cheat goes through, so a game update finds them by name even when the cheat's chain is empty at a later start. It does not save over a cheat file that is not loaded.
+- **Unreal games:** after an update, pointer cheats get their field offsets by property name, as on Unity (Moadra: two moved fields put back by name, the file identical to the real one). A field whose type changed is marked to check.
+- **Add ASM warns** about what an update could not move: a hook in a function the game has copies of (Rigidbody's get_position is in Teradea 41 times), numbers that look like addresses, a page read with LDUR / STUR. Warnings only.
+- **Update kits:** Breeze writes `kit_<BID>.bin.gz`, what a move needs about that version, with none of the game's code in it. Get Latest Cheat, with no cheat for your version, installs a kit of an older one from MyNXCheats; then ZL+ZR+X moves its cheats. From a kit alone Teradea's update moves exactly as from the saved code.
+- **Cheats in a game module (Tales of Eternia's GameNative)** are no longer moved into main: kept as they are when the module is the same build, listed as not moved when it changed; the module master is made again for the new version.
+- **Make cheat writes its chain into the cheat source file** with named fields (`name = 0x58 field Owner.field`), and an update gives those names their new offsets. See cheat source.md.
+- **Native games that export their functions:** code the update moved is found by its function's name (not yet tried on such a game).
+- **The move is faster:** about 32 s instead of 51 s on Teradea; `cheat_update.txt` gives the time of each stage.
+
 ## [Beta 128.06] - 2026-10-28
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.05; only Breeze.nro changed.
