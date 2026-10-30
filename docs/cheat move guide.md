@@ -8,9 +8,31 @@ Breeze can move the cheats of the earlier build to the new one. It compares the 
 
 - Breeze beta128.08 or later.
 - Something to move from. Either:
-  - **Breeze ran the old version with its cheats.** When a build has a cheat file, Breeze saves a copy of that build's code in the game folder (`codedump/`) by itself. That copy is what makes a move possible after the update, because the old version cannot be read once it is replaced. So start the game once with Breeze **before** you update it, or
-  - **an update kit** of the old version (`kit_<BID>.bin.gz`): what a move needs to know about that build, without the game's code. Get Latest Cheat downloads one from MyNXCheats when there is no cheat file for your version, and you can copy one into the game folder yourself (see [Without the old version](#without-the-old-version-update-kits)).
+  - **what Breeze saved while the old version ran** (see [Before you update](#before-you-update) below). This is the usual case, or
+  - **an update kit** of the old version (`kit_<BID>.bin.gz`), made by someone who had that version. Get Latest Cheat downloads one from MyNXCheats when there is one, and you can copy one into the game folder yourself (see [Without the old version](#without-the-old-version-update-kits)). Most games have no kit on MyNXCheats.
 - No cheat file for the new build yet. Breeze offers the move only when the new build has no cheats.
+
+---
+
+## Before you update
+
+Once the update is installed, the old version is gone from the console and Breeze can no longer read it. Everything the move needs about the old version has to be saved **while the old version is still installed**. Breeze does this by itself, but only when the game has cheats in Breeze's game folder, and only if you give it time to finish.
+
+1. **Turn off automatic updates for the game** (or for the console) until this is done. An update installed in the background before Breeze has run the old version leaves nothing to move from.
+2. **Put the cheats in Breeze's game folder.** Breeze saves a build only when it has a cheat file there (`sdmc:/switch/breeze/cheats/<game>/<BID>.txt`, or a cheat source file). Cheats from Get Latest Cheat are saved there already. Cheats that only live in `atmosphere/contents/<TID>/cheats/` are not: open the Cheats screen and press **Write Cheat to file** (Down).
+3. **Start the game with the cheats, and open Breeze.** When Breeze attaches to the game it starts saving a copy of the build's code in the background (`codedump/main_<BID>.bin.gz`). On Toy Story 3 this takes about 3 seconds; on a large game it can take a minute. While it runs, the Cheats screen says *"Saving this build's code for after a game update (...). The cheats load when it is done."*
+4. **Wait until it is done before you close Breeze or the game.** Open **Main > Game Information** (Y) and go to the last line (press Up). While the copy is being made it says `code dump: starting`. When it is done, it gives the size and time of the copy, for example `code dump: Game-TS3.consumer.nss 21 MB -> 8 MB in 2.8 s (reading ...)`. Closing Breeze or the game before that throws the copy away, and it starts again the next time. Then give Breeze a few more seconds: right after the copy it writes the build's update kit, `kit_<BID>.bin.gz`, from it.
+5. **On a Unity game, also build the function map once** (**Unity > IL2CPP map**). The move uses the old version's method names to find code the update rewrote, and it can only get them from a map made while the old version was installed. On Unity and Unreal games, open Breeze while you are in play (a save loaded), not on the title screen: when Breeze starts it records the names of the fields your pointer cheats go through, and on the title screen many of those pointers are still empty.
+
+On every later start of the same version, the last line says `code dump: this build is kept`: everything is saved, and you can update.
+
+![Game Information's last line: code dump: this build is kept](./images/cheatmove_00_code_saved.jpg)
+
+If the line says `code dump: no cheats for this build`, Breeze did not find a cheat file for this version in its game folder (step 2). Breeze keeps the copies of the last 2 versions of each game.
+
+If you have the old version's cheats loaded when the copy is made, the line adds `N words under loaded cheats`: the copy holds a few of the cheats' own changes, and the move treats those words as unknown. It still works.
+
+Share `kit_<BID>.bin.gz` with the cheat file (for example on MyNXCheats): with it, a player who never had the old version can move the cheats too.
 
 ---
 
@@ -101,7 +123,6 @@ A move from a kit gives the same cheats as a move from the saved code.
 ## Good to know
 
 - **The move is offered only when the new build has no cheat file.** If Get Latest Cheat already downloaded one (from a cheat site), that file is used and nothing is moved. To move anyway, rename or delete `<new BID>.txt` in the game folder and open the Cheats screen again.
-- **Breeze keeps the code of the last 2 builds** of a game. Older builds can still be moved from a kit.
 - **"Nothing to move"** says why: "this build has a cheat file already", "no earlier build of this game has its code saved and a cheat file", or "the cheat file of build ... has no cheats".
 - **Your cheat source file** (`<TitleID>.ini`, see [Cheat Source](cheat%20source.md)) gets a `[build <new BID>]` section with the moved addresses, so its names follow the update too.
 - **The old cheat file is not changed.** If you go back to the old version, its cheats are still there.
