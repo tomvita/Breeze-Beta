@@ -6,6 +6,7 @@
 - **More cheats move on native games:** Toy Story 3 1.0.1 -> 1.0.3 moves all ten cheats (was 8). A value no code reaches by its own address (a slot in an array) moves with the statics around it, marked to check; a cave pointing at a string that moved by an odd amount finds the string by its bytes. Kits carry only the string's length and hash.
 - **A kit even with cheats loaded at start:** a word is taken as patched only when it holds a value a loaded cheat writes there now, so Cult of the Lamb got its kit.
 - **A moved cheat file names your game version** in its first line, not the old one.
+- **Game Information shows the update kit:** a new last line says when the kit is waiting for the code copy, being written, written or up to date, and both lines now update while the screen is open. Wait for both before you update a game; see the [cheat move guide](docs/cheat%20move%20guide.md).
 
 ## [Beta 128.07] - 2026-10-29
 
