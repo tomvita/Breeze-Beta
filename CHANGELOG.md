@@ -1,5 +1,12 @@
 # Changelog
 
+## [Beta 128.08] - 2026-10-30
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.07; only Breeze.nro changed.
+- **More cheats move on native games:** Toy Story 3 1.0.1 -> 1.0.3 moves all ten cheats (was 8). A value no code reaches by its own address (a slot in an array) moves with the statics around it, marked to check; a cave pointing at a string that moved by an odd amount finds the string by its bytes. Kits carry only the string's length and hash.
+- **A kit even with cheats loaded at start:** a word is taken as patched only when it holds a value a loaded cheat writes there now, so Cult of the Lamb got its kit.
+- **A moved cheat file names your game version** in its first line, not the old one.
+
 ## [Beta 128.07] - 2026-10-29
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.06; only Breeze.nro changed.
