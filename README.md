@@ -51,6 +51,7 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[Unreal Primer](docs/unreal_primer.md)**: Core UE runtime concepts (`UObject`, `UClass`, `UFunction`, NamePool, and `OuterPrivate`) used by Breeze.
 -   **[AOB Guide](docs/aob.md)**: Create version-3 signatures with Make AOB or Make AOB M and rebuild hooks after a game update.
 -   **[Lua Tools](docs/lua.md)**: Browse and cheat games that keep their data in a Lua state.
+-   **[Moving Cheats After a Game Update](docs/cheat%20move%20guide.md)**: After an update, move the old version's cheats to the new one (ZL+ZR+X on the Cheats screen), read `cheat_update.txt`, and use update kits, step by step with screenshots.
 -   **[Rebase](docs/rebase.md)**: Carry cheats to a new version of the same game.
 -   **[Make Cheat Recipes](docs/make%20cheat%20recipes.md)**: Make cheats from a recipe and a table in the game's folder (give any item, and so on), and how to write one.
 -   **[Code Caves and ASM Cheats](docs/code%20caves.md)**: How caves are placed, the Code Cave Map, Assemble all ASM, and the three stages of Toggle Cheat.
