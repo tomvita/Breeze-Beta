@@ -28,9 +28,11 @@ Once the update is installed, the old version is gone from the console and Breez
    | code dump | `dumping Game-TS3.consumer.nss 60% (13 of 21 MB)` | `code dump: Game-TS3.consumer.nss 21 MB -> 8 MB in 2.8 s (...)` |
    | update kit | `update kit: waiting for the code dump`, then `update kit: writing kit_<BID>.bin.gz` | `update kit: kit_<BID>.bin.gz written` |
 
+   **On a Unity game there is a third step**: Breeze also builds the game's function map (the old version's method names, which the move needs to find code the update rewrote and to tell a function from its identical copies). It starts once you go back to the game (Breeze behind it) and takes a few minutes; meanwhile the kit line says `update kit: the function map is built when you go back to the game`, then `update kit: building the function map first (... of ... classes)`, and when it is done the kit is written again with the method names. If you close Breeze or the game first, it starts over the next time. On Harvest Moon Echoes of Teradea it took about 4 minutes. Without that map, a move of Teradea's cheats left 22 of 81 behind and marks 20 more "to check".
+
    On Toy Story 3 the copy took 3 seconds and the kit 5 more. Closing Breeze or the game while the copy is being made throws it away, and it starts again the next time.
 
-5. **On a Unity game, also build the function map once** (**Unity > IL2CPP map**). The move uses the old version's method names to find code the update rewrote, and it can only get them from a map made while the old version was installed. On Unity and Unreal games, open Breeze while you are in play (a save loaded), not on the title screen: when Breeze starts it records the names of the fields your pointer cheats go through, and on the title screen many of those pointers are still empty.
+5. **On Unity and Unreal games, open Breeze while you are in play** (a save loaded), not on the title screen: when Breeze starts it records the names of the fields your pointer cheats go through, and on the title screen many of those pointers are still empty.
 
 ![Game Information's last two lines: the code copy is made and the update kit written](./images/cheatmove_00_code_saved.jpg)
 

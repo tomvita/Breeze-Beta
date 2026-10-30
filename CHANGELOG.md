@@ -8,6 +8,7 @@
 - **A moved cheat file names your game version** in its first line, not the old one.
 - **Game Information shows the update kit:** a new last line says when the kit is waiting for the code copy, being written, written or up to date, and both lines now update while the screen is open. Wait for both before you update a game; see the [cheat move guide](docs/cheat%20move%20guide.md).
 - **Cheats from another language's release:** copy the other title's `kit_<BID>.bin.gz` into your game's folder and open the Cheats screen; ZL+ZR+X moves its cheats (Japanese ほの暮しの庭 -> English Village in the Shade, 9 of 9). Two cheats' caves sharing a word no longer send one cheat's hook into the other's cave.
+- **Unity games build their function map by themselves** when they have cheats: behind the game, after the code copy, a few minutes (Teradea about 4). A move needs the old version's method names; without them Teradea left 22 of 81 cheats behind and moved one hook into a copy of its function. Without that map a hook found by its code alone is now marked to check, and the kit is written again once the map exists.
 
 ## [Beta 128.07] - 2026-10-29
 
