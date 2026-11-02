@@ -2,7 +2,7 @@
 
 A game update changes the game's build id (BID), and a cheat file is made for one build. Cheats that write to fixed addresses, ASM hooks and code caves usually stop working, because the update moved the code and data they point at.
 
-Breeze can move the cheats of the earlier build to the new one. It compares the two builds' code and finds where each address went, then writes a cheat file for the new build. This guide walks through one move, start to finish, on Toy Story 3 (1.0.1 -> 1.0.3, build 3A63DC1CE2605EC8 -> B2F8DCB546DE62ED). Every screenshot is from the console, on Breeze beta128.08. The move took 4 seconds; on a large Unity game it takes about half a minute.
+Breeze can move (port) the cheats of the earlier build to the new one. It compares the two builds' code and finds where each address went, then writes a cheat file for the new build. This guide walks through one move, start to finish, on Toy Story 3 (1.0.1 -> 1.0.3, build 3A63DC1CE2605EC8 -> B2F8DCB546DE62ED). Every screenshot is from the console, on Breeze beta128.08. The move took 4 seconds; on a large Unity game it takes about half a minute.
 
 **What you need**
 
@@ -64,6 +64,8 @@ Press **ZL+ZR+X** (the action is **Move cheats from earlier build**). A box show
 
 Get the game to where you play before you move: some things a Unity game's cheats point at only exist once a save is loaded, and on its title screen those cheats come out "not moved".
 
+It does not matter if Breeze was opened while the game was still loading. From beta128.09 the move reads the game's memory again when it starts. Before that, opening Breeze early could leave every cheat not moved (Minecraft Dungeons II: 0 moved, 0 to check, 9 not moved; now 3, 5 and 1).
+
 ## 3. Read the result
 
 When it is done the box says how many cheats were moved:
@@ -76,7 +78,7 @@ When it is done the box says how many cheats were moved:
 | --- | --- |
 | moved | Every address in the cheat was found in the new build with no doubt. |
 | to check | Moved, but at least one address was found in a way that can be wrong. The cheat is in the file; try it first and watch what it does. |
-| not moved | An address could not be found. The cheat is still in the file, with its old addresses, so do not turn it on. |
+| not moved | An address could not be found. The cheat is left out of the new file, so nothing writes to the old addresses. It stays in the old build's file, and `cheat_update.txt` says why. See [A cheat that did not move](#a-cheat-that-did-not-move). |
 
 Press **OK**.
 
@@ -114,7 +116,37 @@ How to read it:
 - `load main+A -> B`: a pointer cheat's start (a static) moved. "from 48 places in the code that load it" means every piece of code that used it agreed on the new address.
 - `offset +0x8 from a pointer Breeze can't name`: the offset after the pointer is kept as it was. It is right unless the update changed the layout of that object; on Unity and Unreal games Breeze knows the field names and checks them, on other games it can't, so it says so.
 
+- A line starting with `!` is why a cheat was not moved.
+
 Each block names its reason in words, so read the block of any cheat that does not work.
+
+The report ends with `[audit]`: addresses of the old build that are still written in other files of the game folder, such as scripts and comments in the cheat source file. The move does not change those files. Most lines are harmless comments, but a script listed there still has the old addresses (see [Make cheat recipes](#make-cheat-recipes)).
+
+---
+
+## A cheat that did not move
+
+The result box counts it and the new cheat file leaves it out. To get it back:
+
+1. **Read its block in `cheat_update.txt`**, the lines starting with `!`.
+2. **Make it again on the new version** with the tool that made it. This is usually the quickest way.
+3. **Or fix a copy by hand:** take the cheat from `<old BID>.txt`, change the addresses and add it to the new file.
+
+**Keep a copy of a cheat you fixed by hand.** If you remove `<new BID>.txt` and move again, the move leaves that cheat out again.
+
+**Cheats made by Attributes (GAS) > Make cheat (scan) on Unreal games do not move.** They start from a slot no code loads and add a number that is really a class's vtable address, and the move can't follow either one. On Minecraft Dungeons II 1.1.1.0 -> 1.1.3.0 this was the one cheat not moved. The fixed index version, Make cheat (ZL+Plus), did move there, as long as the game keeps its attribute sets in the same order.
+
+---
+
+## Make cheat recipes
+
+A `make_cheat.ini` (see [Make Cheat Recipes](make%20cheat%20recipes.md)) can hold addresses of one version too. A cheat made from an old recipe writes over the game's own data, and that crashed Harvest Moon Echoes of Teradea. So the recipe moves with the cheats, and Make cheat checks it before it opens (from beta128.09):
+
+- **The recipe has to name its version** in a comment, `; build <BID>`, when it holds addresses. A file naming another version, or none, is refused with a box that says why. A recipe that takes every address as a `{name}` from the cheat source file needs no line.
+- **After a move** the recipe has the new addresses and the new `build` line, and the old one is kept as `codedump/make_cheat_<old BID>.ini`.
+- **If an address could not be moved**, your recipe stays as it was, and the part-moved result is saved as `make_cheat_updated.ini`, still naming the old version, so Make cheat keeps refusing it. `cheat_update.txt` lists the address under `[make_cheat.ini]`. Fix it by hand, then change the `build` line and replace `make_cheat.ini` with it.
+- **A `requires_script` line is commented out by the move**, because the move does not rewrite scripts and that script still holds the old addresses. The hook comes from the moved cheat file instead. If that cheat is not loaded, Make cheat says so; load your cheats. To use the script again, change its addresses and take the comment off.
+- **A `{name}` with no value in this version** stops Make cheat and Execute cheat before anything is added.
 
 ---
 
@@ -135,5 +167,6 @@ A move from a kit gives the same cheats as a move from the saved code.
 - **The move is offered only when the new build has no cheat file.** If Get Latest Cheat already downloaded one (from a cheat site), that file is used and nothing is moved. To move anyway, rename or delete `<new BID>.txt` in the game folder and open the Cheats screen again.
 - **"Nothing to move"** says why: "this build has a cheat file already", "no earlier build of this game has its code saved and a cheat file", or "the cheat file of build ... has no cheats".
 - **Your cheat source file** (`<TitleID>.ini`, see [Cheat Source](cheat%20source.md)) gets a `[build <new BID>]` section with the moved addresses, so its names follow the update too.
+- **Unreal games: the tools rescan by themselves after an update.** `ue_profile.ini` was written for one version. From beta128.09 a profile whose name pool no longer reads as names is ignored, and the next Unreal tool scans again, with no need to delete it.
 - **The old cheat file is not changed.** If you go back to the old version, its cheats are still there.
 - **Make cheats with Breeze's own tools when you can.** A pointer cheat made with Make cheat, a field view or the Unity menu records the names of the fields it goes through, and after an update those names find the fields again even when the game moved them.

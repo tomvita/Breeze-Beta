@@ -1,5 +1,13 @@
 # Changelog
 
+## [Beta 128.09] - 2026-11-02
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.08; only Breeze.nro changed.
+- **Make cheat can't write to another version's addresses:** a `make_cheat.ini` holding addresses must name this build (`; build <BID>`), or it is refused. A `{name}` with no value stops the make. A move comments out `requires_script`, whose script still has the old addresses, and a recipe it could not fully move stays refused. See make cheat recipes.md.
+- **Moving cheats when Breeze was opened during the game's load:** Minecraft Dungeons II went from 0 moved / 9 not moved to 3 moved / 5 to check / 1 not moved. The memory map is read again when a move or an Unreal tool starts.
+- **Unreal tools after an update:** a `ue_profile.ini` from another version is noticed and the game is scanned again, instead of saving a wrong UWorld and a function map of junk names.
+- **Cheat move guide:** corrected (a cheat not moved is left out of the new file), new sections on cheats that did not move, Make cheat recipes and the `[audit]` list. Menu list: the move's row.
+
 ## [Beta 128.08] - 2026-10-30
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.07; only Breeze.nro changed.

@@ -1,5 +1,7 @@
 # Rebase: Carrying Cheats to a New Game Version
 
+**For a game update, start with [Moving Cheats After a Game Update](cheat%20move%20guide.md) (ZL+ZR+X on the Cheats screen).** It is newer, works on more engines and handles more kinds of cheat. This page describes the older Rebase tool, which still works.
+
 A game update moves addresses even when the data a cheat changes stayed the same. **Rebase** (beta120.00) records what every line of every cheat means, and rebuilds the cheats against the new version of the game.
 
 It works on Unity (IL2CPP) games.

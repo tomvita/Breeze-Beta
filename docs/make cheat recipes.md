@@ -14,6 +14,7 @@ is saved.
 | Key | Action |
 |---|---|
 | X | Make cheat from the row under the cursor |
+| ZR+X | Execute cheat: do the row's code once now, without making a cheat (the key condition is left out). Only plain writes (`04000000`-style lines) are run; a give recipe's request is picked up by its hook on the game's next frame, so the item arrives once you are back in the game. `requires` is checked or installed first, as for Make |
 | Y | Search: every typed word must appear (empty shows everything) |
 | R / L | Filter: one value of the recipe's filter column, or all |
 | Minus | Mark / unmark the row |
@@ -65,6 +66,18 @@ A section with both `data` and `code` is a recipe. Other sections are lookups.
 | `requires` | A cheat that has to be loaded (and is switched on) for these cheats to work. |
 | `requires_script`, `requires_hook`, `requires_stock` | When the required cheat is missing, install it: the script in the game's folder, the hook address and the game's word expected there. It is built through Add ASM's cave planner and registered for Assemble all ASM. If the word at the hook is not `requires_stock` it refuses (another cheat hooks there, or the game is another build). |
 | `code` | The cheat, as a template. Lines go on indented continuation lines. |
+
+**Which build.** Addresses in `code` and `requires_hook` belong to one build of
+the game. A file that holds any must name it in a comment, `; build <BID>`:
+Make cheat refuses a file naming another build or none, because those writes
+would land on the game's own data. A recipe that takes its addresses as `{names}`
+from the [build] section of the cheat source file needs no
+line, and works on every build that has those names; a name with no value in the
+running build stops the make. Moving the cheats after an update (Cheats, Move
+cheats from earlier build) moves the addresses and the line. It does not rewrite a
+`requires_script`, so it comments that line out: the hook then comes from the
+moved cheat file. Fix the script and take the comment off to use it again. A move
+that could not move every address leaves the old line, so that file stays refused.
 
 **Templates.** `{column}` is the row's value, `{var}` an asked value, `{key}`
 the key combo text, `{column:names}` the value's name from the `[column names]`
