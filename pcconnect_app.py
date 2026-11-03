@@ -80,6 +80,13 @@ The last ip and code are remembered in ~/.breeze_pc.json.
   editor (pcconnect_source.py): sections listed with each cheat's state in
   Breeze, Save, and Check / Listing / Build of the cheat at the cursor done by
   Breeze on the Switch.
+- System... runs the commands of the sys-ftp sysmodule, straight over FTP from
+  this PC (FTP port in the window, 5001 until changed), so it works while
+  Breeze is not running; if sys-ftp can't be reached from here it tries
+  through Breeze (PC connect's "ftp"). Memory shows how full each memory pool is and the
+  programs using the most (read it before rebooting when Breeze will not
+  start), Running title, Account, HOME over FTP, Terminate a program,
+  Reboot, Shut down, and any other sys-ftp command typed in the box.
 
 The game's folder on this PC is the one the file manager uses: named after
 the game, under the base folder picked there ("Breeze games" in the home
@@ -94,11 +101,13 @@ which each open one of their own while they are in use. PC connect takes three
 clients, so with both open a script cannot connect.
 """
 import ctypes
+import ftplib
 import io
 import json
 import math
 import os
 import queue
+import re
 import socket
 import sys
 import threading
@@ -116,6 +125,67 @@ from pcconnect_text import TextView, plain  # noqa: E402
 
 CONFIG = os.path.join(os.path.expanduser("~"), ".breeze_pc.json")
 SCREEN_W, SCREEN_H = 1280, 720
+RECENT_MAX = 10
+
+
+def remember_connection(cfg, host, code, name=None):
+    """Put (host, code) first in cfg["recent"], the Connect window's list. A name
+    given before is kept unless a new one is given."""
+    recent = [r for r in cfg.get("recent", []) if isinstance(r, dict) and r.get("host")]
+    old = next((r for r in recent if r["host"] == host), {})
+    recent = [r for r in recent if r["host"] != host]
+    recent.insert(0, {"host": host, "code": code, "name": old.get("name", "") if name is None else name})
+    cfg["recent"] = recent[:RECENT_MAX]
+
+
+def connection_name(cfg, host):
+    for r in cfg.get("recent", []):
+        if isinstance(r, dict) and r.get("host") == host:
+            return r.get("name", "")
+    return ""
+
+
+def center_window(w):
+    """Centre a window on the screen, keeping the size it has or asked for."""
+    try:
+        if not w.winfo_exists():
+            return
+        w.update_idletasks()
+        if w.winfo_ismapped():
+            width, height = w.winfo_width(), w.winfo_height()
+        else:
+            # Not on screen yet: Tk reports 1x1 until then, so take the size the
+            # window asked for (see center_all_windows), else what its contents need.
+            width, height = getattr(w, "_breeze_size", None) or (w.winfo_reqwidth(), w.winfo_reqheight())
+        x = max(0, (w.winfo_screenwidth() - width) // 2)
+        y = max(0, (w.winfo_screenheight() - height) // 2 - 20)  # a little above centre: the taskbar
+        w.geometry("+%d+%d" % (x, y))
+    except tk.TclError:
+        pass
+
+
+def center_all_windows():
+    """Every window the app opens (Files, Text view, Disassembler, dialogs...)
+    comes up in the centre of the screen. Each one sets its size in its own
+    __init__ after the Toplevel is made, so the move waits until that is done."""
+    if getattr(tk.Toplevel, "_breeze_centered", False):
+        return
+    original = tk.Toplevel.__init__
+    original_geometry = tk.Toplevel.wm_geometry
+
+    def init(self, *args, **kwargs):
+        original(self, *args, **kwargs)
+        self.after_idle(lambda: center_window(self))
+
+    def geometry(self, new=None):
+        if new:
+            m = re.match(r"(\d+)x(\d+)", new)
+            if m:
+                self._breeze_size = (int(m.group(1)), int(m.group(2)))
+        return original_geometry(self, new)
+    tk.Toplevel.__init__ = init
+    tk.Toplevel.wm_geometry = tk.Toplevel.geometry = geometry
+    tk.Toplevel._breeze_centered = True
 
 # One instance at a time unless "Multiple instances" is ticked: the first one listens
 # here, and a second start asks it to come to the front, then exits.
@@ -260,8 +330,11 @@ class Link(threading.Thread):
                 self.out.put(("status", "connecting to %s..." % self.host))
             b = None
             try:
-                b = Breeze(self.host, self.code, timeout=10)
+                # A Switch that does not answer is given up on in 3 s, so a
+                # Connect to the other one is not stuck behind it.
+                b = Breeze(self.host, self.code, timeout=10, connect_timeout=3)
                 self.out.put(("status", "connected: " + b.banner))
+                self.out.put(("connected", self.host, self.code))
                 b.cmd("events on")
                 self.loop(b)
             except Exception as e:  # noqa: BLE001 - shown, then retried
@@ -524,11 +597,154 @@ class PadLink(threading.Thread):
             time.sleep(0.004)
 
 
+class SystemWindow:
+    """sys-ftp's commands, straight to sys-ftp over FTP from this PC, so they work
+    while Breeze is not running (the case Memory is for). If that fails they go
+    through Breeze instead (PC connect's "ftp", see pcconnect.md), which knows
+    sys-ftp's port and login from config.ini."""
+
+    # Programs MEM lists, by the last digits it prints for system programs.
+    NAMES = {
+        "1000": "qlaunch (SwitchU daemon)", "1013": "hbloader (Breeze)", "100C": "overlayDisp",
+        "100D": "Album / hbmenu", "D609": "dmnt", "2D": "vi", "1F": "ns", "23": "am",
+        "12": "bsdsockets", "420000000000012B": "sys-ftp", "420000000007E51A": "nx-ovlloader",
+    }
+
+    def __init__(self, root, link, cfg, save_cfg, game=lambda: ("", "")):
+        self.link = link
+        self.cfg, self.save_cfg = cfg, save_cfg
+        self.game = game  # (title id, name) of the running game
+        self.replies = queue.Queue()  # (command, ok, text) from the FTP threads
+        self.win = tk.Toplevel(root)
+        self.win.title("System (sys-ftp)")
+        bar = tk.Frame(self.win)
+        bar.pack(fill="x", padx=4, pady=4)
+        tk.Button(bar, text="Memory", command=lambda: self.run("MEM")).pack(side="left")
+        tk.Button(bar, text="Running title", command=lambda: self.run("TID")).pack(side="left")
+        tk.Button(bar, text="Account", command=lambda: self.run("ACC")).pack(side="left")
+        tk.Button(bar, text="HOME", command=lambda: self.run("HOME")).pack(side="left")
+        tk.Button(bar, text="Terminate...", command=self.on_terminate).pack(side="left")
+        tk.Button(bar, text="Reboot", command=lambda: self.confirm("REBT", "Reboot the Switch now?")).pack(side="left")
+        tk.Button(bar, text="Shut down", command=lambda: self.confirm("SHUT", "Turn the Switch off now?")).pack(side="left")
+        tk.Label(bar, text=" Command:").pack(side="left")
+        self.entry = tk.Entry(bar, width=16)
+        self.entry.pack(side="left")
+        self.entry.bind("<Return>", lambda e: self.entry.get().strip() and self.run(self.entry.get().strip()))
+        tk.Label(bar, text=" FTP port:").pack(side="left")
+        self.port_var = tk.StringVar(value=str(self.cfg.get("ftp_port", 5001)))
+        tk.Entry(bar, width=6, textvariable=self.port_var).pack(side="left")
+        self.out = tk.Text(self.win, width=90, height=24, font=("Consolas", 10))
+        self.out.pack(fill="both", expand=True, padx=4, pady=(0, 4))
+        self.poll()
+        self.run("MEM")
+
+    def run(self, command):
+        try:
+            port = int(self.port_var.get())
+        except ValueError:
+            port = 5001
+        if self.cfg.get("ftp_port") != port:
+            self.cfg["ftp_port"] = port
+            self.save_cfg()
+        self.show("%s  %s\n\n..." % (time.strftime("%H:%M:%S"), command))
+        threading.Thread(target=self.direct, args=(command, self.cfg["host"], port), daemon=True).start()
+
+    def direct(self, command, host, port):
+        """One command on its own FTP session (thread)."""
+        try:
+            f = ftplib.FTP()
+            f.connect(host, port, timeout=10)
+            f.login(self.cfg.get("ftp_user", ""), self.cfg.get("ftp_pass", ""))
+        except (OSError, ftplib.Error) as e:
+            # sys-ftp not reachable from here: Breeze may still reach it.
+            self.replies.put((command, None, "sys-ftp on %s:%d: %s" % (host, port, e)))
+            return
+        try:
+            self.replies.put((command, True, f.sendcmd(command)))
+        except ftplib.Error as e:
+            self.replies.put((command, False, str(e)))
+        except OSError as e:
+            # REBT and SHUT may not get to answer.
+            self.replies.put((command, False, "no reply (%s)" % e))
+        try:
+            f.quit()
+        except (OSError, ftplib.Error):
+            pass
+
+    def poll(self):
+        if not self.win.winfo_exists():
+            return
+        try:
+            while True:
+                command, ok, text = self.replies.get_nowait()
+                # The link queues a command until Breeze is connected, so only
+                # what is harmless to run late goes that way.
+                if ok is None and command.split()[0].upper() in ("MEM", "TID", "TIDS", "ACC"):
+                    self.show("%s  %s\n\n%s\ntrying through Breeze..." % (time.strftime("%H:%M:%S"), command, text))
+                    self.link.send("ftp " + command)
+                elif ok is None:
+                    self.display(command, False, text + "\n(not sent through Breeze: it would run whenever Breeze next connects)")
+                else:
+                    self.display(command, ok, text)
+        except queue.Empty:
+            pass
+        self.win.after(100, self.poll)
+
+    def confirm(self, command, question):
+        if messagebox.askokcancel("System", question, parent=self.win):
+            self.run(command)
+
+    def on_terminate(self):
+        tid = simpledialog.askstring("Terminate", "Program id to terminate (hex, e.g. the running title's):",
+                                     parent=self.win)
+        if tid and messagebox.askokcancel("Terminate", "Terminate %s now?\n\nA game ends as if it had crashed: "
+                                          "anything it has not saved is lost." % tid.strip(), parent=self.win):
+            self.run("TRMT " + tid.strip())
+
+    def show(self, text):
+        self.out.delete("1.0", "end")
+        self.out.insert("end", text)
+
+    def on_reply(self, line, reply):
+        """A reply that came through Breeze."""
+        ok = reply.startswith("+OK")
+        self.display(line[4:].strip(), ok, reply[4:] if ok else reply)
+
+    def display(self, command, ok, text):
+        stamp = time.strftime("%H:%M:%S")
+        if ok and text[:4] in ("200 ", "200-"):
+            text = text[4:]
+        if ok and command.upper() == "MEM":
+            text = self.format_mem(text)
+        self.show("%s  %s\n\n%s" % (stamp, command, text))
+
+    def format_mem(self, text):
+        """MEM's one line as a table of pools and a list of programs."""
+        pools, _, procs = text.partition("; processes MB:")
+        lines = ["%-12s %9s %9s %9s" % ("pool (MB)", "used", "total", "free")]
+        m = re.findall(r"(\w+) ([\d.]+)/([\d.]+) \(([\d.]+) free\)", pools)
+        for name, used, total, free in m:
+            lines.append("%-12s %9s %9s %9s" % (name, used, total, free))
+        if not m:
+            lines.append(pools)
+        lines += ["", "%-18s %9s  %s" % ("program", "MB", "")]
+        for entry in procs.split():
+            pid, _, mb = entry.partition(":")
+            if not mb:
+                lines.append(entry)
+                continue
+            tid, name = self.game()
+            lines.append("%-18s %9s  %s" % (pid, mb, name if tid and pid.upper() == tid.upper() else self.NAMES.get(pid, "")))
+        return "\n".join(lines)
+
+
 class App:
     def __init__(self, root, host, code, cfg=None):
         self.root = root
         self.cfg = dict(cfg or {}, host=host, code=code)
-        root.title("Breeze PC - %s" % host)
+        self.pending_names = {}   # host -> name typed in Connect, kept once that Switch answers
+        self.connect_win = None
+        self.set_title()
         self.state = {}
         self.photo = None
         self.view_w, self.view_h = 960, 540
@@ -580,6 +796,8 @@ class App:
         self.start_btn.pack(side="left")
         self.files = None
         tk.Button(sbar, text="Files...", command=self.on_files).pack(side="left")
+        self.system = None
+        tk.Button(sbar, text="System...", command=self.on_system).pack(side="left")
         self.text = None
         self.rows_logged = None
         tk.Button(sbar, text="Text view", command=self.on_text).pack(side="left")
@@ -1086,53 +1304,142 @@ class App:
             return
         self.files = FileManager(self.root, self.cfg["host"], self.cfg["code"], self.cfg, self.save_cfg)
 
+    def on_system(self):
+        if self.system is not None and self.system.win.winfo_exists():
+            self.system.win.lift()
+            return
+        self.system = SystemWindow(self.root, self.link, self.cfg, self.save_cfg, lambda: self.game)
+
     def on_connect(self):
-        win = tk.Toplevel(self.root)
+        """Pick a Switch: one connected to before from the list (double-click
+        connects at once), or a new IP and code. The name is only for the list."""
+        if getattr(self, "connect_win", None) is not None and self.connect_win.winfo_exists():
+            self.connect_win.lift()
+            return
+        win = self.connect_win = tk.Toplevel(self.root)
         win.title("Connect")
         win.transient(self.root)
         win.resizable(False, False)
-        tk.Label(win, text="Switch IP (Settings > PC connect):").grid(row=0, column=0, sticky="w", padx=8, pady=(8, 2))
-        ip = tk.Entry(win, width=24)
+        recent = [r for r in self.cfg.get("recent", []) if isinstance(r, dict) and r.get("host")]
+
+        tk.Label(win, text="Previous connections (double-click to connect):").grid(
+            row=0, column=0, columnspan=2, sticky="w", padx=8, pady=(8, 2))
+        box = tk.Listbox(win, width=56, height=max(3, min(len(recent), RECENT_MAX)), activestyle="dotbox",
+                         font=("Consolas", 10), exportselection=False)
+        box.grid(row=1, column=0, columnspan=2, sticky="we", padx=8)
+
+        def fill():
+            box.delete(0, "end")
+            for r in recent:
+                here = "  (now)" if r["host"] == self.cfg["host"] else ""
+                box.insert("end", "%-20s %-16s code %s%s" % ((r.get("name") or "-")[:20], r["host"], r.get("code", ""), here))
+        fill()
+
+        fields = tk.Frame(win)
+        fields.grid(row=2, column=0, columnspan=2, sticky="we", padx=8, pady=(8, 0))
+        tk.Label(fields, text="Name (optional):").grid(row=0, column=0, sticky="w", pady=2)
+        name = tk.Entry(fields, width=30)
+        name.insert(0, connection_name(self.cfg, self.cfg["host"]))
+        name.grid(row=0, column=1, sticky="w", padx=8, pady=2)
+        tk.Label(fields, text="Switch IP (Settings > PC connect):").grid(row=1, column=0, sticky="w", pady=2)
+        ip = tk.Entry(fields, width=30)
         ip.insert(0, self.cfg["host"])
-        ip.grid(row=0, column=1, padx=8, pady=(8, 2))
-        tk.Label(win, text="PC connect code:").grid(row=1, column=0, sticky="w", padx=8, pady=2)
-        code = tk.Entry(win, width=24)
+        ip.grid(row=1, column=1, sticky="w", padx=8, pady=2)
+        tk.Label(fields, text="PC connect code:").grid(row=2, column=0, sticky="w", pady=2)
+        code = tk.Entry(fields, width=30)
         code.insert(0, self.cfg["code"])
-        code.grid(row=1, column=1, padx=8, pady=2)
+        code.grid(row=2, column=1, sticky="w", padx=8, pady=2)
+
+        def picked():
+            sel = box.curselection()
+            return recent[sel[0]] if sel else None
+
+        def on_pick(_e=None):
+            r = picked()
+            if r is None:
+                return
+            for entry, value in ((name, r.get("name", "")), (ip, r["host"]), (code, r.get("code", ""))):
+                entry.delete(0, "end")
+                entry.insert(0, value)
 
         def ok(_e=None):
-            host, c = ip.get().strip(), code.get().strip()
+            host, c, n = ip.get().strip(), code.get().strip(), name.get().strip()
             if not host or not c:
                 return
             win.destroy()
+            # The name goes in the list now; a new Switch joins the list once it answers.
+            if any(r["host"] == host for r in recent):
+                for r in self.cfg["recent"]:
+                    if isinstance(r, dict) and r.get("host") == host:
+                        r["name"] = n
+                self.save_cfg()
+            else:
+                self.pending_names[host] = n
             self.connect_to(host, c)
 
+        def on_double(_e=None):
+            on_pick()
+            ok()
+
+        def remove():
+            r = picked()
+            if r is None:
+                return
+            recent.remove(r)
+            self.cfg["recent"] = [x for x in self.cfg.get("recent", []) if not (isinstance(x, dict) and x.get("host") == r["host"])]
+            self.save_cfg()
+            fill()
+            box.configure(height=max(3, min(len(recent), RECENT_MAX)))
+
+        box.bind("<<ListboxSelect>>", on_pick)
+        box.bind("<Double-Button-1>", on_double)
+        box.bind("<Delete>", lambda e: remove())
+
         btns = tk.Frame(win)
-        btns.grid(row=2, column=0, columnspan=2, pady=8)
+        btns.grid(row=3, column=0, columnspan=2, pady=8)
         tk.Button(btns, text="Connect", width=10, command=ok).pack(side="left", padx=4)
+        tk.Button(btns, text="Remove", width=10, command=remove).pack(side="left", padx=4)
         tk.Button(btns, text="Cancel", width=10, command=win.destroy).pack(side="left", padx=4)
         win.bind("<Return>", ok)
         win.bind("<Escape>", lambda e: win.destroy())
-        ip.focus_set()
-        ip.select_range(0, "end")
+        # Start on the other Switch: switching between two is the usual reason to come here.
+        other = next((i for i, r in enumerate(recent) if r["host"] != self.cfg["host"]), None)
+        if other is not None:
+            box.selection_set(other)
+            box.activate(other)
+            on_pick()
+            box.focus_set()
+        else:
+            ip.focus_set()
+            ip.select_range(0, "end")
         win.grab_set()
 
     def connect_to(self, host, code):
-        if (host, code) == (self.cfg["host"], self.cfg["code"]):
-            return
-        # The windows with connections of their own are talking to the old Switch.
-        if self.files is not None and self.files.win.winfo_exists():
-            self.files.close()
-        if self.asm is not None and self.asm.alive():
-            self.asm.close()
+        """Connect to that Switch, or connect again to the same one."""
+        if (host, code) != (self.cfg["host"], self.cfg["code"]):
+            # The windows with connections of their own are talking to the old Switch.
+            if self.source is not None and self.source.alive():
+                self.source.close()  # asks first if there are unsaved changes
+                if self.source.alive():
+                    self.status.config(text="Not switched: the cheat source window has changes that are not saved.")
+                    return
+            if self.files is not None and self.files.win.winfo_exists():
+                self.files.close()
+            if self.asm is not None and self.asm.alive():
+                self.asm.close()
         if self.game_var.get():
             self.game_var.set(False)
             self.on_game_input()
         self.cfg.update(host=host, code=code)
         self.save_cfg()
-        self.root.title("Breeze PC - %s" % host)
+        self.set_title()
         self.state = {}
+        self.status.config(text="connecting to %s..." % host)
         self.link.retarget(host, code)
+
+    def set_title(self):
+        name = connection_name(self.cfg, self.cfg["host"]) or self.pending_names.get(self.cfg["host"], "")
+        self.root.title("Breeze PC - %s" % ("%s (%s)" % (name, self.cfg["host"]) if name else self.cfg["host"]))
 
     def on_multi_instance(self):
         self.cfg["multi_instance"] = bool(self.multi_var.get())
@@ -1372,6 +1679,9 @@ class App:
                     self.on_save_reply(item[1], item[2])
                 elif item[0] == "reply" and item[1].split()[0] in ("gamestop", "gamestart"):
                     self.on_game_reply(item[1], item[2])
+                elif item[0] == "reply" and item[1].split()[0] == "ftp":
+                    if self.system is not None and self.system.win.winfo_exists():
+                        self.system.on_reply(item[1], item[2])
                 elif item[0] == "reply":
                     _, line, reply = item
                     if not reply.startswith("+OK"):
@@ -1380,6 +1690,11 @@ class App:
                         self.last_reply = ""
                 elif item[0] == "status":
                     self.status.config(text=item[1])
+                elif item[0] == "connected":
+                    if (item[1], item[2]) == (self.cfg["host"], self.cfg["code"]):
+                        remember_connection(self.cfg, item[1], item[2], self.pending_names.pop(item[1], None))
+                        self.set_title()
+                        self.save_cfg()
                 elif item[0] == "pad":
                     self.pad_info.config(text=item[1] if self.pad is not None else "")
         except queue.Empty:
@@ -1406,6 +1721,7 @@ def main():
     host = sys.argv[1] if len(sys.argv) > 1 else cfg.get("host")
     code = sys.argv[2] if len(sys.argv) > 2 else cfg.get("code")
     root = tk.Tk()
+    center_all_windows()
     if not host:
         host = simpledialog.askstring("Breeze PC", "Switch IP (Settings > PC connect):", parent=root)
     if not code:
@@ -1416,6 +1732,7 @@ def main():
     with open(CONFIG, "w") as f:
         json.dump(cfg, f)
     app = App(root, host, code, cfg)
+    center_window(root)
     if instance is not None:
         app.serve_instance(instance)
     root.mainloop()

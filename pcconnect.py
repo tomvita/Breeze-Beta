@@ -17,8 +17,11 @@ BINARY = {"tail", "capture", "saveshot", "fsget"}
 
 
 class Breeze:
-    def __init__(self, host, code=None, port=PORT, timeout=15):
-        self.sock = socket.create_connection((host, port), timeout=timeout)
+    def __init__(self, host, code=None, port=PORT, timeout=15, connect_timeout=None):
+        # connect_timeout: how long to wait for a Switch that does not answer at
+        # all (asleep, off, another IP); `timeout` then applies to every reply.
+        self.sock = socket.create_connection((host, port), timeout=connect_timeout or timeout)
+        self.sock.settimeout(timeout)
         self.buf = b""
         self.events = []
         self.banner = self._line()

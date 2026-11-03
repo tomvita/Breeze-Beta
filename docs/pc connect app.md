@@ -71,7 +71,7 @@ From the folder that holds the files:
 python pcconnect_app.py 192.168.1.65 0303
 ```
 
-Use the address and code your own Switch shows. They are remembered in `.breeze_pc.json` in your home folder, so next time this is enough:
+Use the address and code your own Switch shows. They are remembered in `.breeze_pc.json` in your home folder, with every Switch connected to before (see **Connect...** below), so next time this is enough:
 
 ```
 python pcconnect_app.py
@@ -107,7 +107,16 @@ The status text in the first row reads, for example, `normal | Main | 5.2 fps |`
 
 The window can be resized; the screen keeps its 16:9 shape.
 
-**Connect...** switches to another address or code without restarting the app, for another Switch or after the code changed. The file manager, the disassembler and Game input close first, since each holds a connection of its own. The new address and code are remembered.
+**Connect...** switches to another Switch, or to a new code, without restarting the app. It lists the Switches the app has connected to before (the last 10), with a name you can give each one:
+
+- **Double-click** a line to connect to it at once. The window opens with the other Switch already selected, so going back and forth between two Switches is **Connect...** and Enter.
+- **A new Switch:** type its address and code, and a name if you like, then **Connect**. It joins the list once it answers.
+- **Remove** (or Delete) takes the selected line off the list.
+- **Connect** on the Switch already connected connects again, which helps after Breeze was restarted on it.
+
+A Switch that does not answer (asleep, off, another address) is given up on after 3 seconds and tried again, so a Connect to the other one takes effect at once. Before switching, the file manager, the disassembler, the cheat source editor and Game input close, since each holds a connection of its own; with unsaved changes in the cheat source editor it asks first, and if you keep them the app stays on the old Switch. The name of the Switch is shown in the window title.
+
+Every window the app opens comes up in the centre of the screen.
 
 Only one copy of the app runs at a time: starting it again brings the window already open to the front. Tick **Multiple instances** to allow more, for example one window per Switch. The setting is remembered.
 

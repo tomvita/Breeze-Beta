@@ -358,6 +358,8 @@ class FileManager:
 
     # ------------------------------------------------------------ worker results
     def pump(self):
+        if not self.win.winfo_exists():
+            return  # closed while a request was on its way
         try:
             while True:
                 item = self.out.get_nowait()

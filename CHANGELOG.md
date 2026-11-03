@@ -1,5 +1,12 @@
 # Changelog
 
+## [Beta 128.10] - 2026-11-03
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.09; Breeze.nro and the PC app changed.
+- **Saving cheats after the game crashed** no longer crashes Breeze or shelves the cheat source file: Write Cheat to file says "Nothing saved" when there is no game.
+- **The function map outside Overlay mode:** Breeze builds a Unity game's function map by itself only in Overlay mode, behind the game. In other modes Game Information's kit line now says `needs the function map: Unity > IL2CPP map > Build (X)`, and a map built there writes the kit again at once. See step 4 of the [cheat move guide](docs/cheat%20move%20guide.md#before-you-update).
+- **PC app:** Connect... remembers the last 10 Switches with a name for each (double-click or Enter to switch), switching works without restarting the app, and every window opens in the centre of the screen. See [PC connect app](docs/pc%20connect%20app.md).
+
 ## [Beta 128.09] - 2026-11-02
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.08; only Breeze.nro changed.
