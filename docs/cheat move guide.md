@@ -28,7 +28,12 @@ Once the update is installed, the old version is gone from the console and Breez
    | code dump | `dumping Game-TS3.consumer.nss 60% (13 of 21 MB)` | `code dump: Game-TS3.consumer.nss 21 MB -> 8 MB in 2.8 s (...)` |
    | update kit | `update kit: waiting for the code dump`, then `update kit: writing kit_<BID>.bin.gz` | `update kit: kit_<BID>.bin.gz written` |
 
-   **On a Unity game there is a third step**: Breeze also builds the game's function map (the old version's method names, which the move needs to find code the update rewrote and to tell a function from its identical copies). It starts once you go back to the game (Breeze behind it) and takes a few minutes; meanwhile the kit line says `update kit: the function map is built when you go back to the game`, then `update kit: building the function map first (... of ... classes)`, and when it is done the kit is written again with the method names. If you close Breeze or the game first, it starts over the next time. On Harvest Moon Echoes of Teradea it took about 4 minutes. Without that map, a move of Teradea's cheats left 22 of 81 behind and marks 20 more "to check".
+   **On a Unity game there is a third step**: the game's function map (the old version's method names, which the move needs to find code the update rewrote and to tell a function from its identical copies). Without it, a move of Harvest Moon Echoes of Teradea's cheats left 22 of 81 behind and marked 20 more "to check". How you get it depends on the SwitchU **Home toggle** (Settings):
+
+   - **Overlay:** Breeze builds it by itself, but only while it is behind the game, so press HOME to go back to the game and keep playing. It does not start while Breeze is on screen. The kit line says `update kit: the function map is built when you go back to the game`, then `update kit: building the function map first (... of ... classes)`. On Teradea it took about 4 minutes.
+   - **No restart, Fast restart, Off, or no SwitchU:** Breeze can't build it behind the game in these modes, and the kit line says `update kit: needs the function map: Unity > IL2CPP map > Build (X)`. Build it yourself: **Main > Unity > IL2CPP map** (X), then **Build** (X), and wait on that screen until it is done. You don't need to go back to the game.
+
+   Either way, when the map is done the kit is written again with the method names. If you close Breeze or the game before that, the map is started again the next time. The map is kept, so it is built only once per version.
 
    On Toy Story 3 the copy took 3 seconds and the kit 5 more. Closing Breeze or the game while the copy is being made throws it away, and it starts again the next time.
 
