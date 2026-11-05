@@ -1,5 +1,11 @@
 # Changelog
 
+## [Beta 128.11] - 2026-11-05
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o), sys-ftp and PC app as 128.10; only Breeze.nro changed.
+- **More cheats move after an update:** a pointer cheat rooted at a class's TypeInfo variable with only a static field after it, and a patched instruction that takes other registers in the new version (the patch gets the new registers, marked to check). Black Widow Recharged 1.0.1 -> 1.0.2: 29 moved, 1 to check, 0 not moved (was 25 / 0 / 5).
+- **Assist move (Cheats menu):** places the cheats a move left behind. X lists the game's function in the new version with the likely line selected, or where a class's variable is now; Y types an address; + puts every ready cheat back into the cheat file where it was and fills the cheat source file's missing names. See [A cheat that did not move](docs/cheat%20move%20guide.md#a-cheat-that-did-not-move).
+
 ## [Beta 128.10] - 2026-11-03
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.09; Breeze.nro and the PC app changed.

@@ -134,8 +134,16 @@ The report ends with `[audit]`: addresses of the old build that are still writte
 The result box counts it and the new cheat file leaves it out. To get it back:
 
 1. **Read its block in `cheat_update.txt`**, the lines starting with `!`.
-2. **Make it again on the new version** with the tool that made it. This is usually the quickest way.
-3. **Or fix a copy by hand:** take the cheat from `<old BID>.txt`, change the addresses and add it to the new file.
+2. **Place it with Assist move** (Cheats menu, beta128.11). The move keeps what it knew of each address it could not place in `cheat_update_assist.txt`, and the screen lists those addresses, one row each:
+   - **X on a code address** shows the game's function of the same name in the new version. `=` marks the old instruction, `~` the same one with other registers, and the cursor starts on the likely line. Press X on the right line.
+   - **X on a class's variable** (a Unity pointer cheat's root) shows the words of main that hold that class now, nearest the old address first.
+   - **Y** types the address yourself (`M+...` or hex), for anything else.
+   - One pick fills every cheat that waited on the same address.
+   - **+** puts every cheat that has all its addresses back into the cheat file where it was. A word that was the game's own becomes the new version's, and a patch whose instruction now takes other registers gets the new registers: check that cheat in the game. The cheat source file's `// name = ?` lines are filled in, and `cheat_update.txt` gets an `[assist]` line per cheat.
+
+   A cheat whose code cave could not be placed is listed with the reason, but Assist move can't place it.
+3. **Or make it again on the new version** with the tool that made it.
+4. **Or fix a copy by hand:** take the cheat from `<old BID>.txt`, change the addresses and add it to the new file.
 
 **Keep a copy of a cheat you fixed by hand.** If you remove `<new BID>.txt` and move again, the move leaves that cheat out again.
 

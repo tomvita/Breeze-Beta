@@ -202,6 +202,7 @@ Accessed by pressing `ZR + ZL` in the Advance Cheat Menu.
 | Make AOB M | (none) | For cheats skipped by Make AOB, create `label.index.aob` for type-0 code writes outside the final 4 KB code-cave page. |
 | Load AOB | ZR + Left | Process every `.aob` in the game directory; each resulting cheat has one line per occurrence. |
 | Move cheats from earlier build | ZL + ZR + X | After a game update, moves the old version's cheats to this one. Offered when this version has no cheat file. See **[Moving Cheats After a Game Update](cheat%20move%20guide.md)**. |
+| Assist move | (none) | Places the cheats a move left behind: pick the new address from the game's function or the class's variables, or type it; + puts the cheats back into the cheat file. See **[A cheat that did not move](cheat%20move%20guide.md#a-cheat-that-did-not-move)**. |
 | Rebase | ZR + Down | Opens the Rebase Menu, which carries cheats to a new version of the same game. |
 | Remove atm cheats | (none) | Remove cheat file from atmosphere's content directory. |
 | Delete all Cheats | - | Remove all cheats from the cheatVM. |
