@@ -1,5 +1,11 @@
 # Changelog
 
+## [Beta 128.12] - 2026-11-09
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o), sys-ftp and PC app as 128.11; only Breeze.nro changed.
+- **Unreal profile picks the right world pointer:** when more than one static holds the world, the one the game's code uses most wins, not the lowest address (Godzilla: Destroy All Monsters Melee Remastered got a scratch copy that read 0 outside battles). A saved profile that no longer resolves is scanned again by itself.
+- **Unreal 5.6 offsets read by name:** the profile search reads the route from the world by property name before guessing offsets from older Unreal versions.
+
 ## [Beta 128.11] - 2026-11-05
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o), sys-ftp and PC app as 128.10; only Breeze.nro changed.
