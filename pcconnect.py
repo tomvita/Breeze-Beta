@@ -4,6 +4,7 @@
 Interactive:   python pcconnect.py 192.168.1.65 1234
 One command:   python pcconnect.py 192.168.1.65 1234 state
 Library:       from pcconnect import Breeze; b = Breeze(ip, code); b.state()
+Another port:  write the address as ip:port, e.g. 127.0.0.1:6811 (an emulator host)
 """
 import json
 import socket
@@ -11,15 +12,21 @@ import sys
 
 PORT = 6801
 # Replies that continue past the first line until a lone '.'.
-MULTILINE = {"help", "watch", "probe", "holds", "maps", "refs", "chain", "xref"}
+MULTILINE = {"help", "watch", "probe", "holds", "maps", "refs", "chain", "xref",
+             "activity", "jobs"}  # the last two: emulator hosts only
 # Replies whose header line is followed by raw bytes (bytes=<n>).
-BINARY = {"tail", "capture", "saveshot", "fsget"}
+BINARY = {"tail", "capture", "saveshot", "fsget", "peekb"}
 
 
 class Breeze:
     def __init__(self, host, code=None, port=PORT, timeout=15, connect_timeout=None):
         # connect_timeout: how long to wait for a Switch that does not answer at
         # all (asleep, off, another IP); `timeout` then applies to every reply.
+        # host may be "ip:port", for a host that is not on 6801 (an emulator's setting, or two
+        # hosts on one PC); every PC tool takes the address this way.
+        name, sep, tail = host.rpartition(":")
+        if sep and tail.isdigit() and ":" not in name:
+            host, port = name, int(tail)
         self.sock = socket.create_connection((host, port), timeout=connect_timeout or timeout)
         self.sock.settimeout(timeout)
         self.buf = b""
@@ -87,6 +94,17 @@ class Breeze:
         if not reply.startswith("+OK "):
             raise RuntimeError(reply)
         return json.loads(reply[4:])
+
+    # What a Breeze on a console can do; one from before the `caps` command does all of it.
+    CONSOLE_CAPS = frozenset("read write codewrite pause maps holds cheats prep ui files "
+                             "input capture debug".split())
+
+    def caps(self):
+        """What this host can do (pcconnect.md, "Other hosts: emulators"), as a set of names."""
+        if getattr(self, "_caps", None) is None:
+            reply = self.cmd("caps")
+            self._caps = frozenset(reply.split()[1:]) if reply.startswith("+OK") else self.CONSOLE_CAPS
+        return self._caps
 
     def state(self, rows=60):
         return self.json("state %d" % rows)
@@ -316,6 +334,22 @@ class Breeze:
             raise RuntimeError(reply)
         lines = reply.split("\n")
         return lines[0], [bytes.fromhex(l) for l in lines[1:]]
+
+
+def game_caption(g):
+    """The running game for a title bar: 'Pokemon Pokopia 2.0.1  TID ...  BID ...', or 'no game'.
+
+    g is the game object of `meta` / `state`. title_name and version (the game's own name and
+    the version its title screen shows) come from Breeze 128.13 on; older ones give TID/BID.
+    """
+    if not g or g.get("attached") is False or not g.get("title_id"):
+        return "no game"
+    name = " ".join(x for x in (g.get("title_name", ""), g.get("version", "")) if x)
+    parts = [name] if name else []
+    parts.append("TID " + g["title_id"])
+    if g.get("build_id"):
+        parts.append("BID " + g["build_id"].upper())
+    return "  ".join(parts)
 
 
 def show_state(s):

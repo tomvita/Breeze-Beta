@@ -4,6 +4,8 @@ The Breeze PC app shows Breeze's screen in a window on your PC and lets you driv
 
 ![The Breeze PC app showing Breeze's main menu over a game](./images/pcapp_02_main_window.png)
 
+From beta129.00 the app is also the first tab of [Breeze Studio](breeze%20studio.md), which adds tabs for memory search, cheats, bookmarks, a Unity game's objects and watches. Everything in this guide works the same in that tab.
+
 ## Overview
 
 The app talks to **PC connect**, a small server inside Breeze (Settings > **PC connect**, TCP port 6801). Nothing else has to be installed on the Switch.

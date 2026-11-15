@@ -118,7 +118,7 @@ from tkinter import messagebox, simpledialog
 from PIL import Image, ImageTk
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pcconnect import Breeze  # noqa: E402
+from pcconnect import Breeze, game_caption  # noqa: E402
 from pcconnect_files import FileManager, pc_folder_name  # noqa: E402
 from pcconnect_album import Album  # noqa: E402
 from pcconnect_text import TextView, plain  # noqa: E402
@@ -315,9 +315,18 @@ class Link(threading.Thread):
         self.stop = False
         self.recorder = None
         self.retarget_to = None      # (host, code) to switch to
+        self.caps = Breeze.CONSOLE_CAPS  # what the host can do; asked on every connect
+
+    # The capability (`caps`) a command needs; a host without it is not sent the command.
+    NEEDS = dict({c: "ui" for c in ("state", "rows", "action", "press", "keydown", "keyup", "button", "tap",
+                                    "select", "text", "cancel", "show", "hide", "restart", "#rows")},
+                 save="files", saveshot="files", fs="files", ftp="files", capture="capture",
+                 gamestop="input", gamestart="input")
 
     def send(self, line):
-        self.jobs.put(line)
+        need = self.NEEDS.get(line.split()[0]) if line.strip() else None
+        if need is None or need in self.caps:
+            self.jobs.put(line)
 
     def retarget(self, host, code):
         """Drop the connection and connect to another Switch (or with another code)."""
@@ -335,6 +344,8 @@ class Link(threading.Thread):
                 b = Breeze(self.host, self.code, timeout=10, connect_timeout=3)
                 self.out.put(("status", "connected: " + b.banner))
                 self.out.put(("connected", self.host, self.code))
+                self.caps = b.caps()
+                self.out.put(("caps", self.caps, b.banner))
                 b.cmd("events on")
                 self.loop(b)
             except Exception as e:  # noqa: BLE001 - shown, then retried
@@ -405,7 +416,16 @@ class Link(threading.Thread):
                 next_capture = 0.0  # show the result of the press soon
                 fresh = True
                 continue
-            if not self.picture:
+            if "capture" not in self.caps:
+                # A host with no screen (an emulator): only which game it holds, now and then.
+                if time.time() >= next_capture:
+                    next_capture = time.time() + 3.0
+                    reply = b.cmd("meta")
+                    if reply.startswith("+OK {"):
+                        self.out.put(("state", {"game": json.loads(reply[4:]), "overlay": "no screen"}, "reply"))
+                else:
+                    time.sleep(0.05)
+            elif not self.picture:
                 # Text only: nothing to fetch, just keep reading events.
                 b.cmd("ping")
                 time.sleep(0.03)
@@ -647,7 +667,7 @@ class SystemWindow:
             self.cfg["ftp_port"] = port
             self.save_cfg()
         self.show("%s  %s\n\n..." % (time.strftime("%H:%M:%S"), command))
-        threading.Thread(target=self.direct, args=(command, self.cfg["host"], port), daemon=True).start()
+        threading.Thread(target=self.direct, args=(command, self.cfg["host"].split(":")[0], port), daemon=True).start()
 
     def direct(self, command, host, port):
         """One command on its own FTP session (thread)."""
@@ -1182,6 +1202,8 @@ class App:
                                                        "start": m.get("rows_start"), "rows": [plain(r) for r in m["rows"]]},
                                                       ensure_ascii=False))
         self.state = s
+        if game_caption(s.get("game")) != getattr(self, "title_game", None):
+            self.set_title()
         if self.recorder is not None:
             m = s.get("menu", {})
             self.recorder.note("state", "%s | %s | row %s | %s" % (
@@ -1332,7 +1354,7 @@ class App:
             box.delete(0, "end")
             for r in recent:
                 here = "  (now)" if r["host"] == self.cfg["host"] else ""
-                box.insert("end", "%-20s %-16s code %s%s" % ((r.get("name") or "-")[:20], r["host"], r.get("code", ""), here))
+                box.insert("end", "%-20s %-21s code %s%s" % ((r.get("name") or "-")[:20], r["host"], r.get("code", ""), here))
         fill()
 
         fields = tk.Frame(win)
@@ -1341,7 +1363,7 @@ class App:
         name = tk.Entry(fields, width=30)
         name.insert(0, connection_name(self.cfg, self.cfg["host"]))
         name.grid(row=0, column=1, sticky="w", padx=8, pady=2)
-        tk.Label(fields, text="Switch IP (Settings > PC connect):").grid(row=1, column=0, sticky="w", pady=2)
+        tk.Label(fields, text="Switch IP (Settings > PC connect),\nor ip:port for an emulator host:", justify="left").grid(row=1, column=0, sticky="w", pady=2)
         ip = tk.Entry(fields, width=30)
         ip.insert(0, self.cfg["host"])
         ip.grid(row=1, column=1, sticky="w", padx=8, pady=2)
@@ -1439,7 +1461,10 @@ class App:
 
     def set_title(self):
         name = connection_name(self.cfg, self.cfg["host"]) or self.pending_names.get(self.cfg["host"], "")
-        self.root.title("Breeze PC - %s" % ("%s (%s)" % (name, self.cfg["host"]) if name else self.cfg["host"]))
+        where = "%s (%s)" % (name, self.cfg["host"]) if name else self.cfg["host"]
+        game = (getattr(self, "state", None) or {}).get("game")  # set_title runs once before state exists
+        self.title_game = game_caption(game) if game else ""
+        self.root.title("Breeze PC - %s%s" % (where, " - " + self.title_game if game else ""))
 
     def on_multi_instance(self):
         self.cfg["multi_instance"] = bool(self.multi_var.get())
@@ -1655,6 +1680,41 @@ class App:
         self.info.config(text="  %s | %s | %.1f fps%s | %s" % ({"shown": "overlay"}.get(self.state.get("overlay"), self.state.get("overlay", "?")), title[:60], fps, rec,
                                                          self.last_reply[:60]))
 
+    def gate(self):
+        """Every control with the capability (pcconnect.md, `caps`) it needs, found by its label."""
+        need = {"Show": "ui", "Hide": "ui", "Reset": "ui", "Text view": "ui",
+                "Files...": "files", "System...": "files", "Cheat source": "files",
+                "Disassembler": "read", "Game input": "input", "HOME": "input",
+                "Screenshot": "capture", "Record": "capture"}
+        found = [(self.chord, "ui")]
+
+        def walk(w):
+            for c in w.winfo_children():
+                if isinstance(c, (tk.Button, tk.Checkbutton)) and c.cget("text") in need:
+                    found.append((c, need[c.cget("text")]))
+                walk(c)
+        for bar in self.root.winfo_children():
+            if isinstance(bar, tk.Frame):
+                walk(bar)
+        return found
+
+    def apply_caps(self, caps, banner):
+        """Greys out what this host cannot do, and says so where the picture would be."""
+        for widget, cap in self.gate():
+            widget.config(state="normal" if cap in caps else "disabled")
+        if "files" not in caps:
+            for w in (self.redirect_box, self.snap_btn, self.restore_btn, self.stop_btn, self.start_btn):
+                w.config(state="disabled")
+            self.save_info.config(text="")
+        self.canvas.delete("nocap")
+        if "capture" not in caps:
+            self.photo = None
+            self.canvas.itemconfigure(self.image_id, image="")
+            self.canvas.create_text(20, 20, anchor="nw", fill="#cccccc", font=("Segoe UI", 12), tags="nocap",
+                                    text="%s\n\nThis host has no Breeze screen to show.\nIt can do: %s\n\n"
+                                         "Use the Disassembler, or a script (pcconnect.py)."
+                                         % (banner[4:].split(" PC connect;")[0], " ".join(sorted(caps))))
+
     def pump(self):
         latest_frame = None
         try:
@@ -1688,6 +1748,8 @@ class App:
                         self.last_reply = "%s: %s" % (line.split()[0], reply)
                     else:
                         self.last_reply = ""
+                elif item[0] == "caps":
+                    self.apply_caps(item[1], item[2])
                 elif item[0] == "status":
                     self.status.config(text=item[1])
                 elif item[0] == "connected":

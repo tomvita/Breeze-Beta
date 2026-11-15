@@ -31,6 +31,8 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox
 
+from pcconnect import game_caption
+
 ROWS = 400                 # rows asked for around the cursor
 CHUNK = 2000               # rows per request when the whole list is wanted
 CHANGED_MS = 1500          # how long a changed row stays marked
@@ -550,6 +552,9 @@ class TextView:
     def on_state(self, s, source):
         """Every state the app receives. An event only says something changed: ask for all of it."""
         self.state = s
+        caption = "Breeze text view - %s" % game_caption(s.get("game"))
+        if caption != self.win.title():
+            self.win.title(caption)
         self.show_keyboard(s.get("keyboard"))
         if source == "event":
             self.ask_pending = 0.0

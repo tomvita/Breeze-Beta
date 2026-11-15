@@ -31,7 +31,7 @@ import threading
 import tkinter as tk
 from tkinter import messagebox, simpledialog, ttk
 
-from pcconnect import Breeze
+from pcconnect import Breeze, game_caption
 
 PIECE = 1 << 20
 CODE_KEYS = ("code", "codes")
@@ -237,6 +237,10 @@ class SourceEditor:
                         off += len(piece)
                         if off >= size or not piece:
                             break
+                try:
+                    info["_game"] = b.json("meta")  # for the title bar
+                except RuntimeError:
+                    info["_game"] = {}
                 return info, data.decode("utf-8", "replace")
             finally:
                 b.close()
@@ -255,7 +259,7 @@ class SourceEditor:
                 self.text.see(cursor)
             if then is not None:
                 then()
-            self.win.title("Cheat source - %s (build %s)" % (self.path, info.get("build_id", "?")))
+            self.win.title("Cheat source - %s - %s" % (game_caption(info.get("_game")), self.path))
             self.say("%d cheats, %d mods%s" % (len(info.get("cheats", [])), len(info.get("mods", [])),
                                              "" if info.get("exists") else " - no file yet: Save makes one"))
         self.run("Reading", fn, done)

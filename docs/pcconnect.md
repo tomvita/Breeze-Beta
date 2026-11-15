@@ -86,8 +86,8 @@ argument that starts with `/config/` into a Windows path.
 One command per line. Replies start with `+OK` or `-ERR`. Multi-line replies
 (`help`, `watch`, `holds`, `maps`, `refs`, `chain`, `cheats`, `cheats get`) end
 with a line holding a single `.`. `tail` and `capture` send a header with
-`bytes=<n>` and then exactly n raw bytes. Three clients are served at once, each
-on its own thread (a fourth is refused with `-ERR busy`), so the PC app, its
+`bytes=<n>` and then exactly n raw bytes. Six clients are served at once, each
+on its own thread (a seventh is refused with `-ERR busy`; three up to beta128.12), so the PC app, its
 file manager and a script can all be connected. `events` is per client.
 
 Only `ping`, `help`, `auth <code>` and `quit` work before `auth`.
@@ -143,10 +143,15 @@ directions `LSUP LSDOWN LSLEFT LSRIGHT RSUP RSDOWN RSLEFT RSRIGHT`.
   "stack": [{"kind": "air", "menu_id": 8, "uid": "8C042AE50", "title": "Cheats",
              "row_count": 14, "index": 7, "current_row": "..."}],
   "keyboard": {"header": "Edit Value", "subheader": "...", "text": "31"},
-  "game": {"attached": true, "title_id": "0100853015E86000",
-           "build_id": "27749f7144b46203", "main": "0x1289006000", "...": "..."}
+  "game": {"attached": true, "title_id": "0100853015E86000", "title_name": "Game name",
+           "version": "1.0.2", "build_id": "27749f7144b46203", "main": "0x1289006000",
+           "...": "..."}
 }
 ```
+
+`game` is also the reply to `meta`. `title_name` and `version` are the game's own
+name and display version from its control data (the version the title screen
+shows), so a PC tool can put "name version, TID, BID" in its title bar.
 
 `air` menus are the list-and-buttons screens (rows, cursor); `box` menus are
 button grids like Main and Settings; `alert` menus are message boxes (`text`,
@@ -230,7 +235,11 @@ builds which file.
 | `prep` | JSON: the game's `engine`, every preparation job (`job`, `engine`, `applies`, `blocking`, `what`, and its `outputs` with `exists`, `size`, `age_s`), the job `running` (`job`, `seconds`, `progress`) and how the `last` one ended (`ok`, `seconds`, `result`) |
 | `prep <job>` | starts a job. One at a time |
 | `prep abort` | stops a job that runs in slices; what it wrote so far stays |
+| `prep readcache on` / `off` | the block cache under the map builds' reads (on by default; 16 KB blocks, 32 MB while a job runs), for the `il2cpp_*` and `ue_*` jobs. It assumes the memory read does not change during the job, so the job stops the game itself and lets it run again when it ends (`game stopped for the job` in the result); no `freeze` is needed first. The game is not stopped while Break and Trace is set, and the cache is then off. A finished job's `result` ends with what it read: `game memory: <reads>, <MB>, <seconds> (<calls to dmnt>, <MB>); <queries>; work <seconds>` |
 | `files` | JSON: the game folder (`dir`), `title_id`, `build_id`, `engine`, and every file in it with `size`, `mtime`, `age_s`, a `kind` and, for the ones worth knowing, a `use` line. `global` lists `Klass.dat`, which lives outside the folder |
+| `bookmark list` | JSON: Breeze's bookmark file for the running game, read through Breeze (it keeps the file open, so `fsget` of a `.bmk` fails once a bookmark screen was used): for each record `i`, `label`, `type`, `region`, `offsets` (hex, from the region's base towards the value: each but the last is followed by reading a pointer) and `deleted` |
+| `bookmark add <type> <region> <hexoff>[,<hexoff>...] <label>` | One more record, as Breeze's own "add bookmark" writes it. Types `u8 s8 u16 s16 u32 s32 u64 s64 f32 f64 ptr`, regions `main heap alias aslr`, a label of up to 18 characters |
+| `bookmark delete <index>` | Marks the record deleted (Breeze's Bookmark screen shows it as "To Delete") |
 | `cheatupdate` | moves the cheats of the newest earlier build that has a code dump and a cheat file to the running build, as Breeze does by itself at attach when the build has no cheat file. Writes `<BID>.txt`, or `<BID>_updated.txt` when the build already has one, and the report `cheat_update.txt`; answers with the counts, e.g. `+OK 28 moved, 0 to check, 0 not moved (4186 ms) -> 9800A62AB3E6716B_updated.txt`. Up to two minutes |
 | `cheatupdate names` | Unity and Unreal: records what every offset of the running build's pointer cheats is (root class, static or field by declaring class and name) in `codedump/il2cpp_<BID>.txt`, as Breeze does at every attach; the next update uses it to find each field in the new classes. A chain that is null now keeps the names an earlier run found. E.g. `+OK 65 offsets named now, 0 kept from before (36 ms: ...) -> codedump/il2cpp_1D69F09FC684A7D1.txt` |
 | `cheatupdate kit [BID]` | writes the update kit of the running build (or of another build with a code dump and a cheat file) as `kit_<BID>.bin.gz` in the game folder, as Breeze does after attach: what a move reads about that build, for a console that never ran it |
@@ -632,8 +641,8 @@ videos on the SD card.
 | `fsput <offset> <length> <path>` | followed by that many raw bytes: writes them at the offset. Offset 0 creates the file, or empties an existing one first |
 
 A file is copied a piece at a time (`pcconnect.py`: `fs_get`, `fs_put`), so a
-copy can be cancelled between pieces. PC connect takes three clients: the app,
-its file manager, and a script.
+copy can be cancelled between pieces. PC connect takes six clients (three up to beta128.12): the app,
+its file manager, a script, and more.
 
 ### Developing Breeze
 
@@ -653,6 +662,192 @@ its file manager, and a script.
 | `saveprobe` | every save of the running game and whether it opens right now: normal, read-only, and the raw container on the user partition. A game normally holds its save locked (2002-0007) |
 
 Connections and errors are logged to `/switch/Breeze/pcconnect.log`.
+
+## Breeze Studio
+
+`python breeze_studio.py [address] [code]` is one window for a Switch or an emulator, with a
+tab for each kind of work; which tabs there are comes from `caps`: Screen (`ui`: Breeze's own
+screen, the PC app), Search (`search`), Cheats (`cheats`), Bookmarks, Objects, Watch, Code (the
+disassembler) and Files. Objects (`studio/studio_objects.py`) is for a
+Unity game: it reads `il2cpp_field_map.txt` and memory, lists the classes, shows a class's
+static fields live, opens the object a pointer leads to (arrays, List<T>, strings, structs in
+place), edits and holds values, and gives each row's pointer chain from main for a bookmark.
+
+The Code tab's debugger (Break, Run to, Step, Over, Continue, Stop, registers) works on a
+Switch through gen2 and on emuhost through the emulator's GDB stub. Measured on unmodified
+upstream Lichii: a breakpoint on a per-frame method stops the game there, step and over move
+one instruction, continue hits it again, stop puts the instruction back and the game runs.
+
+The Watch tab (`studio/studio_watch.py`) asks two things on whatever host answers them. "Who
+touches an address": every instruction that reads or writes it, with its caller, the count,
+the instructions around it and the stack. "What code ran": the functions called, Mark, and
+the ones first called after the mark. A Switch answers with `gen2 watch` / `gen2 rows` and
+`codewatch` (1, 2, 4 or 8 bytes; the game must run, so Breeze hidden); the Lichii fork with
+its probe (any length, values before and after, registers); emuhost with `probe data` on the
+emulator's watchpoints, and no code watch. While a list is being watched it follows by itself.
+On a Switch there are two more: "Which fields are used" (`fieldwatch`: every byte of an object
+watched, Sweep, Mark; the object's size and the field names come from the game's field map on
+the PC, since a field watch started over PC connect has no class in Breeze; a row goes to
+"Who touches" with a double-click) and "Which methods run" (`methodwatch`: called or not,
+the first caller, the object each ran on, which goes to the field watch from the row's menu).
+gen2 runs one watch at a time: starting one ends the one before, with its breaks taken off.
+On emulator hosts the tab also shows every client's commands live.
+
+emuhost's data watch, measured on unmodified upstream Lichii: 0x40 bytes of a per-frame
+object watched `rw` gave 14 rows at about 800 hits a second with the game running on; each
+hit stops the game while emuhost reads the registers and steps the one instruction. The
+emulator has four watchpoints, and the watches come off after 20,000 hits (`probe data max
+<n>`, 0 for no limit). The emulator takes a watched 4 KB page out of its memory mirror;
+emuhost reads those pages through the stub meanwhile, so other reads still work.
+
+Bookmarks are shared with Breeze on a Switch: the Bookmarks tab shows Breeze's own bookmark
+file as a view named Breeze (`bookmark list`), live, and a row of the Bookmarks or the Objects
+tab can be added to it (`bookmark add`). On another host the tab reads the `.bmk` file from
+the game's folder when there is one. The tools behind the tabs are the PC app's windows
+and the ones in `studio/`. A tab connects when it is first opened; on a Switch the tabs other
+than Screen take turns, so Studio stays within the client limit.
+
+Measured on a Switch (Warhammer Survivors 2.1.2, game running): a first search `u32 == 100`
+16 s (31,155 candidates), a next step 0.6 s, two targets in one pass 46 s, a dump for an
+unknown value (`none`) 107 s, then `diff` 81 s (17 million changed).
+
+While Breeze is shown on a Switch the game is stopped: nothing in its memory changes, so
+`diff` after a dump finds 0 and `same` finds everything. Studio's header says whether Breeze
+is shown or hidden and has the button to change it; hide Breeze, do the thing in the game,
+then step the search.
+
+## Other hosts: emulators
+
+The same protocol is served for a game that runs in an emulator. A client asks
+`caps` once and leaves out what the host cannot do.
+
+| host | what serves the port | how it reaches the game |
+|---|---|---|
+| Breeze on a console | `source/pcconnect.cpp` | dmnt |
+| an emulator with Breeze's core built in (Lichii) | `core/pcserver/`, inside the emulator | the emulator's own memory and cheat VM |
+| any yuzu-family emulator, unchanged | `core/emuhost/emuhost.exe`, a program next to it | the emulator's GDB stub and its memory mirror |
+
+`caps` answers `+OK` and the names, separated by spaces. A Breeze from
+before this command answers `-ERR`; treat that as "a console: everything in
+this document".
+
+| name | means |
+|---|---|
+| `read` `write` `maps` | `peek`, `peekb`, `poke`, `maps` |
+| `codewrite` | a `poke` into code takes effect (the emulator drops its translation of that code) |
+| `pause` | `freeze`, `resume` |
+| `jobs` | `enginescan`, `il2cppmap`, `uemap` run on the host, in seconds |
+| `search` | `search` |
+| `holds` | `hold`, `unhold`, `holds` |
+| `cheats` | a cheat VM: `cheats ...`, `statreg` |
+| `prep` | engine data built by Breeze itself: `prep`, `files`, `instances` (console) |
+| `ui` | Breeze's menus: `state`, `rows`, `action`, `press`, `button`, `text`, ... (console) |
+| `files` | `fs`, `fsget`, `fsput`, `save`, `saveshot` (console) |
+| `input` | `gamepad`, `gamepress`, `gamestick`, `gametouch` (console) |
+| `capture` | `capture` (console) |
+| `debug` | `dbg`, `gen2`, `fieldwatch`, `codewatch` (console) |
+
+Breeze on a console answers `read write codewrite pause maps search holds cheats prep
+ui files input capture debug`.
+
+`pcconnect.py` has `caps()` (a set of names; a Breeze from before the command
+counts as a console). The PC app asks on every connect, greys out the controls
+the host cannot serve and does not send it their commands; for a host with no
+`capture` it shows the host's name and its list where the picture would be.
+
+### Another port
+
+A host need not be on 6801: the fork's port is its `pc_connect_port` setting, emuhost's is
+`--port`, and two hosts on one PC need two ports. Every PC tool takes the address as
+`ip:port` (`127.0.0.1:6811`): pcconnect.py, the PC app's Connect window and command line,
+and the windows it opens. Without a port it is 6801.
+
+### Commands by host
+
+One call of each command was sent to the fork's own server and to emuhost
+(Warhammer Survivors running); the console column is this document.
+
+| commands | console | emulator hosts |
+|---|---|---|
+| `ping` `help` `auth` `quit` `caps` `meta` `maps` | yes | yes |
+| `peek` `poke` `watch` `refs` `chain` `xref` | yes | yes |
+| `hold` `unhold` `holds` `freeze` `resume` | yes | yes |
+| `cheats ...` | yes | the fork, and emuhost (Breeze's cheat VM runs in emuhost itself) |
+| `statreg` | no | the fork and emuhost |
+| `peekb` (binary read, up to 16 MB) | no | yes |
+| `search` | yes: the emulator hosts' search compiled into Breeze (pcsearch.cpp); its candidate files are in `sdmc:/switch/breeze/search/<title id>/`, apart from the ones Breeze's Search screens write | yes |
+| `enginescan` `il2cppmap` `uemap` `jobs` | no (`prep` does this work) | yes |
+| `prep` `instances` | yes | no |
+| `files` | yes | yes: `dir`, `title_id`, `build_id` and each file's `name`, `size` (no `use` lines); enough for the PC Disassembler to find the function map |
+| `fs roots` `fs ls` `fsget` `fsput` | yes | yes: the folder given as the SD card |
+| `save` `saveshot` `tail` | yes | no |
+| `state` | Breeze's screen and the game | the game only: `"emulator":true`, `"menu":null` |
+| `events on` | `*EVENT state` lines | `*EVENT` lines about other clients' commands and the probe |
+| `rows` `action` `press` `keydown` `keyup` `button` `tap` `select` `text` `cancel` `show` `hide` `keys` `focus` `restart` | yes | `-ERR the emulator has no Breeze screens to drive` |
+| `probe` | samples values around a key press | the fork's code/data watch (another command under the same name; every `+OK` reply ends with `.`); emuhost: the `probe data` part with the same replies (`status`, `data add\|list\|regs\|max\|stop\|clear`), on the stub's watchpoints, cap `datawatch`; `probe code` is refused there |
+| `hello <name>` `activity [n]` `breeze state\|stop` | no | yes: name this client, the last commands of every client, Breeze over the game |
+| `dbg` | yes (gen2) | emuhost: the same replies, on the stub's software breakpoints (`bp`, `bp clear`, `runto`, `step`, `over`, `cont`, `stop`, `reg`, `v`; no `threads`); the status also has `break_word`, the word the stub writes. The fork: no |
+| `capture` `gamepad` and the other game input, `gen2` `codewatch` `fieldwatch` `methodwatch` `gmvars` `stats` `ftp` and "Developing Breeze" | yes | no |
+
+The PC Disassembler (pcconnect_asm.py) was run against emuhost: the function list from
+`il2cpp_function_map.txt` (run `il2cppmap` first), the listing, Go, following a call, Back,
+Callers and Reload work. Without `debug` in `caps` it does not send `dbg`, and says so on its
+debug line. Functions come from the map's names alone there: an emulator host makes no
+`ehframe_<build>.bin`, so code without a name is listed only once a `bl` to it has been shown.
+
+A command a host does not have answers `-ERR unknown command ...` on one line,
+so asking is safe.
+
+Whether a reply has more lines (ended by a line holding only `.`) or raw bytes
+(`bytes=<n>` in the first line) depends on the command, not on anything in the
+first line. A client has to know: more lines after `help` `watch` `probe`
+`holds` `maps` `refs` `chain` `xref` `activity` `jobs`, plain `cheats` and
+`cheats get`; raw bytes after `tail` `capture` `saveshot` `fsget` `peekb`. An
+`-ERR` reply is always one line.
+
+### emuhost
+
+`emuhost.exe` needs nothing added to the emulator, so a newer core never needs
+a newer emulator. In the emulator turn on **Enable GDB stub** (Debug settings,
+port 6543), start the game, then start:
+
+    emuhost [--gdb 6543] [--port 6801] [--code 1234] [--sd <folder>] [--hold]
+
+- The emulator holds a game at its first instruction until a debugger continues
+  it, so the window stays black until emuhost is started. emuhost continues the
+  game unless `--hold` is given.
+- From the stub it takes the address of the memory mirror (`monitor get
+  fastmem`), the title id and regions (`get info`), the mappings (`get
+  mappings`), pause and resume. Reads, and writes to writable memory, go to the
+  mirror in the emulator's process (about 0.5 us a read). Writes to code go
+  through the stub. The build id is read from the GNU note in the main module.
+- `maps` while the game runs stops it for the few milliseconds the stub needs.
+- Maps are written to `<sd>/switch/breeze/cheats/<TID>/`.
+- Its `caps`: `read write codewrite pause maps jobs search holds cheats debug datawatch`.
+- Cheats: Breeze's cheat VM (`core/cheatvm/`, the one the fork runs, with Breeze's rules for ASM
+  hooks, split cheats, folders and mods) runs inside emuhost twelve times a second, on the
+  memory mirror; its writes into code go through the stub, and only when the bytes change.
+  The list starts from `<sd>/atmosphere/contents/<TID>/cheats/<BID>.txt` and `toggles.txt`
+  in the folder given as the SD card, and `cheats save` writes them back, so Breeze's cheat
+  files work as they are. Key conditions read the buttons where the game reads them (the
+  HID shared memory in the game's address space: player 1 and the handheld). The emulator's
+  own cheat engine knows nothing of this and still runs its own cheat files: do not give
+  both the same cheat.
+- It ends when the game ends, and never leaves the game stopped behind it.
+
+Measured (unchanged upstream Lichii, `core/emuhost/emuhost_run.py`): Orbitals
+(Unreal) engine scan 0.15 s and all four Unreal maps 5.3 s; Warhammer Survivors
+(Unity) both IL2CPP maps 2.1 s. With the fork as the reference
+(`core/test/gdbhost_run.py`) every value taken from the stub equals PC
+connect's, and the maps are byte for byte the ones the built-in core writes.
+
+A code poke changes what the game does (`core/emuhost/codepoke_run.py`,
+Warhammer Survivors, unchanged upstream Lichii, game running): `b .` written over
+the first instruction of `EventSystem::Update`, `DOTweenComponent::Update`,
+`DOTweenComponent::LateUpdate` and `Rewired.InputManager_Base::Update` each
+stopped every memory sample from changing (3 of 400 changed a second before, 0
+while patched), and the game went on once the instruction was put back. The
+same patch on two methods that do not run every frame changed nothing.
 
 ## Measured on the console
 

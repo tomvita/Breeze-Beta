@@ -28,6 +28,7 @@ This project started as a rewrite of the features implemented in EdiZon SE. Over
 -   **Rebase**: Carry cheats to a new version of the same game.
 -   **Overlay Mode**: Show Breeze on top of the running game and switch with the HOME button.
 -   **PC Connect and PC App**: See and drive Breeze from a PC, take save snapshots, and copy files, while the game runs.
+-   **Breeze Studio**: One window on the PC with a tab for each job: memory search, cheats, bookmarks, a Unity game's objects, watches, the disassembler and files.
 -   **Auto-Update**: Keep the app and database up to date automatically.
 -   **Consistent UI**: A user-friendly interface designed for seamless navigation. Includes **Radial Selection** (hold ZL and use stick) for quick action activation.
 
@@ -64,6 +65,7 @@ For detailed information, please refer to our comprehensive documentation:
 -   **[Context-Sensitive Help Guide](docs/help%20system.md)**: Open and navigate the in-application tutorial and selected-button Action Help.
 -   **[Sysmodule Manager Guide](docs/sysmodules.md)**: Runtime status, restart-required modules, and `sys-ftp-breeze` configuration.
 -   **[HOME Toggle and Overlay Mode](docs/home%20toggle%20and%20overlay.md)**: The HOME daemon, the Home toggle modes, Overlay mode and Breeze first.
+-   **[Breeze Studio Guide](docs/breeze%20studio.md)**: Breeze on the PC in one window: search, cheats, bookmarks, Unity objects, watches, code and files, for a Switch beside a PC.
 -   **[Breeze PC App Guide](docs/pc%20connect%20app.md)**: See and drive Breeze from a PC over Wi-Fi: install, key and mouse mapping, save snapshots, Stop / Start game, and the file manager.
 -   **[PC Connect](docs/pcconnect.md)**: The protocol behind the PC app, for scripts: commands, the Python client, and recipes.
 -   **[Save Snapshots and Game Files](docs/save%20snapshots%20and%20game%20files.md)**: What save redirect does, where the files are, and how a game's own files are reached.

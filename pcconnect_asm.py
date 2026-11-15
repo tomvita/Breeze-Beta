@@ -72,7 +72,7 @@ import capstone
 from capstone import arm64_const as A
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from pcconnect import Breeze  # noqa: E402
+from pcconnect import Breeze, game_caption  # noqa: E402
 import pcconnect_decomp  # noqa: E402
 from pcconnect_decomp import CPane  # noqa: E402
 
@@ -165,9 +165,11 @@ class Game:
         self.main_size = int(g["main_size"], 16)
         self.pid = g.get("pid")
         self.tid, self.bid = g["title_id"], g["build_id"].upper()
+        self.caption = game_caption(g)
         self.heap, self.heap_size = int(g["heap"], 16), int(g["heap_size"], 16)
         self.pages = {}
         self.bp_words = {}           # main offset -> the instruction a breakpoint replaced, every one seen
+        self.break_word = BREAK_WORD  # what the host writes for a breakpoint (an emulator host says its own)
         self.text_size = self.find_text()
         self.dir = ""
         self.title = ""
@@ -323,7 +325,7 @@ class Game:
         code = bytearray(self.read(self.main + start, end - start))
         # Under a breakpoint the game holds gen2's break word: show the instruction it replaced.
         for at, word in self.bp_words.items():
-            if start <= at < end - 3 and struct.unpack_from("<I", code, at - start)[0] == BREAK_WORD:
+            if start <= at < end - 3 and struct.unpack_from("<I", code, at - start)[0] == self.break_word:
                 struct.pack_into("<I", code, at - start, word)
         code = bytes(code)
         md = capstone.Cs(capstone.CS_ARCH_ARM64, capstone.CS_MODE_ARM)
@@ -417,7 +419,7 @@ class Game:
         """A page of code as the game has it, with the instructions under breakpoints put back."""
         data = bytearray(self.read(self.main + rva, PAGE))
         for at, word in self.bp_words.items():
-            if rva <= at < rva + len(data) - 3 and struct.unpack_from("<I", data, at - rva)[0] == BREAK_WORD:
+            if rva <= at < rva + len(data) - 3 and struct.unpack_from("<I", data, at - rva)[0] == self.break_word:
                 struct.pack_into("<I", data, at - rva, word)
         return bytes(data)
 
@@ -487,17 +489,23 @@ class Game:
 
     def debug(self, args="", vectors=False):
         """Sends `dbg <args>` and returns where things stand, with the stack (and the vector registers
-        when asked) when the game is stopped."""
-        reply = self.b.cmd(("dbg " + args).strip())
+        when asked) when the game is stopped. A host without a debugger (an emulator) is not asked."""
+        if "debug" not in self.b.caps():
+            if args:
+                raise RuntimeError("this host has no debugger (it answers `caps` without \"debug\")")
+            return {"no_debugger": True}
+        reply =self.b.cmd(("dbg " + args).strip())
         if not reply.startswith("+OK"):
             raise RuntimeError(reply[5:] if reply.startswith("-ERR ") else reply)
         st = json.loads(reply[4:])
         if "status" in st:
             st = st["status"]
+        if "break_word" in st:
+            self.break_word = int(st["break_word"], 16)
         for bp in st.get("bps", []):
             at = int(bp["at"], 16) - self.main
             word = int(bp["word"], 16)
-            if word != BREAK_WORD and word != 0:
+            if word != self.break_word and word != 0:
                 self.bp_words[at] = word
         st["stack"] = self.block(int(st["sp"], 16)) if st.get("stopped") else None
         if st.get("stopped") and vectors:
@@ -815,7 +823,7 @@ class Disassembler:
 
     def on_game(self, game):
         self.game = game
-        self.win.title("Breeze disassembler - %s" % (game.title or game.tid))
+        self.win.title("Breeze disassembler - %s" % game.caption)
         self.status.config(text="%s %s  main %X  code %X bytes  |  %d functions: %s" % (
             game.tid, game.bid, game.main, game.text_size, len(game.starts), game.source))
         self.fill_list()
@@ -912,6 +920,11 @@ class Disassembler:
         rva = self.parse(text)
         if rva is None:
             words = text.lower().split()
+            for start, _name, low in g.listed:      # the whole name first: "X::Update", not "X::UpdateModules"
+                if low == text.lower():
+                    rva = start
+                    break
+        if rva is None:
             for start, _name, low in g.listed:
                 if words and all(w in low for w in words):
                     rva = start
@@ -1123,6 +1136,9 @@ class Disassembler:
         g = self.game
         was = self.dbg
         self.dbg = st
+        if st.get("no_debugger"):
+            self.dbg_label.config(text="no debugger on this host (an emulator): the listing, Go, Callers and Reload work")
+            return
         if not st.get("gen2"):
             self.dbg_label.config(text="no gen2 fork that this Breeze can talk to")
             return

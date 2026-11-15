@@ -28,7 +28,7 @@ import time
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
-from pcconnect import Breeze
+from pcconnect import Breeze, game_caption
 
 PIECE = 1 << 20          # bytes per fsget / fsput
 DRIVES = "<drives>"      # the PC panel's list of drive letters
@@ -210,6 +210,7 @@ class FileManager:
         self.title_name = ""
         self.pc_game_dir = None   # the game folder the PC side was sent to, to tell whether it is still there
         self.win = tk.Toplevel(parent)
+        self.host = host
         self.win.title("Breeze files - %s" % host)
         self.win.geometry("1100x600")
         self.out = queue.Queue()
@@ -414,7 +415,14 @@ class FileManager:
     # ------------------------------------------------------------ the Switch panel
     def ask_roots(self):
         self.roots_asked = time.time()
-        self.worker.submit(lambda b, w: b.json("fs roots"), self.got_roots)
+        def roots_and_game(b, w):
+            r = b.json("fs roots")
+            try:
+                r["_game"] = b.json("meta")  # for the title bar
+            except RuntimeError:             # "-ERR no cheat process"
+                r["_game"] = {}
+            return r
+        self.worker.submit(roots_and_game, self.got_roots)
 
     def on_focus(self, _e):
         # Every widget in the window reports its own focus: ask once, not while
@@ -429,6 +437,10 @@ class FileManager:
                 self.fail(error)
             reply = {}
         roots = reply.get("roots") or [{"name": "SD card", "path": "sdmc:/"}]
+        if not error:
+            caption = "Breeze files - %s - %s" % (self.host, game_caption(reply.get("_game")))
+            if caption != self.win.title():
+                self.win.title(caption)
         title = reply.get("title_id", "")
         if roots == self.roots and title == self.title_id:
             return

@@ -1,5 +1,14 @@
 # Changelog
 
+## [Beta 129.00] - 2026-11-15
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.12; Breeze.nro and the PC tools (`pc_app.zip`) changed.
+- **Breeze Studio:** one window on the PC with a tab for each job, for a Switch beside a PC: Breeze's screen (the PC app), Search (any number of searches side by side), Cheats (list and editor), Bookmarks (Breeze's own, live), Objects (a Unity game's classes and objects by name), Watch (who touches an address, what code ran, which fields are used, which methods run), Code and Files. The header says whether Breeze is in front of the game, which stops it. See the [Breeze Studio guide](docs/breeze%20studio.md).
+- **PC connect:** `caps`, `search` and `bookmark list / add / delete` on the Switch; six clients at a time (three before); the game's name and version in `meta`; a PC tool's address may be `ip:port`. See [PC Connect](docs/pcconnect.md).
+- **Map builds stop the game and read through a cache:** the Unity menu's function map 201 s -> 119 s and field map 154 s -> 70 s on Warhammer Survivors, with identical maps; the Unreal menu's exports and scans do the same. The game runs again when the build ends.
+- **Lua ASM master:** per-path cheats use R15, not R0, so they no longer redirect the ASM hooks that run after them.
+- Breeze writes how long each start-up step took to `switch/Breeze/startup_times.txt`.
+
 ## [Beta 128.12] - 2026-11-09
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o), sys-ftp and PC app as 128.11; only Breeze.nro changed.
