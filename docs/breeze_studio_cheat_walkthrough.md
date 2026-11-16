@@ -5,7 +5,7 @@ the game running in an emulator: health, glide, moon jump, jelly, doubloons, abi
 speed. The game is *SpongeBob SquarePants: The Cosmic Shake* 1.0.7 (`01009FB0172F4000`, build
 `F712547C68C66A0A`, Unreal Engine 4.27). The finished cheats and the game's layout are in
 [SpongeBob_Cosmic_Shake_cheats.md](./SpongeBob_Cosmic_Shake_cheats.md); the tool itself is in
-[breeze_studio.md](./breeze_studio.md).
+[breeze_studio.md](./breeze%20studio.md).
 
 No memory search is used. An Unreal game describes its own classes and fields, so the work is
 to find the right field by name, get a pointer chain to it, and turn the chain into a cheat.
