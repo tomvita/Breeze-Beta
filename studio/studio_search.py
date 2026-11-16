@@ -426,7 +426,8 @@ class App:
                 return
             st = json.loads(r[4:])
             g = st.get("game") or {}
-            self.paused = bool(st.get("paused"))
+            if "paused" in st:      # a Switch does not say: there the last Pause or Resume stands
+                self.paused = bool(st["paused"])
             self.root.title(window_title("Search", g))
             self.game.set("%s  build %s  %s" % (g.get("title_id", "?"), g.get("build_id", "?"),
                                                 "PAUSED" if self.paused else "running"))
@@ -436,7 +437,12 @@ class App:
 
     def toggle_pause(self):
         want = "resume" if self.paused else "freeze"
-        self.run(lambda: self.client.cmd(want), lambda r: self.update_state())
+
+        def done(r):
+            if r.startswith("+OK"):
+                self.paused = want == "freeze"
+            self.update_state()
+        self.run(lambda: self.client.cmd(want), done)
 
     def poll_hotkey(self):
         if not HOTKEY:

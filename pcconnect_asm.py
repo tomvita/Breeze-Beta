@@ -637,9 +637,10 @@ class Game:
             if not r.startswith("+OK"):
                 raise RuntimeError(r)
         try:
-            return bool(self.b.json("state").get("paused"))
+            st = self.b.json("state")
         except Exception:  # noqa: BLE001
             return bool(want)
+        return bool(st["paused"]) if "paused" in st else bool(want)   # a Switch does not say
 
     def set_vector(self, n, low, high):
         """Writes all 128 bits of v<n> and checks they took: beta125.00 sets the low half only."""
