@@ -1254,10 +1254,14 @@ class Disassembler:
         if self.game is None:
             return
 
+        if not want and self.dbg.get("stopped"):
+            # Held at a breakpoint: only the debugger may let it go. A plain resume under a
+            # Switch's debugger (before beta129.00's fix) killed the game.
+            self.debug("cont")
+            return
+
         def done(paused):
             self.status.config(text="the game is paused" if paused else "the game runs")
-            if not want and self.dbg.get("stopped"):
-                self.debug("cont")
         self.job(lambda game: game.pause(want), done, "pausing..." if want else "resuming...")
 
     def show_memory(self, address, how):
