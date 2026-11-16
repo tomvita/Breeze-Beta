@@ -7,6 +7,9 @@
   * Select a cheat to see its code, one opcode per line. Edit the name or the code and Apply
     keeps it in place with its on/off state; Add as new, Duplicate and Delete as you would expect.
   * The master code has its own editor.
+  * Under the code, the cheat in words (cheat_disasm.py): each opcode, the address it reads or
+    writes in the game now, and the instruction when it writes code. Jump to target opens that
+    address in Memory, Jump to ASM opens the patched code in Code (Breeze's Edit Cheat keys).
   * Save to SD writes atmosphere/contents/<tid>/cheats/<bid>.txt + toggles.txt on the emulated
     SD card (what loads at the next start); Import / Export read and write a cheat .txt on the PC.
   * Pause / Resume (F9 works with the game focused).
@@ -24,6 +27,8 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 from game_title import window_title
+import cheat_disasm
+import studio_link
 
 HOTKEY_VK = 0x78  # F9
 
@@ -272,8 +277,25 @@ class App:
         self.name = ttk.Entry(right)
         self.name.pack(fill="x")
         ttk.Label(right, text="Code (one opcode per line; any spacing is fine)").pack(anchor="w", pady=(6, 0))
-        self.text = tk.Text(right, height=20, font=("Consolas", 10), undo=True)
+        self.text = tk.Text(right, height=10, font=("Consolas", 10), undo=True)
         self.text.pack(fill="both", expand=True)
+        erow = ttk.Frame(right)
+        erow.pack(fill="x", pady=(6, 0))
+        ttk.Label(erow, text="What it does (pick a line)").pack(side="left")
+        ttk.Button(erow, text="Jump to ASM", command=self.jump_asm).pack(side="right")
+        ttk.Button(erow, text="Jump to target", command=self.jump_target).pack(side="right", padx=4)
+        ttk.Button(erow, text="Read again", command=self.explain).pack(side="right")
+        self.what = tk.Text(right, height=10, font=("Consolas", 9), wrap="none", state="disabled", cursor="arrow")
+        self.what.tag_configure("asm", foreground="#05a")
+        self.what.tag_configure("pick", background="#fe9")
+        self.what.pack(fill="both", expand=True)
+        self.what.bind("<Button-1>", self.pick_line)
+        self.what.bind("<Double-Button-1>", lambda e: (self.pick_line(e), self.jump_asm(quiet=True) or self.jump_target())[0])
+        wmenu = tk.Menu(self.what, tearoff=0)
+        wmenu.add_command(label="Jump to target (Memory)", command=self.jump_target)
+        wmenu.add_command(label="Jump to ASM (Code)", command=self.jump_asm)
+        self.what.bind("<Button-3>", lambda e: (self.pick_line(e), wmenu.tk_popup(e.x_root, e.y_root)))
+        self.entries, self.picked_entry, self.exec_ranges = [], None, None
         krow = ttk.Frame(right)
         krow.pack(fill="x", pady=(4, 0))
         self.key_var = tk.StringVar(value="Key: none")
@@ -448,6 +470,76 @@ class App:
         self.text.insert("1.0", "\n".join(code_lines(words)))
         k = condition_key(words)
         self.key_var.set("Key: %s" % (key_names(k) if k is not None else "none"))
+        self.explain()
+
+    # ---- the cheat in words, and where it points
+    def explain(self):
+        """Reads the code box as it stands and fills "What it does"."""
+        try:
+            words = [int(x, 16) for x in self.text.get("1.0", "end").split()]
+        except ValueError:
+            return
+        if self.client is None:
+            return
+        c = self.client
+
+        def fn():
+            game = json.loads(c.cmd("state")[4:]).get("game") or {}
+            bases = {k: int(game[k], 16) for k in ("main", "heap", "alias", "aslr") if k in game}
+            if self.exec_ranges is None:
+                ranges = []
+                for l in c.cmd("maps", multi=True)[1:]:
+                    f = l.split()
+                    if len(f) >= 3 and "x" in f[2]:
+                        ranges.append((int(f[0], 16), int(f[0], 16) + int(f[1], 16)))
+                self.exec_ranges = ranges
+
+            def read(address, n):
+                r = c.cmd("peek %X %d" % (address, n))
+                return bytes.fromhex(r.split()[-1]) if r.startswith("+OK") else b""
+            return cheat_disasm.explain(words, bases, read, lambda a: any(lo <= a < hi for lo, hi in self.exec_ranges),
+                                        opcode_len)
+
+        def done(entries):
+            self.entries, self.picked_entry = entries, None
+            t = self.what
+            t.configure(state="normal")
+            t.delete("1.0", "end")
+            for e in entries:
+                t.insert("end", "%-30s %s\n" % (e["raw"], e["text"]), "asm" if e["asm"] is not None else "")
+            t.configure(state="disabled")
+        self.run(fn, done)
+
+    def pick_line(self, e):
+        row = int(self.what.index("@%d,%d" % (e.x, e.y)).split(".")[0]) - 1
+        self.what.tag_remove("pick", "1.0", "end")
+        self.picked_entry = row if 0 <= row < len(self.entries) else None
+        if self.picked_entry is not None:
+            self.what.tag_add("pick", "%d.0" % (row + 1), "%d.0" % (row + 2))
+        return "break"
+
+    def entry_with(self, key):
+        """The picked line when it has the address asked for, else the first line that has."""
+        if self.picked_entry is not None and self.entries[self.picked_entry][key] is not None:
+            return self.entries[self.picked_entry]
+        return next((e for e in self.entries if e[key] is not None), None)
+
+    def jump_target(self):
+        e = self.entry_with("target")
+        if e is None:
+            self.status.set("no line of this cheat has an address that can be worked out now")
+            return
+        self.status.set(studio_link.send(self.root, "Memory", "goto", e["target"]) or "%s  ->  %X" % (e["raw"], e["target"]))
+
+    def jump_asm(self, quiet=False):
+        e = self.entry_with("asm")
+        if quiet and (self.picked_entry is None or self.entries[self.picked_entry]["asm"] is None):
+            return False
+        if e is None:
+            self.status.set("this cheat writes no code")
+            return False
+        self.status.set(studio_link.send(self.root, "Code", "goto_address", e["asm"]) or "%s  ->  %X" % (e["raw"], e["asm"]))
+        return True
 
     def select_master(self):
         self.selected = 0

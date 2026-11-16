@@ -170,6 +170,8 @@ class Game:
         self.pages = {}
         self.bp_words = {}           # main offset -> the instruction a breakpoint replaced, every one seen
         self.break_word = BREAK_WORD  # what the host writes for a breakpoint (an emulator host says its own)
+        self.probe_debugger = None   # an emulator host whose probe has breakpoints (the Lichii fork)
+        self.run_to = None           # the breakpoint a Run to put, taken off at the next stop
         self.text_size = self.find_text()
         self.dir = ""
         self.title = ""
@@ -381,6 +383,7 @@ class Game:
             if mnem.startswith("ldr") and len(ops) == 2 and ops[1].type == A.ARM64_OP_IMM:
                 built = ops[1].imm   # literal load
             if built is not None:
+                line["addr"] = built
                 kind, text = self.describe(built)
                 if self.in_main(built):
                     line["target"] = built - self.main
@@ -491,6 +494,11 @@ class Game:
         """Sends `dbg <args>` and returns where things stand, with the stack (and the vector registers
         when asked) when the game is stopped. A host without a debugger (an emulator) is not asked."""
         if "debug" not in self.b.caps():
+            if self.probe_debugger is None:
+                r = self.b.cmd("probe held")
+                self.probe_debugger = isinstance(r, str) and r.startswith("+OK")
+            if self.probe_debugger:
+                return self.probe_debug(args, vectors)
             if args:
                 raise RuntimeError("this host has no debugger (it answers `caps` without \"debug\")")
             return {"no_debugger": True}
@@ -513,6 +521,125 @@ class Game:
             if reply.startswith("+OK"):
                 st.update(json.loads(reply[4:]))
         return st
+
+    def probe(self, args):
+        r = self.b.cmd("probe " + args)
+        if not r.startswith("+OK"):
+            raise RuntimeError(r[5:] if r.startswith("-ERR ") else r)
+        return r.split("\n")
+
+    def probe_debug(self, args, vectors=False):
+        """The same on the Lichii fork: its probe's breakpoints (probe break / held / step / over /
+        cont / setreg) in the shape `dbg` answers. One thread is held; the others run on."""
+        w = args.split()
+        if w[:1] == ["bp"] and len(w) > 1:
+            if w[1] == "clear":
+                self.probe("break clear")
+            else:                                   # F9 on a line: there or not there
+                at = self.main + int(w[1][2:], 16) if w[1].upper().startswith("M+") else int(w[1], 16)
+                have = [l.split()[0] for l in self.probe("break list")[1:]]
+                there = "M+%X" % (at - self.main) in have or "%X" % at in have
+                self.probe("break %s %X" % ("remove" if there else "add", at))
+        elif w[:1] == ["runto"] and len(w) > 1:
+            have = [l.split()[0] for l in self.probe("break list")[1:]]
+            if w[1] not in have:
+                self.probe("break add " + w[1])
+                self.run_to = w[1]
+            if self.probe("held")[0].startswith("+OK held"):
+                self.probe("cont")
+        elif w[:1] == ["reg"] and len(w) >= 3:
+            name = {"fp": "x29", "lr": "x30"}.get(w[1], w[1])
+            self.probe("setreg %s %s" % (name, " ".join(w[2:])))
+        elif w[:1] == ["stop"]:
+            if self.probe("held")[0].startswith("+OK held"):
+                self.probe("cont")
+        elif w:
+            self.probe(w[0])                        # step, over, cont
+            if w[0] in ("step", "over"):            # the answer is the state after it
+                for _ in range(100):
+                    if self.probe("held")[0].startswith("+OK held"):
+                        break
+                    time.sleep(0.02)
+        r = self.probe("held")
+        stopped = r[0].startswith("+OK held")
+        if stopped and self.run_to:
+            self.probe("break remove " + self.run_to)
+            self.run_to = None
+        st = {"gen2": True, "attached": True, "stopped": stopped, "break_word": "D4284840", "bps": [], "stack": None}
+        for l in self.probe("break list")[1:]:
+            p = l.split()
+            kv = dict(x.split("=", 1) for x in p[1:] if "=" in x)
+            at = self.main + int(p[0][2:], 16) if p[0].startswith("M+") else int(p[0], 16)
+            st["bps"].append({"at": "%X" % at, "word": kv.get("original", "0")})
+            self.bp_words[at - self.main] = int(kv.get("original", "0"), 16)
+        self.break_word = 0xD4284840
+        if stopped and len(r) > 1:
+            kv = dict(x.split("=", 1) for x in r[1].split())
+            st["x"] = [kv.get("x%d" % i, "0") for i in range(31)]
+            st["sp"], st["pc"], st["pstate"] = kv.get("sp", "0"), kv.get("pc", "0"), kv.get("pstate", "0")
+            st["stack"] = self.block(int(st["sp"], 16))
+            if vectors:
+                r = self.probe("held v")
+                if len(r) > 3:
+                    kv = dict(x.split("=", 1) for x in r[3].split())
+                    st["v"] = [kv.get("v%d" % i, "0:0").split(":") for i in range(32)]
+                    st["fpcr"], st["fpsr"] = kv.get("fpcr", "?"), kv.get("fpsr", "?")
+        return st
+
+    def operand(self, line):
+        """The memory an instruction uses: ("static", address), ("reg", base, index, shift, disp,
+        text) for one that goes through registers, or None when it uses none."""
+        if line.get("addr") is not None:
+            return ("static", line["addr"])
+        md = capstone.Cs(capstone.CS_ARCH_ARM64, capstone.CS_MODE_ARM)
+        md.detail = True
+        for ins in md.disasm(struct.pack("<I", line["word"]), self.main + line["rva"]):
+            for op in ins.operands:
+                if op.type == A.ARM64_OP_MEM and op.mem.base != 0:
+                    base = ins.reg_name(op.mem.base)
+                    index = ins.reg_name(op.mem.index) if op.mem.index != 0 else None
+                    shift = op.shift.value if index and op.shift.type != 0 else 0
+                    text = "%s%s%s" % (base, "+%s%s" % (index, "<<%d" % shift if shift else "") if index else "",
+                                       "%+#x" % op.mem.disp if op.mem.disp else "")
+                    return ("reg", base, index, shift, op.mem.disp, text)
+        return None
+
+    def catch(self, rva):
+        """The registers the next time the instruction at rva runs (the Lichii fork): a breakpoint
+        there for a moment, taken off again, and the game runs on. None when nothing ran it."""
+        where = "M+%X" % rva
+        if self.probe("held")[0].startswith("+OK held"):
+            return None
+        had = where in [l.split()[0] for l in self.probe("break list")[1:]]
+        if not had:
+            self.probe("break add " + where)
+        regs = None
+        try:
+            for _ in range(150):
+                r = self.probe("held")
+                if r[0].startswith("+OK held") and len(r) > 1:
+                    kv = dict(x.split("=", 1) for x in r[1].split())
+                    if int(kv.get("pc", "0"), 16) == self.main + rva:
+                        regs = {k: int(v, 16) for k, v in kv.items()}
+                    break
+                time.sleep(0.02)
+        finally:
+            if not had:
+                self.probe("break remove " + where)
+            if self.probe("held")[0].startswith("+OK held"):
+                self.probe("cont")
+        return regs
+
+    def pause(self, want=None):
+        """Stops or lets go the whole game (None: only asks). Returns True when it is stopped."""
+        if want is not None:
+            r = self.b.cmd("freeze" if want else "resume")
+            if not r.startswith("+OK"):
+                raise RuntimeError(r)
+        try:
+            return bool(self.b.json("state").get("paused"))
+        except Exception:  # noqa: BLE001
+            return bool(want)
 
     def set_vector(self, n, low, high):
         """Writes all 128 bits of v<n> and checks they took: beta125.00 sets the low half only."""
@@ -612,8 +739,14 @@ class Disassembler:
         self.go.bind("<Return>", lambda e: self.on_go())
         for text, cmd in (("Back", lambda: self.step(-1)), ("Forward", lambda: self.step(1)),
                           ("Func up", lambda: self.neighbour(-1)), ("Func down", lambda: self.neighbour(1)),
-                          ("Callers", self.on_callers), ("Reload", self.on_reload), ("Decompile F6", self.toggle_c)):
+                          ("Callers", self.on_callers), ("Reload", self.on_reload), ("Decompile F6", self.toggle_c),
+                          ("Memory used", self.on_operand_memory)):
             tk.Button(bar, text=text, command=cmd, takefocus=0).pack(side="left")
+        # Two buttons, not one that flips: another tab (Search, Cheats) may have paused the game.
+        tk.Button(bar, text="Run", bg="#5cb85c", fg="white", width=6, takefocus=0,
+                  command=lambda: self.set_pause(False)).pack(side="right", padx=(2, 4))
+        tk.Button(bar, text="Pause", bg="#d9534f", fg="white", width=6, takefocus=0,
+                  command=lambda: self.set_pause(True)).pack(side="right")
         tk.Label(bar, text="  Find:").pack(side="left")
         self.find_var = tk.StringVar()
         self.find = tk.Entry(bar, width=18, textvariable=self.find_var)
@@ -693,6 +826,22 @@ class Disassembler:
         self.text.bind("<ButtonRelease-1>", self.on_click)
         self.text.bind("<Double-Button-1>", self.on_follow)
         self.text.bind("<Return>", self.on_follow)
+        menu = tk.Menu(self.text, tearoff=0)
+        menu.add_command(label="Memory this instruction uses", command=self.on_operand_memory)
+        menu.add_command(label="Go where it points (call, jump, address)", command=lambda: self.on_follow_cur())
+        menu.add_separator()
+        menu.add_command(label="Breakpoint here (F9)", command=self.on_break)
+        menu.add_command(label="Run to here (F4)", command=self.on_runto)
+        menu.add_separator()
+        menu.add_command(label="Copy address", command=lambda: (self.win.clipboard_clear(),
+                                                                self.win.clipboard_append("M+%X" % (self.cur or 0))))
+
+        def popup(e):
+            line = self.line_at(e)
+            if line is not None:
+                self.set_cur(line["rva"])
+                menu.tk_popup(e.x_root, e.y_root)
+        self.text.bind("<Button-3>", popup)
         panes.add(mid, minsize=300, stretch="always")
 
         right = tk.PanedWindow(panes, orient="vertical", sashwidth=6, bg="#0f121b", bd=0)
@@ -829,6 +978,9 @@ class Disassembler:
         self.fill_list()
         last = self.cfg.get("asm_last", {}).get(game.bid)
         self.goto(last if last is not None and last < game.text_size else (game.starts[0] if game.starts else 0))
+        asked, self.asked = getattr(self, "asked", None), None
+        if asked is not None:
+            self.goto_address(asked)
         if self.cfg.get("asm_c_open") and not self.c_open:
             self.toggle_c()
 
@@ -1077,6 +1229,93 @@ class Disassembler:
         if line is not None and line["target"] is not None:
             self.goto(line["target"])
         return "break"
+
+    def on_follow_cur(self):
+        line = self.lines[self.row_of[self.cur] - 1] if self.cur in self.row_of else None
+        if line is not None and line["target"] is not None:
+            self.goto(line["target"])
+        else:
+            self.status.config(text="this line points nowhere in the game's code")
+
+    def goto_address(self, address):
+        """The listing at an address of the game's code. (Other tabs call this.)"""
+        if self.game is None:
+            self.asked = address
+            return
+        rva = address - self.game.main
+        if 0 <= rva < self.game.text_size:
+            self.goto(rva)
+        else:
+            self.status.config(text="%X is not in the game's code" % address)
+
+    def set_pause(self, want):
+        """Pause: the whole game stops. Run: it goes on, and a thread held at a breakpoint is let go."""
+        if self.game is None:
+            return
+
+        def done(paused):
+            self.status.config(text="the game is paused" if paused else "the game runs")
+            if not want and self.dbg.get("stopped"):
+                self.debug("cont")
+        self.job(lambda game: game.pause(want), done, "pausing..." if want else "resuming...")
+
+    def show_memory(self, address, how):
+        """Opens the address in Studio's Memory tab; run alone, in this window's own memory pane."""
+        studio = getattr(self.win, "studio", None)
+        if studio is not None and not studio.send("Memory", "goto", address):
+            return
+        self.data_at = address
+        self.mem_var.set("%X" % address)
+        self.show_data()
+        self.status.config(text="%s = %X" % (how, address))
+
+    def on_operand_memory(self):
+        """The memory the current line's instruction reads or writes."""
+        g = self.game
+        line = self.lines[self.row_of[self.cur] - 1] if g is not None and self.cur in self.row_of else None
+        if line is None:
+            return
+        op = g.operand(line)
+        if op is None:
+            self.status.config(text="M+%X uses no memory" % line["rva"])
+            return
+        if op[0] == "static":
+            self.show_memory(op[1], "M+%X" % line["rva"])
+            return
+        _kind, base, index, shift, disp, text = op
+
+        def value(regs, name):
+            name = {"x29": "fp", "x30": "lr"}.get(name, name) if "fp" in regs else name
+            v = regs.get(name)
+            if v is None and name.startswith("w"):
+                v = regs.get("x" + name[1:])
+                v = v & 0xFFFFFFFF if v is not None else None
+            return v
+
+        def use(regs, note=""):
+            b = value(regs, base)
+            i = value(regs, index) if index else 0
+            if b is None or i is None:
+                self.status.config(text="%s: no value for its registers" % text)
+                return
+            self.show_memory((b + (i << shift) + disp) & 0xFFFFFFFFFFFFFFFF, text + note)
+
+        st = self.dbg
+        if st.get("stopped"):
+            regs = dict(zip(REG_NAMES, [int(v, 16) for v in st["x"] + [st["sp"], st["pc"], st["pstate"]]]))
+            at_pc = self.pc_rva() == line["rva"]
+            use(regs, "" if at_pc else "  (with the registers at the PC, which is not this line)")
+            return
+        if not g.probe_debugger:
+            self.status.config(text="%s needs the registers: stop the game on this line first (Run to F4)" % text)
+            return
+
+        def done(regs):
+            if regs is None:
+                self.status.config(text="nothing ran M+%X in 3 seconds: %s is not known" % (line["rva"], text))
+            else:
+                use(regs, "  (caught as it ran)")
+        self.job(lambda game: game.catch(line["rva"]), done, "waiting for M+%X to run..." % line["rva"])
 
     def on_callers(self):
         g = self.game

@@ -35,6 +35,14 @@ class Breeze:
         if code is not None:
             reply = self.cmd("auth %s" % code)
             if not reply.startswith("+OK"):
+                if "wrong code" in reply:
+                    # The usual cause on a PC with an emulator: two servers on one address (the
+                    # emulator's own, and Breeze running inside it), each with its own port and code.
+                    who = self.banner[4:].split(" PC connect")[0].strip() if self.banner.startswith("+OK ") else "a server"
+                    reply += ". %s answered on port %d: if the code is another server's (Breeze inside an emulator " \
+                             "has its own port), type the address as that server's PC connect setting shows it, " \
+                             "ip:port" % (who, port)
+                self.close()
                 raise RuntimeError(reply)
 
     def _line(self):

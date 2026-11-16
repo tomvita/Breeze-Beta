@@ -8,10 +8,11 @@ PC connect), 127.0.0.1 for an emulator on this PC, or ip:port when the host is n
 Which tabs there are depends on what the host can do (PC connect `caps`):
 
   Screen     Breeze's own screen, driven from the PC          a Switch
+  Engine     what the game is built with (the engine scan)    every host
   Search     search targets, candidates, set / hold           a host with `search`
   Cheats     the cheat list, on / off, edit, add              a host with `cheats`
   Bookmarks  values by name from a game file, live            every host
-  Objects    classes, static fields and objects, live         every host, a Unity game
+  Objects    classes, fields and objects, live                every host, a Unity or Unreal game
   Watch      who touches an address, what code ran            a Switch, the fork, emuhost (data only)
   Code       the disassembler (and the debugger on a Switch)  every host
   Files      the SD card (or the folder that stands for it)   every host
@@ -335,9 +336,11 @@ class Studio:
         """(tab, whether this host has it, how to make it)."""
         c = self.caps
         return [("Screen", "ui" in c, self.make_screen),
+                ("Engine", "read" in c, self.make_engine),
                 ("Search", "search" in c, self.make_search),
                 ("Cheats", "cheats" in c, self.make_cheats),
                 ("Bookmarks", "read" in c, self.make_bookmarks),
+                ("Memory", "read" in c, self.make_memory),
                 ("Objects", "read" in c, self.make_objects),
                 ("Watch", self.has_probe or "debug" in c, self.make_watch),
                 ("Code", "read" in c, self.make_code),
@@ -372,6 +375,30 @@ class Studio:
         host, port = split_address(self.address)
         client = studio_bookmarks.Client(host, port, self.code, "studio_bookmarks")
         return studio_bookmarks.App(panel, client, None)
+
+    def make_memory(self, panel):
+        import studio_memory
+        return studio_memory.App(panel, self.address, self.code)
+
+    def send(self, label, method, *args):
+        """One tab hands an address to another: opens that tab and calls its method.
+        Returns "" or why it could not."""
+        holder = self.holders.get(label)
+        if holder is None:
+            return "this host has no %s tab" % label
+        self.tabs.select(holder)
+        self.root.update_idletasks()
+        self.on_tab()
+        panel = self.panels.get(label)
+        fn = getattr(getattr(panel, "app", None), method, None)
+        if fn is None:
+            return "the %s tab could not start" % label
+        fn(*args)
+        return ""
+
+    def make_engine(self, panel):
+        import studio_engine
+        return studio_engine.App(panel, self.address, self.code)
 
     def make_objects(self, panel):
         import studio_objects

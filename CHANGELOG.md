@@ -1,9 +1,11 @@
 # Changelog
 
-## [Beta 129.00] - 2026-11-15
+## [Beta 129.00] - 2026-11-16
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.12; Breeze.nro and the PC tools (`pc_app.zip`) changed.
 - **Breeze Studio:** one window on the PC with a tab for each job, for a Switch beside a PC: Breeze's screen (the PC app), Search (any number of searches side by side), Cheats (list and editor), Bookmarks (Breeze's own, live), Objects (a Unity game's classes and objects by name), Watch (who touches an address, what code ran, which fields are used, which methods run), Code and Files. The header says whether Breeze is in front of the game, which stops it. See the [Breeze Studio guide](docs/breeze%20studio.md).
+- **More in Studio:** Engine and Memory tabs; right-click links between tabs (a search candidate or memory row to a watch, a bookmark, Memory or the object that holds it); Objects for Unreal games, with Build map, Find chain and Make cheat; the Cheats tab writes a cheat out in words, with Jump to target and Jump to ASM; Code has Memory used, Pause and Run. The guide ends with a whole cheat made this way (Overcooked! 2's round timer). These were run against an emulator host, not yet on a Switch.
+- **Unity 2017 games** (the older IL2CPP class layout, e.g. Overcooked! 2 1.0.0): Build and the maps found no classes before; now 9,439 classes and 20,539 methods. Checked in an emulator, not yet on a Switch.
 - **PC connect:** `caps`, `search` and `bookmark list / add / delete` on the Switch; six clients at a time (three before); the game's name and version in `meta`; a PC tool's address may be `ip:port`. See [PC Connect](docs/pcconnect.md).
 - **Map builds stop the game and read through a cache:** the Unity menu's function map 201 s -> 119 s and field map 154 s -> 70 s on Warhammer Survivors, with identical maps; the Unreal menu's exports and scans do the same. The game runs again when the build ends.
 - **Lua ASM master:** per-path cheats use R15, not R0, so they no longer redirect the ASM hooks that run after them.

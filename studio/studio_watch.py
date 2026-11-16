@@ -10,6 +10,9 @@
 
     python studio_watch.py [ip[:port]] [code]
 
+The Lichii fork has one more, Break and trace (studio_break.py): breakpoints that hold the
+thread that reaches them, step, step over, and a trace of the next N instructions.
+
 A Switch has two more, gen2's field watch and method watch:
 
   Which fields are used?      every byte of an object watched; names from the field map
@@ -33,6 +36,7 @@ from tkinter import ttk
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from game_title import window_title  # noqa: E402
+import studio_break  # noqa: E402
 
 try:
     import capstone
@@ -379,6 +383,8 @@ class App:
         self.objects = None        # studio_objects.Game: the field map, for the field watch's names
         self.jobs = {}
         self.closed = False
+        self.asked = None          # a watch another tab asked for before this one was connected
+        self.brk = None            # studio_break.BreakPanel, where the host has breakpoints
         root.title("Watch")
         root.geometry("1180x820")
 
@@ -463,6 +469,7 @@ class App:
             except Exception:  # noqa: BLE001 - names are a help, not a need
                 pass
             back = ProbeBack(self.client, self.main, self.names, json.loads(st[0][4:]))
+            back.has_break = studio_break.supported(back)
             ev = Client(self.host, self.port, self.code, "studio_watch_events")
             ev.cmd("events on")
             self.events_client = ev
@@ -501,6 +508,14 @@ class App:
         if not self.back.console:
             self.nb.forget(self.field_frame)       # gen2's field and method watches: a Switch only
             self.nb.forget(self.method_frame)
+            if getattr(self.back, "has_break", False) and self.brk is None:
+                self.brk = studio_break.BreakPanel(self)
+                for menu, tree, entries in (
+                        (self.data_menu, self.data_tree, (("Break at this instruction", 1), ("Break at the caller", 3))),
+                        (self.code_menu, self.code_tree, (("Break at this function", 1),))):
+                    menu.add_separator()
+                    for label, column in entries:
+                        menu.add_command(label=label, command=lambda t=tree, c=column: self.break_picked(t, c))
             self.build_activity()
             for l in history:
                 self.event(l)
@@ -510,6 +525,9 @@ class App:
         if self.back.console:
             self.refresh_fields(quiet=True)
             self.refresh_methods(quiet=True)
+        if self.asked:
+            asked, self.asked = self.asked, None
+            self.watch_address(*asked)
 
     def on_inner_tab(self, _e=None):
         """gen2 runs one watch at a time: the one started last ended the others, so a tab reads
@@ -601,6 +619,7 @@ class App:
         menu = tk.Menu(self.data_tree, tearoff=0)
         menu.add_command(label="Copy instruction address", command=lambda: self.copy(self.data_tree, 1))
         menu.add_command(label="Copy caller address", command=lambda: self.copy(self.data_tree, 3))
+        self.data_menu = menu
         self.data_tree.bind("<Button-3>", lambda e: self.popup(e, self.data_tree, menu))
 
     def popup(self, e, tree, menu):
@@ -614,6 +633,34 @@ class App:
         if sel:
             self.root.clipboard_clear()
             self.root.clipboard_append(tree.item(sel[0], "values")[column])
+
+    def break_picked(self, tree, column):
+        sel = tree.selection()
+        if sel and self.brk:
+            self.brk.add(tree.item(sel[0], "values")[column])
+
+    def break_address(self, address):
+        """A breakpoint on the instruction at an address. (Other tabs call this.)"""
+        if self.brk:
+            self.brk.add("%X" % address)
+        else:
+            self.status.set("this host has no breakpoints (the Lichii fork has; on a Switch use Breeze's Gen2 Action)")
+
+    def watch_address(self, address, size=4):
+        """Starts "Who touches an address" on it. (Other tabs call this.) On a Switch gen2 runs
+        one watch at a time: this one ends the watch that was running."""
+        if not self.back:
+            self.asked = (address, size)
+            return
+        size = size if size in (1, 2, 4, 8) else 4
+        if self.back.lengths and size not in self.back.lengths:
+            size = max([x for x in self.back.lengths if x <= size] or [min(self.back.lengths)])
+        self.d_addr.delete(0, "end")
+        self.d_addr.insert(0, "%X" % address)
+        self.d_len.set("%X" % size)
+        self.d_mode.set("rw")
+        self.nb.select(self.data_frame)
+        self.data_add()
 
     def data_add(self):
         if not self.back:
@@ -686,6 +733,17 @@ class App:
                 self.detail.insert("end", text + "\n", tag)
         self.run(fn, done)
 
+    def target_note(self, ins):
+        """"  ; Class::Method" for a call or jump to a named function of main."""
+        if ins.mnemonic not in ("bl", "b") or not ins.op_str.startswith("#"):
+            return ""
+        try:
+            rva = int(ins.op_str[1:], 16) - self.main
+        except ValueError:
+            return ""
+        name = self.names.label(rva) if rva >= 0 else ""
+        return "  ; " + name if name else ""
+
     def code_around(self, where, before=6, after=6):
         """The instructions around a code address, the one at it marked."""
         try:
@@ -700,7 +758,7 @@ class App:
             text = "%08X" % word
             if CS is not None:
                 for ins in CS.disasm(data[k:k + 4], at):
-                    text = "%-8s %s" % (ins.mnemonic, ins.op_str)
+                    text = "%-8s %s%s" % (ins.mnemonic, ins.op_str, self.target_note(ins))
             rel = "M+%X" % (at - self.main) if self.main and self.main <= at < self.main + 0x40000000 else "%X" % at
             out.append(("%-12s %s" % (rel, text), "here" if at == a else ""))
         if CS is None and out:
@@ -761,6 +819,7 @@ class App:
         menu = tk.Menu(self.code_tree, tearoff=0)
         menu.add_command(label="Copy function address", command=lambda: self.copy(self.code_tree, 1))
         menu.add_command(label="Copy name", command=lambda: self.copy(self.code_tree, 2))
+        self.code_menu = menu
         self.code_tree.bind("<Button-3>", lambda e: self.popup(e, self.code_tree, menu))
 
     def code_start(self):

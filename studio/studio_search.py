@@ -36,6 +36,7 @@ import tkinter as tk
 from tkinter import filedialog, simpledialog, ttk
 
 from game_title import window_title
+import studio_link
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 HOTKEY_VK = 0x78  # F9
@@ -315,6 +316,16 @@ class App:
         self.tree.configure(yscrollcommand=sb.set)
         self.tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="left", fill="y")
+        m = self.cand_menu = tk.Menu(root, tearoff=0)
+        m.add_command(label="Watch this address (who reads or writes it)", command=self.watch_selected)
+        m.add_command(label="Add to bookmarks...", command=self.bookmark_selected)
+        m.add_command(label="Open in Memory", command=lambda: self.link_selected("Memory", "goto"))
+        m.add_command(label="Field view (the object that holds it)", command=lambda: self.link_selected("Objects", "field_view"))
+        m.add_separator()
+        m.add_command(label="Hold at its value", command=lambda: self.hold_selected(True))
+        m.add_command(label="Unhold", command=lambda: self.hold_selected(False))
+        m.add_command(label="Copy address", command=self.copy_selected)
+        self.tree.bind("<Button-3>", self.on_cand_menu)
 
         act = ttk.Frame(res)
         act.pack(fill="x", pady=(4, 0))
@@ -664,6 +675,27 @@ class App:
         self.run(lambda: "; ".join(self.client.cmd(("hold %s %d" % (a, w)) if on else ("unhold " + a))
                                    for a in addrs), self.status.set)
 
+    def on_cand_menu(self, e):
+        row = self.tree.identify_row(e.y)
+        if row:
+            if row not in self.tree.selection():      # a right-click on a picked row keeps the picked rows
+                self.tree.selection_set(row)
+            self.cand_menu.tk_popup(e.x_root, e.y_root)
+
+    def link_selected(self, tab, method, *more):
+        """The first picked candidate's address, handed to another tab."""
+        rows = self.chosen()
+        if not rows:
+            self.status.set("pick a candidate first")
+            return
+        note = studio_link.send(self.root, tab, method, int(rows[0][1], 16), *more)
+        if note:
+            self.status.set(note)
+
+    def watch_selected(self):
+        if self.selected:
+            self.link_selected("Watch", "watch_address", SIZES[self.shown_type()])
+
     def copy_selected(self):
         self.root.clipboard_clear()
         self.root.clipboard_append("\n".join(r[1] for r in self.chosen()))
@@ -681,20 +713,8 @@ class App:
         if not name:
             return
         typ = self.shown_type()
-        path = os.path.join(HERE, "views", "%s.txt" % tid)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        text = open(path, encoding="utf-8").read() if os.path.exists(path) else "title %s\n" % tid
-        if not re.search(r"^group Bookmarks\s*$", text, re.M):
-            text = text.rstrip("\n") + "\n\ngroup Bookmarks\n"
-        lines = text.split("\n")
-        at = next(i for i, l in enumerate(lines) if re.match(r"group Bookmarks\s*$", l)) + 1
-        while at < len(lines) and lines[at][:1] in (" ", "\t"):
-            at += 1
-        for k, r in enumerate(rows):
-            where = r[4].strip() or r[1]
-            label = name if len(rows) == 1 else "%s %d" % (name, k + 1)
-            lines.insert(at + k, "    %s = %s %s" % (label, where, typ))
-        open(path, "w", encoding="utf-8").write("\n".join(lines).rstrip("\n") + "\n")
+        path = studio_link.add_bookmarks(tid, [(name if len(rows) == 1 else "%s %d" % (name, k + 1),
+                                                r[4].strip() or r[1], typ) for k, r in enumerate(rows)])
         self.status.set("bookmarked %d in %s (bookmarks.py shows it)" % (len(rows), path))
 
     def batch(self, op):

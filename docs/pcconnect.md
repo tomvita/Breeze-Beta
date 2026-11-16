@@ -668,10 +668,21 @@ Connections and errors are logged to `/switch/Breeze/pcconnect.log`.
 `python breeze_studio.py [address] [code]` is one window for a Switch or an emulator, with a
 tab for each kind of work; which tabs there are comes from `caps`: Screen (`ui`: Breeze's own
 screen, the PC app), Search (`search`), Cheats (`cheats`), Bookmarks, Objects, Watch, Code (the
-disassembler) and Files. Objects (`studio/studio_objects.py`) is for a
+disassembler) and Files, and Engine (`studio/studio_engine.py`): the game's `engine_scan.txt` as a
+report, with Scan again (`prep engine` on a Switch, `enginescan` on an emulator host). Objects (`studio/studio_objects.py`) is for a
 Unity game: it reads `il2cpp_field_map.txt` and memory, lists the classes, shows a class's
 static fields live, opens the object a pointer leads to (arrays, List<T>, strings, structs in
 place), edits and holds values, and gives each row's pointer chain from main for a bookmark.
+For an Unreal game (`studio/studio_ue.py`) it needs only `ue_profile.ini`: names, classes and
+properties are read from the game's reflection data with `peek` (the offsets are found on the
+World class and checked against the profile), and every object from GUObjectArray, which it
+finds once in main's data and keeps by its offset. Measured on an emulator host, UE 4.27:
+72,170 objects of 5,406 classes listed in 2.9 s. Its Build map button has the host make the
+file the tab reads: `prep il2cpp_fields` or `prep ue_profile` on a Switch (followed with `prep`),
+`il2cppmap fields` or `uemap profile` on an emulator host.
+
+A wrong code's error names the server that answered and its port: an emulator's own server and
+a Breeze running inside that emulator are two servers on one address.
 
 The Code tab's debugger (Break, Run to, Step, Over, Continue, Stop, registers) works on a
 Switch through gen2 and on emuhost through the emulator's GDB stub. Measured on unmodified
