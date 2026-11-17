@@ -470,8 +470,9 @@ when the same instance was last watched from a field view (*Watch fields*),
 which saves the list; started from here every line is `(unnamed)`, and the
 offsets are looked up in `il2cpp_field_map.txt` or `ue_field_map.txt` on the PC.
 
-An instruction watch (which register values reach an instruction) is not
-offered here: the gen2 menu reads the register off the disassembly.
+An instruction watch (which register values reach an instruction) is
+`gen2 watch <address> x<n>`, above: the register is named, where the gen2 menu
+reads it off the disassembly.
 
 **A break on one object.** At a method's first instruction X0 is the object
 the method was called on. `gen2 break M+27A4060 x0=<the hero's stats object>`
@@ -623,6 +624,8 @@ of it. They run on Breeze's UI thread; `build` and `install` wait up to 120 s.
 | `source mod <n> <label>` | JSON: what Make mod on line `n` would make: `type`, `reg`, `slot` (a data line's), `have` (the `[mod]` that has that slot already, "" for none), and `suggest` and `values` to start from. For a pointer cheat it is the values its `write` can take |
 | `source mod <n> <label>\|<name>\|<values>` | does it (`values` `;` between, `label = value` allowed; `name` is ignored when `have` is set), then rebuilds the cheat. A shelved cheat is saved, not built. Report lines separated by `|` |
 | `source restore <label>` / `source discard <label>` | Shelf > Restore / Discard. Refused while Breeze shows Edit Cheat or the Cheat composer |
+| `source freeregs <rva> [word]` | JSON: the registers a code cave at main+rva may use without saving them (`overwritten`: the game writes them before it reads them; `by_convention`: not read before the next call or return, or rva is a function's start), `flags` (0 free, 1 free by convention, 2 in use), `complete`, and `comment`, the lines the Cheat composer puts at the top of a script. `word` stands in for the instruction at rva. Studio's Hook here uses the same rule (studio/free_regs.py) |
+| `source disasm <rva> [count]` | JSON: Breeze's own disassembly of `count` words (1-512, default 16) at main+rva, one string each (an empty string: Breeze's disassembler does not know the word) |
 
 ### Files
 
@@ -689,6 +692,27 @@ Switch through gen2 and on emuhost through the emulator's GDB stub. Measured on 
 upstream Lichii: a breakpoint on a per-frame method stops the game there, step and over move
 one instruction, continue hits it again, stop puts the instruction back and the game runs.
 
+On a Switch the Code tab has the gen2 menu's work under the listing. Watch instruction (F8)
+starts an instruction watch on the current line: the register and the offset are read off the
+instruction (`ldr w8, [x19, #0x48]` records x19, and each row is that value + 0x48), so the rows
+are the addresses the instruction uses, with the hits and what each holds now. The register box
+names another register (x0 at a method's first instruction: the objects it ran on) and the
+offset box another offset. A row opens in Memory; its menu starts "who touches this address"
+(`gen2 watch` r / w / rw with a stack depth), whose rows are the instructions with their callers
+and open in the listing, and "break at the instruction for this value only" (`gen2 break` with
+`x<n>=<value>`). An instruction that adds two registers needs one of them picked: PC connect
+records one register. gen2 runs one watch at a time. Starting one detaches gen2 first, so
+it is refused while the debugger has breakpoints or holds the game: Stop in the Debug row first.
+
+On the Lichii fork F8 does the same from the PC, since its probe has no instruction watch: a
+`probe break` on the instruction holds the thread that reaches it, the Code tab reads its
+registers (`probe held`), works the address out and lets it go (`probe cont`), hit after hit.
+Every register is there, so `sp` and two-register operands work. Each hit costs a few commands
+on the local connection, and a hit by another thread while one is held is not counted. "Break
+at the instruction for this value only" leaves the thread held when the address is the row's;
+Continue runs on. "Who touches this address" opens the Watch tab. Stop, or closing the tab,
+takes the break off; if Studio is killed with a watch on, `probe break clear` does.
+
 The Watch tab (`studio/studio_watch.py`) asks two things on whatever host answers them. "Who
 touches an address": every instruction that reads or writes it, with its caller, the count,
 the instructions around it and the stack. "What code ran": the functions called, Mark, and
@@ -701,6 +725,9 @@ watched, Sweep, Mark; the object's size and the field names come from the game's
 the PC, since a field watch started over PC connect has no class in Breeze; a row goes to
 "Who touches" with a double-click) and "Which methods run" (`methodwatch`: called or not,
 the first caller, the object each ran on, which goes to the field watch from the row's menu).
+On a Switch the mode box of "Who touches an address" also has x0 to x30: the address is then
+an instruction (hex or M+offset) and the rows are the values that register held there
+(`gen2 watch <address> x<n>`). A row's menu starts one on its instruction or its caller's.
 gen2 runs one watch at a time: starting one ends the one before, with its breaks taken off.
 On emulator hosts the tab also shows every client's commands live.
 

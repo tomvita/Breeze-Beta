@@ -11,7 +11,7 @@ It comes with Breeze from beta129.00, in `pc_app.zip`, beside the [PC app](pc%20
 - Breeze **beta129.00** or later on the Switch, with PC connect on (Settings > **PC connect**; the screen shows the Switch's address and the code).
 - The Switch and the PC on the same network.
 - **Python 3** on the PC, with Tk (the Windows installer from python.org includes it; on Linux install `python3-tk`).
-- The **Pillow** and **capstone** packages: `pip install pillow capstone`.
+- The **Pillow** and **capstone** packages: `pip install pillow capstone`. For **Hook here** in the Code tab also **keystone-engine** (`pip install keystone-engine`).
 - Everything from `pc_app.zip` in one folder, keeping the `studio` folder beside `breeze_studio.py`.
 
 ## Start
@@ -130,6 +130,8 @@ On an emulator **Build map** makes the Unity function map too, which is where th
 
 - Right-click a row: **Open in Memory** and **Watch this address** hand the row's address to those tabs.
 
+**Show a field in the rows that point at its object** (Unity). An array or a list of objects shows a column of addresses, which says nothing. Open one of the objects, right-click the field that names it (a name, an id, a count) and pick **Show this field in rows of** > the object's type. From then on every row that points at an object of that type shows that field's value in the **what** column: the list reads as names. The menu also offers the objects you came through on the way, so a value one or two pointers further in can be shown too (an item's data's name). Pick the same entry again to stop showing it. Tick **picked only** to hide the rows that show nothing, which turns a long array into a short list. The picks are the same file as Extract in Breeze's field view (`field_extract.txt` in the game's folder), so what you pick here shows on the Switch, and the other way round.
+
 Not yet: dictionaries (Unity), maps and sets (Unreal), Find chain for Unity, and other engines.
 
 ## Watch
@@ -193,6 +195,10 @@ The disassembler and the debugger of the [PC app](pc%20connect%20app.md#the-disa
 ![The Code tab](./images/studio_10_code.jpg)
 
 **Memory used** (also on the right-click menu) opens the Memory tab at the address the current line's instruction reads or writes. A fixed address works at once. One that goes through registers, such as `[x19, #0x18]`, uses the registers of the stopped game; on the Lichii fork with the game running it catches them the next time the line runs, and the game goes on.
+
+**Instruction watch** (F8 on a line, or the pane under the listing): which addresses an instruction uses each time it runs. The register and the offset are read off the instruction (`ldr w8, [x19, #0x30]` watches x19+0x30); each row is an address with its hit count and what it holds now. Right-click a row to open it in Memory, to watch who touches it, or to break at the instruction for that value only. On a Switch this is gen2's instruction watch; on the Lichii fork the tab runs it from the PC. In the Watch tab, `x0` to `x30` in the mode box of *Who touches an address* starts one too.
+
+**Hook here** (right-click a line): make an ASM cheat at that instruction. A script editor opens with the usual cave: your code, then `{original}` (the instruction the hook replaces), then `b code1+4`. Its first lines say which registers your code may use without saving them, and whether the flags (`cmp`, `tst`...) may change: the game writes those registers before it reads them, or does not read them before the next call or return. **Check** assembles it on the PC and shows the cave instruction by instruction; **Add cheat** adds it to the game's cheats (off unless **turn it on** is ticked); the Cheats tab saves it. The cave goes in the unused end of the game's code, after the caves the cheats already use; when that room runs out the editor says so, and Breeze's Add ASM on the Switch, which knows more places, is the way. It works on every host: a Switch, the Lichii fork and emuhost.
 
 **Pause** stops the whole game and **Run** lets it go (and lets go a thread held at a breakpoint); they work whichever tab paused it. On the Lichii fork the Debug row works too: breakpoints, Run to, Step, Over, Continue, the registers and the vector registers.
 

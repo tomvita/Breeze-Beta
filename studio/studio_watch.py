@@ -13,6 +13,10 @@
 The Lichii fork has one more, Break and trace (studio_break.py): breakpoints that hold the
 thread that reaches them, step, step over, and a trace of the next N instructions.
 
+On a Switch "Who touches an address" also takes an instruction: with x0..x30 in the mode box
+the address is an instruction, and the rows are the values that register held there (at a
+method's first instruction x0 is the object, so the rows are the objects it ran on).
+
 A Switch has two more, gen2's field watch and method watch:
 
   Which fields are used?      every byte of an object watched; names from the field map
@@ -172,6 +176,7 @@ class Back:
     has_code = True
     code_views = ()
     lengths = None       # the lengths a data watch may have (None: any)
+    modes = ("w", "r", "rw")
     note = ""
 
     def __init__(self, client, main, names):
@@ -282,6 +287,7 @@ class ConsoleBack(Back):
     console = True
     code_views = ("new", "all", "classes new", "classes")
     lengths = (1, 2, 4, 8)
+    modes = ("w", "r", "rw") + tuple("x%d" % i for i in range(31))    # x<n>: an instruction watch
     note = "a Switch: the game runs only while Breeze is hidden (the button in the header)"
 
     def one(self, line):
@@ -290,6 +296,11 @@ class ConsoleBack(Back):
 
     def data_add(self, address, length, mode, stack):
         return self.short(self.one("gen2 watch %X %s %d stack=%d" % (address, mode, length, stack)))
+
+    def reg_add(self, where, reg):
+        """An instruction watch: what register `reg` holds each time the instruction at `where`
+        (hex or M+offset) runs, one row per different value."""
+        return self.short(self.one("gen2 watch %s x%d" % (where, reg)))
 
     def short(self, r):
         if not r.startswith("+OK {"):
@@ -319,9 +330,10 @@ class ConsoleBack(Back):
         rows = []
         for i, x in enumerate(j.get("list", [])):
             if "pc" not in x:      # an instruction watch: the values a register held
-                rows.append({"key": str(i), "rw": "", "pc": x.get("value", ""), "fn": "(register value)", "caller": "",
-                             "caller_fn": "", "count": x.get("count", ""), "before": "", "after": "", "last": "", "thread": "",
-                             "stack": []})
+                rows.append({"key": str(i), "rw": "", "pc": x.get("value", ""), "fn": "(register value)",
+                             "caller": x.get("call_site", ""), "caller_fn": x.get("call_site_name", ""),
+                             "count": x.get("count", ""), "before": "", "after": "", "last": "", "thread": "",
+                             "stack": x.get("stack", []), "value": x.get("value", ""), "code": j.get("address", "")})
                 continue
             rows.append({"key": str(i), "rw": ("R" if j.get("read") else "") + ("W" if j.get("write") else ""),
                          "pc": x.get("pc", ""), "fn": x.get("pc_name", ""), "caller": x.get("call_site", ""),
@@ -330,6 +342,11 @@ class ConsoleBack(Back):
         return self.short(r)[4:], rows, bool(j.get("attached"))
 
     def data_detail(self, row):
+        if "value" in row:      # an instruction watch: the code shown is the watched instruction
+            out = [("the register held %s, %s time(s)" % (row["value"], row["count"]), "")]
+            if row["caller"]:
+                out.append(("called from %s   %s" % (row["caller"], row["caller_fn"]), ""))
+            return out
         out = [("%s   %s" % (row["pc"], row["fn"]), ""), ("called from %s   %s" % (row["caller"], row["caller_fn"]), ""), ("", "")]
         for off, where in row.get("stack", []):
             out.append(("sp+%X=%s" % (off, where), "ret"))
@@ -492,6 +509,11 @@ class App:
             self.d_stack_label.pack(side="left")
             self.d_stack.pack(side="left", padx=3)
             self.d_clear.state(["disabled"])
+            self.d_mode.configure(values=list(self.back.modes))
+            if self.back.console:
+                self.data_menu.add_separator()
+                for label, column in (("Watch this instruction (register values)", 1), ("Watch the caller's instruction", 3)):
+                    self.data_menu.add_command(label=label, command=lambda c=column: self.instruction_picked(c))
             # gen2 records who, not the values or the thread
             self.data_tree.configure(displaycolumns=("rw", "pc", "fn", "caller", "caller_fn", "count"))
         if self.back.has_code:
@@ -580,7 +602,7 @@ class App:
         self.d_len = ttk.Combobox(bar, width=5, values=["1", "2", "4", "8", "10", "40", "100"])
         self.d_len.set("4")
         self.d_len.pack(side="left", padx=3)
-        self.d_mode = ttk.Combobox(bar, values=["w", "r", "rw"], width=4, state="readonly")
+        self.d_mode = ttk.Combobox(bar, values=["w", "r", "rw"], width=4, state="readonly", height=12)
         self.d_mode.set("w")
         self.d_mode.pack(side="left", padx=3)
         self.d_stack_label = ttk.Label(bar, text="stack")
@@ -662,8 +684,53 @@ class App:
         self.nb.select(self.data_frame)
         self.data_add()
 
+    def instruction_picked(self, column):
+        sel = self.data_tree.selection()
+        i = self.data_tree.index(sel[0]) if sel else -1
+        if not 0 <= i < len(self.data_rows):
+            return
+        row = self.data_rows[i]
+        where = row["caller"] if column == 3 else row["pc"]
+        if not where or ("value" in row and column == 1):
+            self.status.set("that row has no instruction address there")
+            return
+        self.watch_instruction(where)
+
+    def watch_instruction(self, where, reg=None):
+        """Starts an instruction watch at `where` (hex or M+offset text): the values register
+        `reg` holds there. Without `reg`, the x<n> the mode box shows, or x0. A Switch only."""
+        if not self.back or not self.back.console:
+            self.status.set("an instruction watch needs Breeze on a Switch")
+            return
+        mode = self.d_mode.get()
+        if reg is not None or not mode.startswith("x"):
+            mode = "x%d" % (reg or 0)
+        self.d_addr.delete(0, "end")
+        self.d_addr.insert(0, where.split()[0])
+        self.d_mode.set(mode)
+        self.nb.select(self.data_frame)
+        self.data_add()
+
     def data_add(self):
         if not self.back:
+            return
+        if self.d_mode.get().startswith("x"):
+            where, reg = self.d_addr.get().strip(), int(self.d_mode.get()[1:])
+            try:
+                a = self.addr(where)
+            except ValueError:
+                self.status.set("instruction: hex or M+offset")
+                return
+            if a & 3:
+                self.status.set("not an instruction address (a multiple of 4)")
+                return
+            # M+ goes as it is: Breeze knows which module its offsets count from
+            send = where.upper() if where.upper().startswith("M+") else "%X" % a
+
+            def done_reg(r):
+                self.said(r)
+                self.refresh_data(quiet=True)
+            self.run(lambda: self.back.reg_add(send, reg), done_reg, "watching x%d at %s" % (reg, send))
             return
         try:
             a = self.addr(self.d_addr.get())
@@ -724,7 +791,7 @@ class App:
         row = self.data_rows[i]
 
         def fn():
-            return self.back.data_detail(row), self.code_around(row["pc"])
+            return self.back.data_detail(row), self.code_around(row.get("code") or row["pc"])
 
         def done(r):
             lines, code = r

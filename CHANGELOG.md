@@ -10,6 +10,8 @@
 - **Map builds stop the game and read through a cache:** the Unity menu's function map 201 s -> 119 s and field map 154 s -> 70 s on Warhammer Survivors, with identical maps; the Unreal menu's exports and scans do the same. The game runs again when the build ends.
 - **Lua ASM master:** per-path cheats use R15, not R0, so they no longer redirect the ASM hooks that run after them.
 - Breeze writes how long each start-up step took to `switch/Breeze/startup_times.txt`.
+- **ASM cheats on Switch 2 code:** Add ASM failed on a hook at a function's first instruction (`pacibsp`, which the assembler does not know); the replaced instruction now goes back into the cave as it is. The Cheat composer's script starts with comment lines saying which registers the cave may use without saving them, and whether it may change the flags. Checked in an emulator, not yet on a Switch.
+- **More in Studio:** Code has an instruction watch (F8: every address an instruction uses) and **Hook here** (make an ASM cheat at a line, with the free registers, assembled on the PC; needs `pip install keystone-engine`); Objects has **Show this field in rows of**, Breeze's Extract, so a list of objects reads as their names, sharing the picks with Breeze's field view both ways. Not yet tried on a Switch.
 
 ## [Beta 128.12] - 2026-11-09
 

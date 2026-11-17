@@ -28,6 +28,13 @@ Unity game, the profile for an Unreal one; see build_map.
     object taken from a class's list, which has none of its own.
   * Right-click > Make cheat...: the row's chain and a value as cheat code, to copy or to add
     to the game's cheats (off).
+  * Right-click > Show this field in rows of (Unity): Breeze's Extract. The field is shown in the
+    "what" column of every row that points at an object of that type, so an array or a list of
+    objects reads as their names and numbers. Offered for the object the field is in and for the
+    objects this view was reached from through pointer fields (a value two or three pointers
+    in). Picked again, it is no longer shown. The picks are Breeze's field_extract.txt in the
+    game's folder: the field view on the Switch shows the same. "picked only" (Breeze's
+    Condense) leaves out the rows that show none.
 
 Python 3 with tkinter only.
 """
@@ -59,6 +66,9 @@ BOOKMARK_TYPE = {"bool": "u8", "byte": "u8", "sbyte": "s8", "char": "u16", "shor
 OBJECT_HEADER = 0x10      # klass + monitor: a value type's fields are listed past it
 STATICS = 0xB8            # klass -> its static block (the map's header says so; read from there when it differs)
 ARRAY_LEN, ARRAY_DATA = 0x18, 0x20
+EXTRACT_FILE = "field_extract.txt"  # Breeze's Extract picks (field view): the same file, so both show the same
+EXTRACT_HEADER = ("# Breeze field extract - inline display picked with the Extract button\n"
+                  "# type|hop>hop>offset|field name|field type\n")
 MAX_ELEMENTS = 200
 MAX_DEPTH = 3             # structs inside structs
 
@@ -112,6 +122,39 @@ class Row:
         self.label, self.type, self.address, self.chain = label, type_, address, chain
         self.depth, self.offset, self.note = depth, offset, note
         self.value, self.raw, self.target = "", b"", 0
+
+
+def extract_key(type_):
+    """'Idle.Datas.Item*' and 'Idle.Datas.Item' name the same picks: the row declares the pointer,
+    the view inside it the class (Breeze's field_extract_key)."""
+    return type_.strip().rstrip("*").strip()
+
+
+def parse_extracts(text):
+    """field_extract.txt -> {type: [(path, name, type)]}; path = the offsets walked from the
+    object, every one but the last read as a pointer."""
+    out = {}
+    for line in text.splitlines():
+        if not line.strip() or line.startswith("#"):
+            continue
+        p = line.split("|")
+        if len(p) < 4 or not p[0] or not p[3]:
+            continue
+        try:
+            path = tuple(int(x, 0) for x in p[1].split(">") if x)
+        except ValueError:
+            continue
+        if path:
+            out.setdefault(p[0], []).append((path, p[2], p[3]))
+    return out
+
+
+def format_extracts(specs):
+    lines = [EXTRACT_HEADER]
+    for key, picks in specs.items():
+        for path, name, type_ in picks:
+            lines.append("%s|%s|%s|%s\n" % (key, ">".join("0x%X" % x for x in path), name, type_))
+    return "".join(lines)
 
 
 def cache_folder(meta):
@@ -213,6 +256,7 @@ class Game:
         self.starred = set()
         self.short = {}       # last part of a class name -> full names
         self.pages = {}
+        self.extracts, self.extract_note = {}, ""
         self.load(files)
 
     def load(self, files=None):
@@ -241,6 +285,87 @@ class Game:
             self.short.setdefault(name.rpartition(".")[2], []).append(name)
         self.starred = {n for n, k in self.classes.items() if any(f.static for f in k.fields)}
         self.note = "%d classes, %d with static fields" % (len(self.classes), len(self.starred))
+        self.dir = files.get("dir", "")
+        self.extracts = {}
+        if EXTRACT_FILE in have:
+            try:
+                self.extracts = parse_extracts(self.b.get_file(self.dir + EXTRACT_FILE).decode("utf-8", "replace"))
+            except Exception as e:  # noqa: BLE001 - the view works without them
+                if isinstance(e, (OSError, ConnectionError)):
+                    raise
+        if self.extracts:
+            self.note += ", fields shown for %d types" % len(self.extracts)
+
+    # ------------------------------------------------------------ picked fields (Breeze's Extract)
+    def extract_spec(self, type_):
+        """The picks for rows of this type: by its full name, else by the name without namespace
+        (Breeze's field view may have written the short name, or the long one)."""
+        key = extract_key(type_)
+        if not key or key in ("object", "string", "System.String", "System.Object"):
+            return None
+        if key in self.extracts:
+            return self.extracts[key]
+        short = key.rpartition(".")[2]
+        for k, v in self.extracts.items():
+            if k.rpartition(".")[2] == short:
+                return v
+        return None
+
+    def toggle_extract(self, type_, path, name, field_type):
+        """Shows the field in every row of that type, or stops showing it. True: now shown."""
+        key = extract_key(type_)
+        for k in (key, key.rpartition(".")[2]):
+            picks = self.extracts.get(k)
+            if picks is not None and any(p[0] == tuple(path) and p[1] == name for p in picks):
+                picks[:] = [p for p in picks if not (p[0] == tuple(path) and p[1] == name)]
+                if not picks:
+                    del self.extracts[k]
+                self.save_extracts()
+                return False
+        self.extracts.setdefault(key, []).append((tuple(path), name, field_type))
+        self.save_extracts()
+        return True
+
+    def save_extracts(self):
+        self.b.fs_put(self.dir + EXTRACT_FILE, 0, format_extracts(self.extracts).encode("utf-8"))
+
+    def value_text(self, address, type_):
+        """One value by its declared type, as a row would show it."""
+        base, pointer = base_type(type_)
+        if base in ("string", "System.String", "String"):      # the map writes it as System.String*
+            obj = self.u64(address)
+            if not obj:
+                return '""'
+            text = self.string(obj)
+            return '"%s"' % (text[:24] + "..." if len(text) > 24 else text)
+        if pointer or base in ("object",) or type_.endswith("[]"):
+            v = self.u64(address)
+            return "%X" % v if v else "null"
+        fmt, size = PRIM.get(base, ("<i", 4))
+        v = struct.unpack(fmt, self.read(address, size))[0]
+        return ("%.7g" % v) if isinstance(v, float) else str(int(v) if isinstance(v, bool) else v)
+
+    def extract_text(self, row):
+        """The picked fields of the object a pointer row points at; '' when there are none. A path
+        that breaks anywhere gives nothing for that field: a number read from a stale object is
+        worse than a blank."""
+        spec = self.extract_spec(row.type) if row.target else None
+        if not spec:
+            return ""
+        out = []
+        for path, name, type_ in spec:
+            base = row.target
+            try:
+                for hop in path[:-1]:
+                    base = self.u64(base + hop)
+                    if not base or base >> 56:
+                        raise ValueError
+                out.append(self.value_text(base + path[-1], type_))
+            except Exception:  # noqa: BLE001 - not readable: left out
+                continue
+            if sum(len(x) + 1 for x in out) >= 100:
+                break
+        return " ".join(out)
 
     # ------------------------------------------------------------ memory
     def fresh(self):
@@ -354,6 +479,7 @@ class Game:
                 row.value = "%X" % row.target if row.target else "null"
                 if row.target and base in ("string", "System.String", "String"):
                     row.note = '"%s"' % self.string(row.target)
+                row.extract = self.extract_text(row)
                 return
             if base in PRIM:
                 fmt, size = PRIM[base]
@@ -552,6 +678,10 @@ class App:
         ttk.Button(bar, text="Open as the picked class", command=self.open_at).pack(side="left", padx=4)
         self.live = tk.BooleanVar(value=True)
         ttk.Checkbutton(bar, text="live values", variable=self.live).pack(side="left", padx=12)
+        # Breeze's Condense: the rows that show picked fields, nothing else (a long array reads as a list).
+        self.picked_only = tk.BooleanVar(value=False)
+        ttk.Checkbutton(bar, text="picked only", variable=self.picked_only,
+                        command=lambda: self.show_rows(self.rows)).pack(side="left")
         self.status = tk.StringVar(value="connecting...")
         ttk.Label(bar, textvariable=self.status, foreground="#555").pack(side="left", padx=8)
 
@@ -605,6 +735,10 @@ class App:
         self.menu = tk.Menu(root, tearoff=0)
         self.menu.add_command(label="Open (a pointer, an array)", command=lambda: self.open_row(self.picked()))
         self.menu.add_command(label="Edit value...", command=lambda: self.edit_row(self.picked()))
+        self.menu.add_separator()
+        # Breeze's Extract: a field shown beside every row that points at an object of that type.
+        self.show_menu = tk.Menu(self.menu, tearoff=0)
+        self.menu.add_cascade(label="Show this field in rows of", menu=self.show_menu)
         self.menu.add_separator()
         self.menu.add_command(label="Copy address", command=lambda: self.copy(lambda r: "%X" % r.address))
         self.menu.add_command(label="Copy chain", command=lambda: self.copy(lambda r: r.chain))
@@ -811,12 +945,15 @@ class App:
         if not name:
             self.status.set("pick the class on the left first")
             return
-        self.go(("object", addr, name + "*", "%X" % addr))
+        self.go(("object", addr, name + "*", "%X" % addr, ((name + "*", addr, None),)))
 
     def show_rows(self, rows):
         self.rows = rows
         self.tree.delete(*self.tree.get_children())
+        only = self.picked_only.get() and any(getattr(r, "extract", "") for r in rows)
         for i, r in enumerate(rows):
+            if only and not getattr(r, "extract", ""):
+                continue
             self.tree.insert("", "end", iid=str(i), text=r.label, values=(
                 "" if r.offset is None else "+%X" % r.offset, r.type, r.value, what_of(r),
                 "%X" % r.address if r.address else "", r.note if not r.note.startswith('"') else ""))
@@ -872,7 +1009,17 @@ class App:
         if r is None or not r.target:
             self.status.set("nothing to open: not a pointer, or null")
             return
-        self.go(("object", r.target, r.type, "[%s]" % r.chain if r.chain else "%X" % r.target))
+        # How this object is reached from the objects before it, for "Show this field in rows of":
+        # a field of an object view adds one hop (where the pointer sits in that object); an
+        # element of an array, or anything else, starts again.
+        lineage = ()
+        v = self.view
+        if v is not None and v[0] == "object" and len(v) > 4 and v[4] and not v[2].rstrip("*").endswith("[]")                 and not r.label.startswith("[") and r.address:
+            lineage = v[4]
+            lineage = lineage + ((r.type, r.target, r.address - lineage[-1][1]),)
+        else:
+            lineage = ((r.type, r.target, None),)
+        self.go(("object", r.target, r.type, "[%s]" % r.chain if r.chain else "%X" % r.target, lineage))
 
     def edit_row(self, r):
         if r is None or not r.address:
@@ -887,7 +1034,57 @@ class App:
         row_id = self.tree.identify_row(e.y)
         if row_id:
             self.tree.selection_set(row_id)
+            self.fill_show_menu(self.rows[int(row_id)])
             self.menu.tk_popup(e.x_root, e.y_root)
+
+    def show_choices(self, r):
+        """Where the field r could be shown: [(type, path)] - the object it is in, and the objects
+        before it that this view was reached from through pointer fields (path = the pointers'
+        offsets, then the field's own)."""
+        v = self.view
+        if r is None or not r.address or r.note == "struct" or v is None or v[0] != "object" or len(v) < 5 or not v[4]:
+            return []
+        lineage = v[4]
+        if v[2].rstrip("*").endswith("[]") or r.label.strip().startswith("["):
+            return []      # an element of an array: the array is not an object with fields
+        path = [r.address - lineage[-1][1]]
+        out = []
+        for j in range(len(lineage) - 1, -1, -1):
+            out.append((lineage[j][0], tuple(path)))
+            hop = lineage[j][2]
+            if hop is None:
+                break
+            path.insert(0, hop)
+        return out
+
+    def fill_show_menu(self, r):
+        self.show_menu.delete(0, "end")
+        g = self.game
+        if g is None or not hasattr(g, "toggle_extract"):
+            self.show_menu.add_command(label="(Unity games: the object view of a class from the map)", state="disabled")
+            return
+        choices = self.show_choices(r)
+        if not choices:
+            self.show_menu.add_command(label="(a field of an object opened from a pointer)", state="disabled")
+            return
+        name = r.label.strip()
+        for type_, path in choices:
+            spec = g.extract_spec(type_) or []
+            on = any(p[0] == path and p[1] == name for p in spec)
+            hops = ">".join("%X" % x for x in path)
+            self.show_menu.add_command(
+                label="%s%s   (%s)" % ("[shown] " if on else "", extract_key(type_), hops),
+                command=lambda t=type_, p=path: self.toggle_show(r, t, p))
+
+    def toggle_show(self, r, type_, path):
+        name, field_type = r.label.strip(), r.type
+
+        def done(now):
+            self.status.set("%s %s in rows of %s (%s)" % ("showing" if now else "no longer showing", name,
+                                                         extract_key(type_), EXTRACT_FILE))
+            if self.view is not None:
+                self.go(self.view, record=False)
+        self.job(lambda g: g.toggle_extract(type_, path, name, field_type), done)
 
     def copy(self, text_of):
         r = self.picked()
@@ -928,7 +1125,7 @@ class App:
             obj, type_ = found
             self.status.set("Field view: %X is +%X in the object at %X" % (address, address - obj, obj))
             self.pick_address = address
-            self.go(("object", obj, type_, "%X" % obj))
+            self.go(("object", obj, type_, "%X" % obj, ((type_, obj, None),)))
         self.job(lambda g: g.locate(address), done)
 
     def find_chain(self):
@@ -1078,8 +1275,11 @@ class CheatBox:
 
 
 def what_of(row):
-    """The "what" column: what a pointer points at, a string's text, an enum value's name."""
-    return getattr(row, "what", "") or (row.note if row.note.startswith('"') else "")
+    """The "what" column: the fields picked for the object a pointer points at (Breeze's Extract),
+    then what it points at, a string's text, an enum value's name."""
+    what = getattr(row, "what", "") or (row.note if row.note.startswith('"') else "")
+    picked = getattr(row, "extract", "")
+    return "%s   %s" % (picked, what) if picked and what else picked or what
 
 
 def breeze_bookmark_line(row):
