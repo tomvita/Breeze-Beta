@@ -13,6 +13,8 @@
 - **ASM cheats on Switch 2 code:** Add ASM failed on a hook at a function's first instruction (`pacibsp`, which the assembler does not know); the replaced instruction now goes back into the cave as it is. The Cheat composer's script starts with comment lines saying which registers the cave may use without saving them, and whether it may change the flags. Checked in an emulator, not yet on a Switch.
 - **More in Studio:** Code has an instruction watch (F8: every address an instruction uses) and **Hook here** (make an ASM cheat at a line, with the free registers, assembled on the PC; needs `pip install keystone-engine`); Objects has **Show this field in rows of**, Breeze's Extract, so a list of objects reads as their names, sharing the picks with Breeze's field view both ways. Not yet tried on a Switch.
 
+- **Added after publishing: `emuhost.zip`.** Breeze's PC tools for a game in an emulator on the PC: turn on the emulator's GDB stub, start `emuhost.exe`, connect the PC app or Studio to `127.0.0.1`. It stays open from one game to the next. Tested with Lichii and Eglantine (Eden has the same stub but was not tried; Ryujinx is not supported). ASM cheats need an emulator that drops its copies of written code: Lichii, Eglantine from Performance build 7, Eden from November 15 2026. See [PC Connect](docs/pcconnect.md#emuhost).
+
 ## [Beta 128.12] - 2026-11-09
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o), sys-ftp and PC app as 128.11; only Breeze.nro changed.

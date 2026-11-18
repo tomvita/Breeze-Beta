@@ -846,10 +846,39 @@ first line. A client has to know: more lines after `help` `watch` `probe`
 ### emuhost
 
 `emuhost.exe` needs nothing added to the emulator, so a newer core never needs
-a newer emulator. In the emulator turn on **Enable GDB stub** (Debug settings,
-port 6543), start the game, then start:
+a newer emulator. Releases carry it as `emuhost.zip` (with `core/emuhost/README.md`).
 
-    emuhost [--gdb 6543] [--port 6801] [--code 1234] [--sd <folder>] [--hold]
+1. In the emulator's Debug settings: **Enable GDB stub** (port 6543). With
+   the stub on, a game waits at its first instruction until a debugger attaches, so a game
+   started without emuhost sits at the logo.
+2. Start `emuhost.exe` (before or after the emulator). It waits for a game, attaches, lets
+   the game run and serves PC connect on 6801, code 1234. Then connect the PC app or
+   Breeze Studio to `127.0.0.1`.
+3. When the game stops (the emulator closed, or Emulation > Stop) emuhost says "the game
+   ended" and waits for the next one; Ctrl+C quits. `--once` exits after one game instead.
+
+`--sd <folder>` is the folder that stands for the SD card (default: `emuhost_sd` in the
+folder emuhost was started from). Maps go to `<sd>/switch/breeze/cheats/<title id>/`; the
+cheats are `<sd>/atmosphere/contents/<title id>/cheats/<build id>.txt` and `toggles.txt`,
+as on a console, not the emulator's own cheat folder. The other options: `--port`,
+`--code`, `--gdb` (the stub's port), `--hold` (leave the game stopped after attaching).
+
+emuhost needs nothing installed: the exe uses only Windows' own libraries. It needs an
+emulator of the yuzu family whose stub answers `monitor get fastmem`: tested with Lichii and
+Eglantine; Eden's stub has the command (v0.2.1 too) but emuhost was not run on an Eden
+build. Ryujinx has no such stub.
+
+**ASM cheats need a recent emulator.** A code write through the stub reaches the
+emulator's translated code only if the emulator also drops the copy of the code page
+each CPU core keeps; emulators from before that fix sometimes go on running the old
+instruction, so a hook is in memory but its cave never runs (Eglantine v96: 10 to 16
+of 24 hooks ran; Lichii: 24 of 24). Fixed in Lichii, in Eglantine from Performance
+build 7 (November 5 2026) and in Eden from November 15 2026 (no Eden release has it
+yet: v0.2.1 is from June). Cheats that only write memory are not affected.
+
+    emuhost [--gdb 6543] [--port 6801] [--code 1234] [--sd <folder>] [--hold] [--once]
+
+How it works:
 
 - The emulator holds a game at its first instruction until a debugger continues
   it, so the window stays black until emuhost is started. emuhost continues the
@@ -871,7 +900,9 @@ port 6543), start the game, then start:
   HID shared memory in the game's address space: player 1 and the handheld). The emulator's
   own cheat engine knows nothing of this and still runs its own cheat files: do not give
   both the same cheat.
-- It ends when the game ends, and never leaves the game stopped behind it.
+- When the game ends it waits for the next one (`--once`: exits), and never leaves the game
+  stopped behind it. A game stopped inside the emulator is seen from its stub connection,
+  which the emulator closes (CLOSE_WAIT in Windows' TCP table).
 
 Measured (unchanged upstream Lichii, `core/emuhost/emuhost_run.py`): Orbitals
 (Unreal) engine scan 0.15 s and all four Unreal maps 5.3 s; Warhammer Survivors
