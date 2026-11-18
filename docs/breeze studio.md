@@ -47,7 +47,7 @@ Breeze's memory search, with any number of searches side by side. Each search is
 
 ![The Search tab](./images/studio_02_search.jpg)
 
-- **New target**: a name, a type, a mode and the value. Every mode of Breeze's search is there, and `none` for a value you do not know yet (a dump of memory to compare later).
+- **New target**: a name, a type, a mode and the value. Every mode of Breeze's search is there, by the names Breeze's Search screen uses (`[A..B]`, `<A..B>`, `[A,B]`, `SAME` ...), and `unknown` for a value you do not know yet (a dump of memory to compare later).
 - **Queue** several targets and **Start queued**: one pass over memory finds them all.
 - Each target's row has its own next step (`++`, `--`, `DIFF`, `SAME`, a value...). **Step** steps one; **Step all** steps every row that has a mode set, in one pass.
 - The candidates of the selected target are below, with live values: **Set**, **Inc**, **Revert**, **Hold** / **Unhold**, **Bookmark**, and **Export** to a CSV file.
@@ -96,6 +96,41 @@ The game's memory around one address, as Breeze's Memory Explorer shows it: each
 - Right-click a row: **Follow pointer**, **Edit value**, **Hold** / **Unhold**, **Who points here** (a list of the places that hold this address), **Watch this address**, **Add to bookmarks**, and **Field view** of the object here or of the object the value points at.
 
 Other tabs open this one: "Open in Memory" on a Search candidate and on an Objects row.
+
+### Pointer chains to a value
+
+A value you found moves when the game restarts. A cheat reaches it through a **pointer chain** from the game's main module: read a pointer there, add an offset, read the next pointer, and so on. Right-click the value's row > **Find pointer chains to here** and Studio lists the chains to it.
+
+- Set **depth** (how many pointers deep), **max offset** (how far a field may be from the start of its object) and **chains** (how many to keep), then **Scan**. The defaults (4, 800, 500) suit most games.
+- Each chain is written the way a cheat walks it: `main+7182B0 7A8 0 +20` reads the pointer at `main+7182B0`, then the pointer at that + 7A8, then the one at that + 0, and adds 20. Beside it: where it lands now and the value there.
+- **Which chain is the right one** is not decided by length or by small offsets. Restart the game, find the value again, type its new address in the box and press **Keep only chains to here**: the chains that no longer land on it are dropped. After two or three restarts the chains left are the ones the game really uses. The list is kept per game on the PC, so it is still there after Studio is closed.
+- **Make cheat**: pick one or more chains, choose the type and the value, and **Copy** the cheat or **Add to the game's cheats** (added off).
+- Double-click a chain to open Memory where it lands.
+
+Fast Fusion in Lichii: the scan read 39 GB of memory in 6.7 s. Of the first two chains chosen by hand, one broke at the next restart; **Keep only chains to here** finds that out for you.
+
+This needs a host that answers `ptrscan`: a game in an emulator (the Lichii fork, or `emuhost`). Breeze on a Switch does not have it yet.
+
+### Names for a game Studio does not know
+
+For Unity, Unreal and C++ games with type information, Studio and Breeze know what each object is. Some games keep a name for every kind of object in memory in their own way. A small file in the game folder, `object_names.txt`, says how to read it:
+
+```
+v1
+type +0
+name [+8] +2 ::
+back 800
+```
+
+- `type +0`: an object's type pointer is its first 8 bytes.
+- `name [+8] +2 ::`: from the type, read the pointer at +8, add 2, and take the text up to `::`.
+- `back 800`: an address belongs to an object that starts at most 0x800 bytes before it.
+
+That is Fast Fusion's file: its objects point at a table of names such as `sPlayer::getPlayerName`. With it, Memory's **where** column reads `sPlayer+20` instead of a bare `heap+` address, and a pointer to an object shows the object's class.
+
+- Right-click a row > **Label this field**: give the field a name and a type (`coins`, `u32`). The where column then reads `sPlayer+20 coins`. Labels go to `field_annotations.txt` in the game folder, the file Breeze's field views use, so Breeze's **Class field** shows them too: on a game with `object_names.txt` it opens the object by name (`sPlayer [named]`) with the cursor on your value.
+- An object can hold others inside it, each with its own type: Fast Fusion's `sPlayer` holds an `sSeriesResult` from +1C0, so the boost meter at +384 is both `sPlayer+384` and `sSeriesResult+1C4`. The label dialog asks which object the field belongs to, and a labelled field wins from then on.
+- The pointer chain list names the object each chain ends in: `? > ? > sPlayer+384 boost`.
 
 ## Objects
 
@@ -211,6 +246,11 @@ The PC app's two-panel file manager: the SD card on one side, the PC on the othe
 ## Emulators
 
 Studio is not only for a Switch. The same window works with a game running in an emulator on the PC, when something there answers Breeze's PC connect protocol; give `127.0.0.1` (or `127.0.0.1:port`) as the address. Studio asks the other side what it can do and shows only the tabs that apply; there is no Screen tab, because there is no Breeze screen. [PC Connect](pcconnect.md#other-hosts-emulators) describes the two kinds of host: an emulator with Breeze's core built in, and `emuhost`, a small program that runs beside an unmodified emulator of the yuzu family and uses its GDB stub.
+
+- A game's files are in `switch/breeze/cheats/<title id>/` on the emulator's SD card. Breeze running inside the emulator uses that folder too, whatever its setting, so names, labels and maps made in Studio are where Breeze looks.
+- The Files tab names the game's folder on the PC after the game. emuhost cannot read the game's name and uses `TID_<title id>`.
+- **Save to SD** in the Cheats tab starts the cheat file the way Breeze does: a `[Breeze ... TID: ... BID: ...]` line and your signature from Breeze's settings.
+- **Find pointer chains to here** (Memory tab) works only here, not with a Switch yet.
 
 ## Example: freezing the round timer in Overcooked! 2
 
