@@ -4,11 +4,12 @@ Right-click a row of the Memory tab > Find pointer chains to here. The window:
   * Scan: the host searches backwards from the address, one pass over the game's writable memory
     per level, and lists every chain from main it finds, shortest first ("main+71BAD0 0 E8 +20":
     read [main+71BAD0], then [that + 0], then [that + E8], then add 20).
-  * Each chain's row shows where it lands now and the value there (read again every 2 seconds
-    while the list has 100 chains or fewer).
-  * The chains are kept per game (views/<title id>.ptrscan.txt). After the game is restarted (the
-    object moves) find the value again, then Keep only chains to here: the chains that do not land
-    on the new address are dropped. Two or three restarts leave the chains the game really uses.
+  * Each chain's row shows where it lands now and the value there: every row is read when a list
+    is shown, the rows in view again every 2 seconds.
+  * Every scan is kept per game (views/<title id>.ptrscan.txt, newest first, with its address and
+    time); Scans picks an earlier one. After the game is restarted (the object moves) find the
+    value again, then Keep only chains to here: the chains that do not land on the new address are
+    dropped from the scan shown. Two or three restarts leave the chains the game really uses.
   * through: with an object_names.txt in the game folder (studio_names.py), the class of every
     object the chain passes and the field it ends on ("? > ? > sPlayer+20 coins").
   * Make cheat: the chain as cheat lines that write a value of the chosen type, to copy or to add
@@ -19,11 +20,11 @@ answers it with an unknown-command error.
 import os
 import re
 import struct
+import time
 import tkinter as tk
 from tkinter import ttk
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-LIVE_MAX = 100            # chains whose values are read again every 2 seconds
 TYPES = {"u8": (1, "<B"), "u16": (2, "<H"), "u32": (4, "<I"), "s32": (4, "<i"), "u64": (8, "<Q"),
          "f32": (4, "<f"), "f64": (8, "<d")}
 
@@ -66,7 +67,9 @@ class Window:
         self.app, self.address = app, address
         self.tid = (app.meta.get("title_id") or "game").upper()
         self.path = os.path.join(HERE, "views", "%s.ptrscan.txt" % self.tid)
-        self.chains = []                       # chain texts, in order
+        self.scans = []                        # [header dict, [chain texts]], newest first
+        self.cur = None                        # the scan shown (an item of self.scans)
+        self.chains = []                       # its chain texts, in order
         self.closed = False
         w = self.win = tk.Toplevel(app.root)
         w.title("Pointer chains")
@@ -88,6 +91,13 @@ class Window:
         ttk.Button(bar, text="Scan", command=self.scan).pack(side="left")
         ttk.Button(bar, text="Keep only chains to here", command=self.keep).pack(side="left", padx=4)
         ttk.Button(bar, text="Make cheat", command=self.make_cheat).pack(side="left")
+        bar2 = ttk.Frame(w, padding=(4, 0, 4, 4))
+        bar2.pack(fill="x")
+        ttk.Label(bar2, text="Scans").pack(side="left")
+        self.pick = ttk.Combobox(bar2, width=70, state="readonly")
+        self.pick.pack(side="left", padx=(2, 8))
+        self.pick.bind("<<ComboboxSelected>>", lambda e: self.choose(self.pick.current()))
+        ttk.Button(bar2, text="Delete scan", command=self.delete_scan).pack(side="left")
 
         self.status = tk.StringVar()
         ttk.Label(w, textvariable=self.status, foreground="#555", padding=(6, 0)).pack(fill="x")
@@ -113,26 +123,92 @@ class Window:
         w.protocol("WM_DELETE_WINDOW", self.close)
 
         self.load()
-        if self.chains:
-            self.status.set("%d chains kept from before for %s (%s). Scan for new ones, or find the value "
-                            "again and Keep only chains to here." % (len(self.chains), self.tid, self.path))
+        same = [s for s in self.scans if s[0].get("to") == address]
+        if same:
+            self.choose(self.scans.index(same[0]))
+            self.status.set("the last scan to %X (%s), %d chains. Scan again for new ones." % (
+                address, same[0][0].get("when", "?"), len(self.chains)))
+        elif self.scans:
+            self.choose(0)
+            h = self.scans[0][0]
+            self.status.set("no scan to %X yet. Shown: the last scan, to %s (%s). Scan finds the chains to %X; "
+                            "after a restart, Keep only chains to here." % (
+                                address, "%X" % h["to"] if h.get("to") else "?", h.get("when", "?"), address))
         else:
             self.status.set("Scan finds the chains from main to %X." % address)
-        self.show()
-        w.after(500, self.refresh)
+        w.after(2000, self.refresh)
 
-    # ------------------------------------------------------------ the list, kept per game
+    # ------------------------------------------------------------ the scans, kept per game
     def load(self):
+        """The file holds scans newest first, each under '# scan <address> <when> ...'; an old file
+        (chains only) is one scan with no address."""
+        self.scans = []
         try:
             with open(self.path, encoding="utf-8") as f:
-                self.chains = [l.strip() for l in f if parse_chain(l.strip())]
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("# scan"):
+                        self.scans.append([self.parse_header(line), []])
+                    elif parse_chain(line):
+                        if not self.scans:
+                            self.scans.append([{"when": "earlier scan"}, []])
+                        self.scans[-1][1].append(line)
         except OSError:
-            self.chains = []
+            pass
+
+    @staticmethod
+    def parse_header(line):
+        words, h = line.split()[2:], {}
+        if words and words[0] != "-":
+            h["to"] = int(words[0], 16)
+        if len(words) >= 3:
+            h["when"] = words[1] + " " + words[2]
+        rest = words[3:]
+        h["note"] = " ".join(rest)
+        return h
+
+    @staticmethod
+    def header_line(h):
+        return " ".join(x for x in ("# scan", "%X" % h["to"] if h.get("to") else "-",
+                                    h.get("when") or "? ?",
+                                    h.get("note", "")) if x)
 
     def save(self):
+        if self.cur is not None:
+            self.cur[1] = list(self.chains)
         os.makedirs(os.path.dirname(self.path), exist_ok=True)
         with open(self.path, "w", encoding="utf-8") as f:
-            f.write("".join(c + "\n" for c in self.chains))
+            for h, chains in self.scans:
+                f.write(self.header_line(h) + "\n" + "".join(c + "\n" for c in chains))
+
+    def label(self, scan):
+        h, chains = scan
+        return "%s   to %s   %d chains   %s" % (h.get("when", "?"), "%X" % h["to"] if h.get("to") else "?",
+                                              len(chains), h.get("note", ""))
+
+    def choose(self, i):
+        """Shows scan i of self.scans (newest first) and reads every row once."""
+        self.pick["values"] = [self.label(s) for s in self.scans]
+        if not 0 <= i < len(self.scans):
+            self.cur, self.chains = None, []
+            self.pick.set("")
+            self.show()
+            return
+        self.cur = self.scans[i]
+        self.chains = list(self.cur[1])
+        self.pick.current(i)
+        self.show()
+        self.refresh(once=True)
+
+    def delete_scan(self):
+        if self.cur is None:
+            return
+        i = self.scans.index(self.cur)
+        del self.scans[i]
+        self.cur = None
+        self.save()
+        self.choose(min(i, len(self.scans) - 1))
+        self.status.set("scan deleted; %d left" % len(self.scans))
 
     def show(self):
         self.tree.delete(*self.tree.get_children())
@@ -168,19 +244,23 @@ class Window:
                 self.status.set("ptrscan: %s" % (reply[:200] if "unknown" not in reply else
                                 "this host has no ptrscan (it is served by the emulator hosts)"))
                 return
-            self.chains = [l for l in lines[1:] if parse_chain(l)]
+            chains = [l for l in lines[1:] if parse_chain(l)]
+            h = {"to": at, "when": time.strftime("%Y-%m-%d %H:%M"), "note": "depth %d offset %X" % (depth, maxoff)}
+            self.save()                        # the shown scan as it is, before the new one goes on top
+            self.scans.insert(0, [h, chains])
+            self.cur = None
             self.save()
-            self.show()
-            self.status.set("%s  ->  %d chains, kept in %s" % (lines[0][4:], len(self.chains), self.path))
-            self.refresh(once=True)
+            self.choose(0)
+            self.status.set("%s  ->  %d chains, kept in %s (Scans has the earlier ones)" % (
+                lines[0][4:], len(chains), self.path))
         self.app.job(lambda: self.app.b.cmd(line), done)
 
-    def lands(self):
+    def lands(self, chains=None):
         """Where every chain lands now: [(address or None, 8 bytes or None, names)]. names is
         the class of every object a hop reaches and what the end is ("sHud > sPlayer+20 coins"),
         when the game folder has an object_names.txt (studio_names.py)."""
         out, names, b = [], self.app.names, self.app.b
-        for c in self.chains:
+        for c in self.chains if chains is None else chains:
             reply = b.cmd("chain " + c)
             m = re.search(r"^end ([0-9A-Fa-f]+) \S+: ([0-9A-Fa-f]{16})", reply, re.M)
             if not m:
@@ -197,17 +277,27 @@ class Window:
             out.append((end, bytes.fromhex(m.group(2)), text))
         return out
 
+    def visible_rows(self):
+        """Indexes of the rows in view (with a few either side)."""
+        n = len(self.chains)
+        if not n:
+            return []
+        top, bottom = self.tree.yview()
+        lo, hi = int(top * n) - 2, int(bottom * n) + 3
+        return list(range(max(lo, 0), min(hi, n)))
+
     def refresh(self, once=False):
+        """once: every row (a list just shown); else the rows in view, then again in 2 s."""
         if self.closed:
             return
-        # every chain is a round trip: a long list is read after a scan or a keep, not every 2 s
-        if self.chains and self.app.jobs.empty() and (once or len(self.chains) <= LIVE_MAX):
+        if self.chains and (once or self.app.jobs.empty()):
             chains = list(self.chains)
+            rows = list(range(len(chains))) if once else self.visible_rows()
 
             def done(result):
                 if self.closed or chains != self.chains:
                     return
-                for i, (at, raw, through) in enumerate(result):
+                for i, (at, raw, through) in zip(rows, result):
                     if at is None:
                         vals = (chains[i], "broken", "", "", "")
                     else:
@@ -216,7 +306,7 @@ class Window:
                                 "%.6g" % f if f == f else "", through)
                     if self.tree.exists(str(i)):
                         self.tree.item(str(i), values=vals)
-            self.app.job(self.lands, done)
+            self.app.job(lambda: self.lands([chains[i] for i in rows]), done)
         if not once:
             self.win.after(2000, self.refresh)
 
@@ -230,7 +320,12 @@ class Window:
             if self.closed:
                 return
             self.chains = [c for c, (where, _raw, _names) in zip(self.chains, result) if where == at]
+            if self.cur is not None:
+                self.cur[0]["note"] = (self.cur[0].get("note", "") + " kept %X" % at).strip()
             self.save()
+            self.pick["values"] = [self.label(s) for s in self.scans]
+            if self.cur is not None:
+                self.pick.current(self.scans.index(self.cur))
             self.show()
             self.status.set("kept %d of %d chains: the ones that land on %X now" % (len(self.chains), before, at))
             self.refresh(once=True)
@@ -248,11 +343,23 @@ class Window:
             self.menu.tk_popup(e.x_root, e.y_root)
 
     def go(self):
+        """The Memory tab at the row's end; the chain is read first when the row has no address yet."""
         sel = self.tree.selection()
-        if sel:
-            at = self.tree.item(sel[0], "values")[1]
-            if re.fullmatch(r"[0-9A-Fa-f]+", at or ""):
-                self.app.goto(int(at, 16))
+        if not sel:
+            return
+        at = self.tree.item(sel[0], "values")[1]
+        if re.fullmatch(r"[0-9A-Fa-f]+", at or ""):
+            self.app.goto(int(at, 16))
+            return
+        chain = self.chains[int(sel[0])]
+
+        def done(result):
+            where = result[0][0]
+            if where is None:
+                self.status.set("%s does not reach readable memory now" % chain)
+            else:
+                self.app.goto(where)
+        self.app.job(lambda: self.lands([chain]), done)
 
     def copy(self):
         text = "\n".join(self.picked())

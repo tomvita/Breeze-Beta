@@ -9,7 +9,7 @@
 - **Studio's Search** shows Breeze's mode names (`[A..B]`, `<A..B>`, `[A,B]`, `SAME` ...) and the whole list without scrolling.
 - **cheatvm module** (MyNXCheats): a header or signature line takes no cheat slot, as in Atmosphere; the menu shows in Fast Fusion.
 
-- **Added after publishing: `emuhost.zip` replaced (November 19).** A game no longer freezes with emuhost attached (with the GDB stub on, the emulator stops a game that reads memory that is not there, and emuhost left it stopped: BALL x PIT 1.308 froze 15 s after boot). emuhost uses the emulator's own SD folder, so cheat files already there are found; every cheat starts off unless `toggles.txt` turns it on; a cheat file copied in or edited while the game runs is read again; the game's name comes from the emulator's window, so the PC folder is no longer `TID_<title id>`. See [PC Connect](docs/pcconnect.md#emuhost).
+- **Added after publishing: `emuhost.zip` replaced (November 19).** A game no longer freezes with emuhost attached (with the GDB stub on, the emulator stops a game that reads memory that is not there, and emuhost left it stopped: BALL x PIT 1.308 froze 15 s after boot). emuhost uses the emulator's own SD folder, so cheat files already there are found; every cheat starts off unless `toggles.txt` turns it on; a cheat file copied in or edited while the game runs is read again; the game's name comes from the emulator's window, so the PC folder is no longer `TID_<title id>`. See [PC Connect](docs/pcconnect.md#emuhost). `pc_app.zip` replaced too: Studio's pointer chains show every chain's value, keep earlier scans (**Scans**), and **Go to where it lands** works on any row.
 
 ## [Beta 129.00] - 2026-11-16
 
