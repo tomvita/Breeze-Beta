@@ -859,10 +859,11 @@ a newer emulator. Releases carry it as `emuhost.zip` (with `core/emuhost/README.
 3. When the game stops (the emulator closed, or Emulation > Stop) emuhost says "the game
    ended" and waits for the next one; Ctrl+C quits. `--once` exits after one game instead.
 
-`--sd <folder>` is the folder that stands for the SD card (default: `emuhost_sd` in the
-folder emuhost was started from). Maps go to `<sd>/switch/breeze/cheats/<title id>/`; the
+`--sd <folder>` is the folder that stands for the SD card (default: the emulator's own,
+`sdmc_directory` in its qt-config.ini, else `user\sdmc`; `emuhost_sd` next to emuhost.exe when
+its settings cannot be found). Maps go to `<sd>/switch/breeze/cheats/<title id>/`; the
 cheats are `<sd>/atmosphere/contents/<title id>/cheats/<build id>.txt` and `toggles.txt`,
-as on a console, not the emulator's own cheat folder. The other options: `--port`,
+as on a console, read at attach and again whenever either changes. The other options: `--port`,
 `--code`, `--gdb` (the stub's port), `--hold` (leave the game stopped after attaching).
 
 emuhost needs nothing installed: the exe uses only Windows' own libraries. It needs an
@@ -897,7 +898,8 @@ How it works:
   hooks, split cheats, folders and mods) runs inside emuhost twelve times a second, on the
   memory mirror; its writes into code go through the stub, and only when the bytes change.
   The list starts from `<sd>/atmosphere/contents/<TID>/cheats/<BID>.txt` and `toggles.txt`
-  in the folder given as the SD card, and `cheats save` writes them back, so Breeze's cheat
+  in the folder given as the SD card (every cheat off unless `toggles.txt` turns it on; dmnt
+  would start them all on), and `cheats save` writes them back, so Breeze's cheat
   files work as they are. Key conditions read the buttons where the game reads them (the
   HID shared memory in the game's address space: player 1 and the handheld). The emulator's
   own cheat engine knows nothing of this and still runs its own cheat files: do not give
