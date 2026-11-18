@@ -8,6 +8,11 @@
     pointer, when the 8 bytes there point into the game's memory.
   * Double-click a row to follow its pointer, or to change the value when it is not one.
   * Right-click: Follow pointer, Edit value, Hold / Unhold, Copy address, Who points here,
+    Find pointer chains to here (studio_ptrscan.py: chains from main, kept per game, Make cheat),
+    Label this field (field_annotations.txt in the game's folder).
+  * A game whose engine Studio does not know can name its objects: object_names.txt in the game's
+    folder (studio_names.py). Then the where column says "sPlayer+20 coins" and a pointer to an
+    object shows its class.
     Watch this address (the Watch tab), Add to bookmarks, Field view (the Objects tab on the
     object that holds the address).
   * live values reads the page again every second.
@@ -28,6 +33,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.join(HERE, ".."))
 from pcconnect import Breeze, game_caption  # noqa: E402
 import studio_link  # noqa: E402
+import studio_names  # noqa: E402
 
 PAGE = 0x400              # bytes shown
 INT = {1: "<b", 2: "<h", 4: "<i", 8: "<q"}
@@ -52,6 +58,8 @@ class App:
         self.regions, self.region_starts = [], []
         self.start, self.data, self.history = 0, b"", []
         self.want = None           # the address to pick once the page is shown
+        self.names = studio_names.GameNames()
+        self.page_ptrs, self.page_heads = {}, []   # this page's named pointers and objects
         self.jobs, self.out = queue.Queue(), queue.Queue()
         self.stop = self.reading = False
         root.title("Memory")
@@ -98,6 +106,8 @@ class App:
         m.add_command(label="Unhold", command=lambda: self.hold(False))
         m.add_command(label="Copy address", command=self.copy)
         m.add_command(label="Who points here", command=self.who)
+        m.add_command(label="Find pointer chains to here...", command=self.ptrscan)
+        m.add_command(label="Label this field...", command=self.label_field)
         m.add_separator()
         m.add_command(label="Watch this address (who reads or writes it)", command=self.watch)
         m.add_command(label="Add to bookmarks", command=self.bookmark)
@@ -141,6 +151,8 @@ class App:
                 regions.append((int(m.group(1), 16), int(m.group(2), 16)))
         regions.sort()
         self.regions, self.region_starts = regions, [r[0] for r in regions]
+        self.names.mapped = self.mapped
+        self.names.load(self.b)
 
     def job(self, fn, done):
         self.jobs.put((fn, done))
@@ -174,7 +186,8 @@ class App:
 
     def connected(self):
         if not self.data:
-            self.status.set("%s  |  type an address: hex, M+offset" % game_caption(self.meta))
+            self.status.set("%s  |  type an address: hex, M+offset%s" % (
+                game_caption(self.meta), "  |  " + self.names.note if self.names.note else ""))
             if self.want is None:
                 self.goto(self.main)
 
@@ -214,14 +227,16 @@ class App:
         self.reading = True
 
         def fn():
-            return start, self.b.peek(start, PAGE)
+            data = self.b.peek(start, PAGE)
+            return start, data, self.names.page(self.b, start, data)
 
         def done(r):
             self.reading = False
             if quiet and r[0] != self.start:
                 return
             fresh = r[0] != self.start or not self.data
-            self.start, self.data = r
+            self.start, self.data = r[0], r[1]
+            self.page_ptrs, self.page_heads = r[2]
             if fresh:
                 self.fill()
             else:
@@ -231,7 +246,19 @@ class App:
     def where(self, address):
         if self.main <= address < self.main + self.main_size:
             return "main+%X" % (address - self.main)
-        return ""
+        o = self.object_at(address)
+        return self.names.describe(o[1], address - o[0]) if o else ""
+
+    def objects_at(self, address):
+        """Every (object, class) this page's names put the address in, nearest first."""
+        if not self.names.rules or address is None:
+            return []
+        back = self.names.rules["back"]
+        return [h for h in reversed(self.page_heads) if h[0] <= address and address - h[0] <= back]
+
+    def object_at(self, address):
+        """The (object, class) that describes the address best, or None."""
+        return self.names.best(self.objects_at(address), address)
 
     def mapped(self, address):
         i = bisect.bisect_right(self.region_starts, address) - 1
@@ -252,7 +279,9 @@ class App:
         if not at & 7 and off + 8 <= len(self.data):
             p = struct.unpack_from("<Q", self.data, off)[0]
             if p >= 0x10000 and not p & 3 and self.mapped(p):
-                ptr = "-> %X  %s" % (p, self.where(p))
+                ptr = "-> %X  %s" % (p, self.where(p) if self.where(p).startswith("main") else "")
+                if p in self.page_ptrs:
+                    ptr += self.page_ptrs[p]
         text = "".join(chr(c) if 32 <= c < 127 else "." for c in self.data[off:off + max(size, 4)])
         return ("%X" % at, self.where(at), "%0*X" % (size * 2, u), str(number), fl, ptr, text)
 
@@ -403,6 +432,62 @@ class App:
                     self.goto(int(m.group(1), 16))
             box.bind("<Double-Button-1>", go)
         self.job(lambda: self.b.cmd("refs %X 0 200 30" % at), done)
+
+    def label_field(self):
+        """Names the picked field of a named object, in field_annotations.txt (Breeze reads it too)."""
+        at, size = self.picked(), int(self.size.get())
+        objs = self.objects_at(at)
+        if not objs:
+            self.status.set("no named object here: the game folder needs an object_names.txt that "
+                            "names this object (see studio_names.py)")
+            return
+        floaty = size == 4 and self.tree.item(self.tree.selection()[0], "values")[4]
+        hint = "f32" if floaty else {1: "u8", 2: "u16", 4: "u32", 8: "u64"}[size]
+        d = tk.Toplevel(self.root)
+        d.title("Label this field")
+        f = ttk.Frame(d, padding=8)
+        f.pack(fill="both", expand=True)
+        ttk.Label(f, text="Field of").grid(row=0, column=0, sticky="w")
+        # an object can hold others inline: the field can be named in any of them
+        choices = ["%s+%X" % (cls, at - obj) for obj, cls in objs]
+        best = self.names.best(objs, at)
+        which = ttk.Combobox(f, values=choices, width=34, state="readonly")
+        which.current(objs.index(best))
+        which.grid(row=0, column=1, sticky="w")
+        ttk.Label(f, text="Label").grid(row=1, column=0, sticky="w")
+        name = ttk.Entry(f, width=36)
+        name.grid(row=1, column=1, sticky="w")
+        ttk.Label(f, text="Type").grid(row=2, column=0, sticky="w")
+        type_ = ttk.Combobox(f, values=["u8", "u16", "u32", "s32", "u64", "f32", "f64", "ptr"], width=6)
+        type_.set(hint)
+        type_.grid(row=2, column=1, sticky="w")
+        ttk.Label(f, text="An empty label removes it. Breeze's field views read the same file.",
+                  foreground="#555").grid(row=3, column=0, columnspan=2, sticky="w", pady=(4, 0))
+
+        def pick(_e=None):
+            obj, cls = objs[which.current()]
+            name.delete(0, "end")
+            name.insert(0, self.names.label(cls, at - obj))
+        which.bind("<<ComboboxSelected>>", pick)
+        pick()
+
+        def save():
+            obj, cls = objs[which.current()]
+            off, label, h = at - obj, name.get().strip(), type_.get().strip() or hint
+            d.destroy()
+            self.job(lambda: self.names.save_label(self.b, cls, off, label, h),
+                     lambda _r: (self.status.set("%s+%X %s in %sfield_annotations.txt" % (
+                         cls, off, ("= " + label) if label else "label removed", self.names.dir)), self.fill()))
+        ttk.Button(f, text="Save", command=save).grid(row=4, column=1, sticky="e", pady=(6, 0))
+        name.bind("<Return>", lambda _e: save())
+        name.focus_set()
+
+    def ptrscan(self):
+        """The pointer chains from main to the picked address, in a window of their own."""
+        at = self.picked()
+        if at is not None:
+            import studio_ptrscan
+            studio_ptrscan.Window(self, at)
 
 
 def main():

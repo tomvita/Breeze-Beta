@@ -82,6 +82,16 @@ COMPARE = ["==", "!=", ">", "<", ">=", "<=", "..", "<..>", "&b=a", "==*", "==**"
 FIRST_MODES = COMPARE + ["[a,b]", "[a,,b]", "[a.b.c]", "string", "none"]
 NEXT_MODES = [""] + COMPARE + ["++", "--", "diff", "same", "++val", "--val", "bflip",
                                "sameb", "diffb", "b++", "b--", "notab"]
+# The mode boxes show Breeze's names (the hint's first word: [A..B], <A..B>, [A,B], SAME ...);
+# PC connect gets the code. "none" shows as "unknown".
+LABEL = {m: ("unknown" if m == "none" else MODES[m][1].split("  ")[0]) for m in MODES}
+LABEL[""] = ""
+CODE = {v: k for k, v in LABEL.items()}
+
+
+def mode_box(parent, modes):
+    """A read-only mode box wide enough for Breeze's names, the whole list visible without scrolling."""
+    return ttk.Combobox(parent, values=[LABEL[m] for m in modes], width=14, height=len(modes), state="readonly")
 
 
 def fmt_ms(ms):
@@ -162,8 +172,8 @@ class TargetRow:
         self.frame = ttk.Frame(parent)
         self.label = ttk.Label(self.frame, text=name, width=14)
         self.info = ttk.Label(self.frame, text="", width=40)
-        self.mode = ttk.Combobox(self.frame, values=NEXT_MODES, width=7, state="readonly")
-        self.mode.bind("<<ComboboxSelected>>", lambda e: app.hint.set(MODES.get(self.mode.get(), (0, ""))[1]))
+        self.mode = mode_box(self.frame, NEXT_MODES)
+        self.mode.bind("<<ComboboxSelected>>", lambda e: app.hint.set(MODES.get(CODE[self.mode.get()], (0, ""))[1]))
         self.a = ttk.Entry(self.frame, width=10)
         self.b = ttk.Entry(self.frame, width=10)
         self.label.pack(side="left")
@@ -187,7 +197,7 @@ class TargetRow:
         self.info.configure(text="%s  %s  step %s  [%s]" % (type_, what, step, last))
 
     def step_text(self):
-        m = self.mode.get()
+        m = CODE[self.mode.get()]
         if not m:
             return None
         n = MODES[m][0]
@@ -239,9 +249,9 @@ class App:
         self.n_name = ttk.Entry(new, width=14)
         self.n_type = ttk.Combobox(new, values=TYPES, width=5, state="readonly")
         self.n_type.set("u32")
-        self.n_mode = ttk.Combobox(new, values=FIRST_MODES, width=7, state="readonly")
-        self.n_mode.set("==")
-        self.n_mode.bind("<<ComboboxSelected>>", lambda e: self.hint.set(MODES[self.n_mode.get()][1]))
+        self.n_mode = mode_box(new, FIRST_MODES)
+        self.n_mode.set(LABEL["=="])
+        self.n_mode.bind("<<ComboboxSelected>>", lambda e: self.hint.set(MODES[CODE[self.n_mode.get()]][1]))
         self.n_a = ttk.Entry(new, width=12)
         self.n_b = ttk.Entry(new, width=10)
         self.n_c = ttk.Entry(new, width=10)
@@ -517,7 +527,7 @@ class App:
 
     def new_text(self):
         name = self.n_name.get().strip()
-        mode = self.n_mode.get()
+        mode = CODE[self.n_mode.get()]
         n = MODES[mode][0]
         if mode == "string":
             text = self.n_a.get().strip()

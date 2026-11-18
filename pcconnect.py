@@ -12,7 +12,7 @@ import sys
 
 PORT = 6801
 # Replies that continue past the first line until a lone '.'.
-MULTILINE = {"help", "watch", "probe", "holds", "maps", "refs", "chain", "xref",
+MULTILINE = {"help", "watch", "probe", "holds", "maps", "refs", "chain", "xref", "ptrscan",
              "activity", "jobs"}  # the last two: emulator hosts only
 # Replies whose header line is followed by raw bytes (bytes=<n>).
 BINARY = {"tail", "capture", "saveshot", "fsget", "peekb"}
@@ -151,6 +151,15 @@ class Breeze:
         if not reply.startswith("+OK"):
             raise RuntimeError(reply)
         lines = reply.split("\n")
+        return lines[0], lines[1:]
+
+    def ptrscan(self, addr, depth=4, maxoff=0x800, max_chains=50, seconds=120):
+        """Pointer chains from main to addr, shortest first: (header, ["main+X o1 ... +oN", ...]).
+        Each line is what `chain` takes, and the offsets of a pointer cheat."""
+        reply = self.cmd("ptrscan %x %d %x %d %d" % (addr, depth, maxoff, max_chains, seconds))
+        if not reply.startswith("+OK"):
+            raise RuntimeError(reply)
+        lines = reply.splitlines()
         return lines[0], lines[1:]
 
     def chain(self, base, *offsets):

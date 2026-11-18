@@ -202,8 +202,9 @@ cheat process` otherwise).
 | `cheats save` | writes Breeze's cheat file for the game (`/switch/breeze/cheats/<tid>/<bid>.txt` and toggles), like Write Cheat to file |
 | `refs <addr> [hexrange] [max] [seconds]` | every 8-aligned qword in the game's writable memory whose value is in `[addr - range, addr]`: who points at an object, or into it. Defaults: range 0, 64 hits, 30 s. Prints `where region+off -> value (+distance)` |
 | `chain <base> <hexoff>... [+<hexoff>]` | the cheat VM's walk in one round trip: reads `[base]`, then `[value + off]` for each offset; a final `+off` is only added. Prints every hop and the 8 bytes at the end as hex, u32, f32 and u64 |
+| `ptrscan <addr> [depth] [hexmaxoff] [max] [seconds] [hexmaxnodes]` | emulator hosts: the pointer chains from main to an address, shortest first, each a line `chain` takes (`main+71BAD0 0 E8 +20`). One pass over the writable memory per level matches every qword against all of that level's nodes at once (a value up to `maxoff` below a node); a qword in main ends a chain, one in the heap is searched further. Defaults: depth 4, offsets up to 800, 50 chains, 120 s, 40000 nodes a level. Every level is searched to its end and the chains sorted afterwards; the header gives `found=` (all chains), `levels=` (new nodes per level) and `max` (more than `max` found), `capped` or `timed_out` when a limit was hit. Which chain the game keeps after a restart only a second run tells: Studio's Memory tab > Find pointer chains to here keeps the list and drops the ones that stop landing on the value |
 
-Addresses for `refs` and `chain` are hex, or `main+X`, `heap+X`, `alias+X`.
+Addresses for `refs`, `ptrscan` and `chain` are hex, or `main+X`, `heap+X`, `alias+X`.
 `chain main+6DDAF60 B8 0 28 80 10 20 10 20 28 18 0 +58` is the same walk as a
 cheat starting `580F0000 06DDAF60`, `580F1000 000000B8`, ... `780F0000 00000058`.
 
@@ -812,6 +813,7 @@ One call of each command was sent to the fork's own server and to emuhost
 | `hold` `unhold` `holds` `freeze` `resume` | yes | yes |
 | `cheats ...` | yes | the fork, and emuhost (Breeze's cheat VM runs in emuhost itself) |
 | `statreg` | no | the fork and emuhost |
+| `ptrscan` | no | yes |
 | `peekb` (binary read, up to 16 MB) | no | yes |
 | `search` | yes: the emulator hosts' search compiled into Breeze (pcsearch.cpp); its candidate files are in `sdmc:/switch/breeze/search/<title id>/`, apart from the ones Breeze's Search screens write | yes |
 | `enginescan` `il2cppmap` `uemap` `jobs` | no (`prep` does this work) | yes |

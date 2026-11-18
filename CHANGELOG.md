@@ -1,5 +1,14 @@
 # Changelog
 
+## [Beta 129.01] - 2026-11-18
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 129.00; Breeze.nro, the PC tools (`pc_app.zip`) and `emuhost.zip` changed.
+- **Pointer chains in seconds (Breeze Studio, games in an emulator):** Memory tab > right-click > **Find pointer chains to here** lists the chains from main to a value (Fast Fusion: 39 GB read in 6.7 s; the same search made of one `refs` per address took about five minutes). **Keep only chains to here** after a game restart drops the chains that broke; **Make cheat** writes one as cheat lines. Served by the Lichii fork and emuhost (`ptrscan`, see [PC Connect](docs/pcconnect.md)); not on a Switch yet.
+- **Names for a game Breeze does not know:** a small `object_names.txt` in the game folder says how the game's objects name their class. Breeze's Class field then opens the object by name (`sPlayer [named]`) with the cursor on the value, and Studio's Memory tab reads `sPlayer+20 coins`; **Label this field** (Studio) names a field for both. Checked in an emulator, not yet on a Switch.
+- **Breeze inside an emulator keeps game folders by title id**, the folder the emulator's PC connect and Studio use; on a Switch the setting is kept. The emulator hosts send the game's name to the PC app's Files and Studio, so the PC folder is named after the game, and **Save to SD** starts the cheat file with Breeze's `[Breeze ...]` line and your signature.
+- **Studio's Search** shows Breeze's mode names (`[A..B]`, `<A..B>`, `[A,B]`, `SAME` ...) and the whole list without scrolling.
+- **cheatvm module** (MyNXCheats): a header or signature line takes no cheat slot, as in Atmosphere; the menu shows in Fast Fusion.
+
 ## [Beta 129.00] - 2026-11-16
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 128.12; Breeze.nro and the PC tools (`pc_app.zip`) changed.
