@@ -124,9 +124,27 @@ class Plan:
     def store(at, value):
         return "%08X %08X %08X" % (0x04000000 | ((at >> 32) & 0xFF), at & 0xFFFFFFFF, value)
 
+    @staticmethod
+    def store64(at, low, high):
+        """Two instructions in one type-0 store: the VM takes the value as first << 32 | second."""
+        return "%08X %08X %08X %08X" % (0x08000000 | ((at >> 32) & 0xFF), at & 0xFFFFFFFF, high, low)
+
     def cheat_text(self, name, words, branch):
+        # The cave in 64-bit stores (4 words per 2 instructions, not 6): a cheat holds 256 words,
+        # and a 100-instruction cave as 32-bit stores needs over 300 (found on Dreamlight Valley).
         lines = ["[%s]" % name, self.store(self.rva, self.word), self.store(self.rva, branch)]
-        lines += [self.store(self.cave + 4 * i, w) for i, w in enumerate(words)]
+        i = 0
+        while i < len(words):
+            at = self.cave + 4 * i
+            if i + 1 < len(words) and at % 8 == 0:
+                lines.append(self.store64(at, words[i], words[i + 1]))
+                i += 2
+            else:
+                lines.append(self.store(at, words[i]))
+                i += 1
+        n = sum(len(l.split()) for l in lines[1:])
+        if n > 256:
+            raise RuntimeError("the cheat would be %d words; a cheat holds 256 (make the cave shorter)" % n)
         return "\n".join(lines)
 
 
@@ -217,7 +235,11 @@ class HookMaker:
         if got is None:
             return
         name = self.name.get().strip() or "asm M+%X" % self.plan.rva
-        text = self.plan.cheat_text(name, *got)
+        try:
+            text = self.plan.cheat_text(name, *got)
+        except RuntimeError as e:
+            self.status.config(text=str(e), fg="#b00")
+            return
         on = bool(self.on_var.get())
         self.add_btn.config(state="disabled")
 

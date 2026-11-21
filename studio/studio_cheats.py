@@ -10,8 +10,15 @@
   * Under the code, the cheat in words (cheat_disasm.py): each opcode, the address it reads or
     writes in the game now, and the instruction when it writes code. Jump to target opens that
     address in Memory, Jump to ASM opens the patched code in Code (Breeze's Edit Cheat keys).
+  * Merge into... (Breeze's Merge into): the selected cheat's code patches go into another cheat,
+    in the code-patch form of code_patch.py (the game's instructions in a block that never runs,
+    which Breeze puts back when the cheat is turned off). Naming the cheat itself converts it.
+  * Off and Turn off all put a code-patch cheat's original instructions back where its patch is
+    still in the game (Breeze's second press, in one step); R1 patches need the master's R1.
   * Save to SD writes atmosphere/contents/<tid>/cheats/<bid>.txt + toggles.txt on the emulated
     SD card (what loads at the next start); Import / Export read and write a cheat .txt on the PC.
+    Export adds a "<name> - restore" cheat after each code-patch cheat that has none, for players
+    whose cheat tool does not put the originals back (as Breeze's Write Cheat to atm).
   * Pause / Resume (F9 works with the game focused).
 
 Python 3 with tkinter only.
@@ -21,6 +28,7 @@ import json
 import queue
 import re
 import socket
+import struct
 import sys
 import threading
 import tkinter as tk
@@ -28,6 +36,7 @@ from tkinter import filedialog, messagebox, ttk
 
 from game_title import window_title
 import cheat_disasm
+import code_patch
 import studio_link
 
 HOTKEY_VK = 0x78  # F9
@@ -254,12 +263,14 @@ class App:
 
         left = ttk.Frame(body)
         body.add(left, weight=3)
-        self.tree = ttk.Treeview(left, columns=("state", "size"), show="tree headings", selectmode="extended")
-        self.tree.heading("#0", text="Cheat")
+        self.tree = ttk.Treeview(left, columns=("state", "kind", "size"), show="tree headings", selectmode="extended")
+        self.tree.heading("#0", text="  #   Cheat")
         self.tree.heading("state", text="")
+        self.tree.heading("kind", text="kind")
         self.tree.heading("size", text="opcodes")
         self.tree.column("#0", width=380)
         self.tree.column("state", width=50, anchor="center")
+        self.tree.column("kind", width=90, anchor="w", stretch=False)
         self.tree.column("size", width=70, anchor="e")
         self.tree.tag_configure("on", foreground="#1a7f37")
         self.tree.tag_configure("folder", foreground="#6f42c1")
@@ -285,6 +296,9 @@ class App:
         ttk.Button(erow, text="Jump to ASM", command=self.jump_asm).pack(side="right")
         ttk.Button(erow, text="Jump to target", command=self.jump_target).pack(side="right", padx=4)
         ttk.Button(erow, text="Read again", command=self.explain).pack(side="right")
+        # What kind of cheat it is, when it is one Breeze treats specially (ASM hook, code patch).
+        self.kind = tk.Label(right, text="", anchor="w", justify="left", fg="#05a", font=("Segoe UI", 9, "bold"))
+        self.kind.pack(fill="x")
         self.what = tk.Text(right, height=10, font=("Consolas", 9), wrap="none", state="disabled", cursor="arrow")
         self.what.tag_configure("asm", foreground="#05a")
         self.what.tag_configure("pick", background="#fe9")
@@ -294,8 +308,20 @@ class App:
         wmenu = tk.Menu(self.what, tearoff=0)
         wmenu.add_command(label="Jump to target (Memory)", command=self.jump_target)
         wmenu.add_command(label="Jump to ASM (Code)", command=self.jump_asm)
+
+        # The places every tab can take an address (studio_link.address_menu): the picked line's
+        # target, the address it reads or writes.
+        def line_target():
+            e = self.entry_with("target")
+            return e["target"] if e is not None else None
+
+        def line_size():
+            e = self.entry_with("target")
+            w = int(e["raw"].split()[0], 16) if e is not None else 0
+            return (w >> 24) & 0xF if w >> 28 in (0, 1, 5, 6, 0xA) and (w >> 24) & 0xF in (1, 2, 4, 8) else 4
+        studio_link.address_menu(self.root, wmenu, line_target, lambda text: self.status.set(text), size=line_size)
         self.what.bind("<Button-3>", lambda e: (self.pick_line(e), wmenu.tk_popup(e.x_root, e.y_root)))
-        self.entries, self.picked_entry, self.exec_ranges = [], None, None
+        self.entries, self.picked_entry, self.exec_ranges, self.main_base = [], None, None, 0
         krow = ttk.Frame(right)
         krow.pack(fill="x", pady=(4, 0))
         self.key_var = tk.StringVar(value="Key: none")
@@ -310,6 +336,7 @@ class App:
         ttk.Checkbutton(row, text="on", variable=self.add_on).pack(side="left")
         ttk.Button(row, text="Duplicate", command=self.duplicate).pack(side="left", padx=4)
         ttk.Button(row, text="Delete", command=self.delete).pack(side="left")
+        ttk.Button(row, text="Merge into...", command=self.merge_into).pack(side="left", padx=4)
         row2 = ttk.Frame(right)
         row2.pack(fill="x")
         ttk.Button(row2, text="Edit master code", command=self.select_master).pack(side="left")
@@ -319,9 +346,10 @@ class App:
         bar = ttk.Frame(root, padding=6)
         bar.pack(fill="x")
         for text, fn in (("On", lambda: self.set_selected(True)), ("Off", lambda: self.set_selected(False)),
-                         ("Turn off all", lambda: self.simple("cheats off")),
+                         ("Turn off all", self.turn_off_all),
                          ("Restore", lambda: self.simple("cheats restore")),
                          ("Refresh", self.refresh), ("Save to SD", lambda: self.simple("cheats save")),
+                         ("Load from SD", self.load_from_sd),
                          ("Import .txt", self.import_file), ("Export .txt", self.export_file),
                          ("Add freeze game code", self.add_freeze_code)):
             ttk.Button(bar, text=text, command=fn).pack(side="left", padx=2)
@@ -381,8 +409,8 @@ class App:
             if "paused" in st:      # a Switch does not say: there the last Pause or Resume stands
                 self.paused = bool(st["paused"])
             self.root.title(window_title("Cheats", g))
-            self.game.set("%s  build %s  %s" % (g.get("title_id", "?"), g.get("build_id", "?"),
-                                                "PAUSED" if self.paused else ""))
+            ids = "" if studio_link.in_studio(self.root) else "%s  build %s  " % (g.get("title_id", "?"), g.get("build_id", "?"))
+            self.game.set(ids + ("PAUSED" if self.paused else ""))
             self.pause_btn.configure(text="Resume (F9)" if self.paused else "Pause (F9)",
                                      bg="#5cb85c" if self.paused else "#d9534f")
         self.run(lambda: self.client.cmd("state"), done)
@@ -407,8 +435,29 @@ class App:
         self.root.after(50, self.poll_hotkey)
 
     # ---- list
+    def kind_of(self, words):
+        """The list's kind column (cheat_disasm.kind)."""
+        ranges = self.exec_ranges or []
+        return cheat_disasm.kind(words, self.main_base, lambda a: any(lo <= a < hi for lo, hi in ranges))
+
+    def load_ranges(self):
+        """Worker: the game's code ranges and main, once (the kind column and What it does use them)."""
+        if self.exec_ranges is None:
+            ranges = []
+            for l in self.client.cmd("maps", multi=True)[1:]:
+                f = l.split()
+                if len(f) >= 3 and "x" in f[2]:
+                    ranges.append((int(f[0], 16), int(f[0], 16) + int(f[1], 16)))
+            self.exec_ranges = ranges
+        if not self.main_base:
+            try:
+                self.main_base = int((json.loads(self.client.cmd("state")[4:]).get("game") or {}).get("main", "0"), 16)
+            except Exception:  # noqa: BLE001 - no game
+                pass
+
     def refresh(self, keep=None):
         def fn():
+            self.load_ranges()
             return self.client.cmd("cheats get", multi=True), self.client.cmd("cheats open")
 
         def done(r):
@@ -453,12 +502,13 @@ class App:
                     stack.pop()
                 continue
             if is_folder_open(words):
-                self.tree.insert(stack[-1], "end", iid=str(cid), text="📁 " + name, values=("", ""),
+                self.tree.insert(stack[-1], "end", iid=str(cid), text="%4d  📁 %s" % (cid, name), values=("", "", ""),
                                  tags=("folder",), open=str(cid) in opened)
                 stack.append(str(cid))
                 continue
-            self.tree.insert(stack[-1], "end", iid=str(cid), text=name,
-                             values=("ON" if on else "", len(words)), tags=("on",) if on else ())
+            # The id goes first: it is the number PC connect (`cheats on 7`) and a helper use for it.
+            self.tree.insert(stack[-1], "end", iid=str(cid), text="%4d  %s" % (cid, name),
+                             values=("ON" if on else "", self.kind_of(words), len(words)), tags=("on",) if on else ())
 
     def on_select(self, _e=None):
         sel = self.tree.selection()
@@ -507,6 +557,7 @@ class App:
                                         opcode_len)
 
         def done(entries):
+            self.kind.config(text=cheat_disasm.summary(words, opcode_len))
             self.entries, self.picked_entry = entries, None
             t = self.what
             t.configure(state="normal")
@@ -710,6 +761,98 @@ class App:
         line = "cheats remove " + " ".join(map(str, ids))
         self.run(lambda: self.client.cmd(line), lambda r: (self.status.set(r), self.refresh()))
 
+    def merge_into(self):
+        """Breeze's Merge into (code_patch.py): the selected cheat's code patches go into the cheat
+        named in the dialog. A name that is no cheat yet renames this one in its form; its own name
+        converts it in place. The merged-away cheat, and a "- restore" cheat the form makes
+        unnecessary, are removed."""
+        cid = self.selected_cheat()
+        if cid is None:
+            return
+        src_name = self.cheats[cid][1]
+        names = [n for i, (_on, n, w) in self.cheats.items() if i != cid and code_patch.parse(w)]
+        self.ask_merge_target(src_name, names, lambda target: self.merge_cheat(cid, target))
+
+    def merge_cheat(self, cid, target):
+        """Merge into, once the target is named."""
+        if cid not in self.cheats:
+            self.status.set("cheat %d is gone; Refresh" % cid)
+            return
+        c = self.client
+        cheats = [(i, on, "[%s] %s" % (n, " ".join("%08X" % x for x in w))) for i, (on, n, w) in self.cheats.items()]
+        into = next((i for i, (_on, n, _w) in self.cheats.items()
+                     if i != cid and code_patch.label_key(n) == code_patch.label_key(target)), None)
+
+        def fn():
+            game = json.loads(c.cmd("state")[4:]).get("game") or {}
+            main, r1 = int(game["main"], 16), int(game.get("r1", "0"), 16)
+
+            def read(p):
+                at = p.address(main, r1)
+                if at is None:
+                    return None
+                r = c.cmd("peek %X 4" % at)
+                if not r.startswith("+OK"):
+                    raise ValueError("cannot read %s: %s" % (p.label, r))
+                return struct.unpack("<I", bytes.fromhex(r.split()[-1]))[0]
+            key, frm, restore_id = code_patch.cheat_patches(cid, cheats, read)
+            removes = [restore_id] if restore_id else []
+            if into is not None:
+                key2, have, restore2 = code_patch.cheat_patches(into, cheats, read)
+                if key2 != key:
+                    raise ValueError("the two cheats have different conditional keys: give them the same key (or none) first")
+                merged = code_patch.merge(have, frm)
+                if merged is None:
+                    raise ValueError("both cheats patch an address and record different game instructions for it")
+                removes += ([restore2] if restore2 else []) + [cid]
+                edit_id, name = into, self.cheats[into][1]
+            else:
+                merged, edit_id, name = frm, cid, target
+            ops = code_patch.build(merged, key)
+            if len(ops) > 0x100:
+                raise ValueError("%d patches need %d opcodes; a cheat holds 256" % (len(merged), len(ops)))
+            if removes:
+                r = c.cmd("cheats remove %s" % " ".join(map(str, removes)))
+                if not r.startswith("+OK"):
+                    raise ValueError("cheats remove: %s" % r)
+            return edit_id, name, ["%08X" % w for w in ops], removes, len(merged)
+
+        def done(r):
+            edit_id, name, words, removes, count = r
+            note = "%s: %d patch%s%s. Save to SD to keep it." % (
+                name, count, "" if count == 1 else "es",
+                "; removed cheat%s %s" % ("" if len(removes) == 1 else "s", ", ".join(map(str, removes))) if removes else "")
+            self.replace_cheat(edit_id, name, words, note)
+        self.run(fn, done)
+
+    def ask_merge_target(self, src_name, names, then):
+        """A small dialog for the name; then(name) runs on Merge. It does not wait in a nested
+        loop (as the Condition key dialog), so Studio stays responsive behind it."""
+        dlg = tk.Toplevel(self.root)
+        dlg.title("Merge into")
+        dlg.transient(self.root)
+        ttk.Label(dlg, text="Merge the code patches of %s into the cheat:\n"
+                            "(its own name converts it; a new name renames it)" % src_name,
+                  padding=6).pack(anchor="w")
+        var = tk.StringVar(value=getattr(self, "last_merge_target", "") or src_name)
+        box = ttk.Combobox(dlg, textvariable=var, values=names, width=50)
+        box.pack(padx=6, fill="x")
+        box.focus_set()
+
+        def ok(_e=None):
+            name = var.get().strip()
+            dlg.destroy()
+            if name:
+                self.last_merge_target = name
+                then(name)
+        row = ttk.Frame(dlg, padding=6)
+        row.pack(fill="x")
+        ttk.Button(row, text="Merge", command=ok).pack(side="left")
+        ttk.Button(row, text="Cancel", command=dlg.destroy).pack(side="left", padx=4)
+        dlg.bind("<Return>", ok)
+        dlg.bind("<Escape>", lambda _e: dlg.destroy())
+        dlg.grab_set()
+
     def toggle_selected(self):
         sel = [int(i) for i in self.tree.selection() if int(i) in self.cheats]
         sel = [i for i in sel if not is_folder_open(self.cheats[i][2])]
@@ -723,10 +866,72 @@ class App:
         if not ids:
             return
         line = "cheats %s %s" % ("on" if on else "off", " ".join(map(str, ids)))
-        self.run(lambda: self.client.cmd(line), lambda r: (self.status.set(r), self.refresh()))
+        if on:
+            self.run(lambda: self.client.cmd(line), lambda r: (self.status.set(r), self.refresh()))
+            return
+        patches = self.code_patches(ids)
+        self.run(lambda: self.off_and_restore(line, patches), lambda r: (self.status.set(r), self.refresh()))
+
+    def turn_off_all(self):
+        patches = self.code_patches([i for i, (on, _n, _w) in self.cheats.items() if on])
+        self.run(lambda: self.off_and_restore("cheats off", patches), lambda r: (self.status.set(r), self.refresh()))
+
+    def code_patches(self, ids):
+        """[(name, Patch)] of the code-patch cheats among ids (code_patch.py's form), read here on
+        the UI thread for the worker."""
+        out = []
+        for cid in ids:
+            if cid in self.cheats:
+                got = code_patch.parse(self.cheats[cid][2])
+                if got:
+                    out += [(self.cheats[cid][1], p) for p in got[1]]
+        return out
+
+    def off_and_restore(self, line, patches):
+        """Worker: the cheats off, then the game's instructions back where a code-patch cheat's
+        patch is still in the game (Breeze does this on its second press; dmnt never does). A
+        word holding something else is left alone. R1 patches need the master cheat's R1."""
+        c = self.client
+        r = c.cmd(line)
+        if not r.startswith("+OK") or not patches:
+            return r
+        meta = json.loads(c.cmd("meta")[4:] or "{}")
+        main, r1 = int(meta.get("main", "0"), 16), int(meta.get("r1", "0"), 16)
+        restored, skipped = 0, 0
+        for _name, p in patches:
+            at = p.address(main, r1)
+            if at is None:
+                skipped += 1
+                continue
+            if p.hack == p.original:
+                continue
+            got = c.cmd("peek %X 4" % at)
+            if not got.startswith("+OK") or struct.unpack("<I", bytes.fromhex(got.split()[-1]))[0] != p.hack:
+                continue
+            if c.cmd("poke %X %s" % (at, struct.pack("<I", p.original).hex())).startswith("+OK"):
+                restored += 1
+        note = "; %d original instruction%s restored" % (restored, "" if restored == 1 else "s")
+        if skipped:
+            note += " (%d R1 patch%s skipped: no R1 known)" % (skipped, "" if skipped == 1 else "es")
+        return r + note
 
     def simple(self, line):
         self.run(lambda: self.client.cmd(line), lambda r: (self.status.set(r), self.refresh()))
+
+    def load_from_sd(self):
+        """The game's cheat file on the SD (the one Save to SD writes) read again, replacing the
+        list: edits not saved are lost."""
+        if not messagebox.askyesno("Load from SD", "Read the game's cheat file on the SD again?\n\n"
+                                   "It replaces the cheats loaded now; changes not saved to SD are lost.",
+                                   parent=self.root):
+            return
+
+        def done(r):
+            self.status.set(r)
+            self.refresh()
+            # Lichii takes the new list on the cheat engine's next pass: list it again then.
+            self.root.after(700, self.refresh)
+        self.run(lambda: self.client.cmd("cheats load"), done)
 
     # ---- files on the PC
     def import_file(self):
@@ -757,12 +962,17 @@ class App:
         parts = []
         if self.master:
             parts.append("{%s}\n%s\n" % (self.master[0], "\n".join(code_lines(self.master[1]))))
-        for cid in self.order:
-            _on, name, words = self.cheats[cid]
+        # A file to share: each code-patch cheat gets a "<name> - restore" cheat for players
+        # whose cheat tool does not put the originals back (as Breeze's atm file).
+        listed = [(self.cheats[cid][1], self.cheats[cid][2]) for cid in self.order]
+        cheats = code_patch.with_restore_cheats(listed)
+        for name, words in cheats:
             parts.append("[%s]\n%s\n" % (name, "\n".join(code_lines(words))))
         with open(path, "w", encoding="utf-8", newline="\n") as f:
             f.write("\n".join(parts))
-        self.status.set("exported %d cheat(s) to %s" % (len(self.order), path))
+        added = len(cheats) - len(listed)
+        self.status.set("exported %d cheat(s) to %s%s" % (
+            len(cheats), path, " (%d - restore cheat%s added)" % (added, "" if added == 1 else "s") if added else ""))
 
 
 def main():

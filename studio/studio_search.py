@@ -327,14 +327,12 @@ class App:
         self.tree.pack(side="left", fill="both", expand=True)
         sb.pack(side="left", fill="y")
         m = self.cand_menu = tk.Menu(root, tearoff=0)
-        m.add_command(label="Watch this address (who reads or writes it)", command=self.watch_selected)
         m.add_command(label="Add to bookmarks...", command=self.bookmark_selected)
-        m.add_command(label="Open in Memory", command=lambda: self.link_selected("Memory", "goto"))
-        m.add_command(label="Field view (the object that holds it)", command=lambda: self.link_selected("Objects", "field_view"))
-        m.add_separator()
         m.add_command(label="Hold at its value", command=lambda: self.hold_selected(True))
         m.add_command(label="Unhold", command=lambda: self.hold_selected(False))
-        m.add_command(label="Copy address", command=self.copy_selected)
+        # The places every tab can take an address (studio_link.address_menu): the first picked row.
+        studio_link.address_menu(root, m, lambda: int(self.chosen()[0][1], 16) if self.chosen() else None,
+                                 self.status.set, size=lambda: SIZES[self.shown_type()])
         self.tree.bind("<Button-3>", self.on_cand_menu)
 
         act = ttk.Frame(res)
@@ -361,6 +359,8 @@ class App:
         for text, op in (("Set N", "set"), ("Inc N", "inc"), ("Revert N", "revert"),
                          ("Hold N", "hold"), ("Unhold N", "unhold")):
             ttk.Button(bat, text=text, command=lambda op=op: self.batch(op)).pack(side="left", padx=2)
+            if op == "inc":
+                ttk.Button(bat, text="Inc N+", command=self.batch_inc_steps).pack(side="left", padx=2)
 
         threading.Thread(target=self.worker, daemon=True).start()
         root.after(50, self.pump)
@@ -754,6 +754,45 @@ class App:
         line = "search %s %s %s%d %d" % (op, row.name, (value + " ") if op in ("set", "inc") else "", n, first)
         self.run(lambda: self.client.cmd(line), lambda r: (self.status.set(r), self.refresh()),
                  "%s %d rows from row %d" % (op, n, first))
+
+    def batch_inc_steps(self):
+        """Inc N+: the k-th row from the first adds value * (k + 1), so every row ends up with a
+        different value and the one the game shows tells which row drives it (Breeze's Inc1000)."""
+        row = self.selected
+        if not row:
+            return
+        sel = self.chosen()
+        first = int(sel[0][0]) if sel else self.page * self.size_now()
+        try:
+            n = int(self.batch_n.get())
+        except ValueError:
+            self.status.set("batch: rows is a number")
+            return
+        typ = self.shown_type()
+        flt = typ in ("f32", "f64")
+        try:
+            d = float(self.batch_v.get()) if flt else int(self.batch_v.get().strip(), 0)
+        except ValueError:
+            self.status.set("Inc N+: a %s value in the box after 'value'" % typ)
+            return
+
+        def fn():
+            r = self.client.cmd(self.list_cmd(row.name, n, first), multi=True)
+            if not r[0].startswith("+OK"):
+                return r[0]
+            done = failed = 0
+            for k, line in enumerate(r[1:]):
+                f = line.split()
+                if len(f) < 2 or f[1] == "?":
+                    continue
+                v = (float(f[1]) if flt else int(f[1], 0)) + d * (k + 1)
+                ok = self.client.cmd("poke %s %s" % (f[0], encode(str(v), typ).hex())).startswith("+OK")
+                done += ok
+                failed += not ok
+            return "Inc N+: %d rows from row %d, +%s each step%s" % (
+                done, first, self.batch_v.get().strip(), ", %d failed" % failed if failed else "")
+        self.run(fn, lambda r: (self.status.set(r), self.refresh()),
+                 "Inc N+ %d rows from row %d" % (n, first))
 
     def retype(self):
         row = self.selected

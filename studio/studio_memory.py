@@ -104,15 +104,14 @@ class App:
         m.add_command(label="Edit value...", command=self.edit)
         m.add_command(label="Hold at its value", command=lambda: self.hold(True))
         m.add_command(label="Unhold", command=lambda: self.hold(False))
-        m.add_command(label="Copy address", command=self.copy)
         m.add_command(label="Who points here", command=self.who)
         m.add_command(label="Find pointer chains to here...", command=self.ptrscan)
         m.add_command(label="Label this field...", command=self.label_field)
-        m.add_separator()
-        m.add_command(label="Watch this address (who reads or writes it)", command=self.watch)
         m.add_command(label="Add to bookmarks", command=self.bookmark)
-        m.add_command(label="Field view (the object here)", command=lambda: self.link("Objects", "field_view", self.picked()))
         m.add_command(label="Field view of what it points at", command=lambda: self.link("Objects", "field_view", self.pointer_at(self.picked())))
+        # The places every tab can take an address (studio_link.address_menu).
+        studio_link.address_menu(self.root, m, self.picked, self.status.set, size=lambda: int(self.size.get()),
+                                 skip=("Memory",))
 
         threading.Thread(target=self.worker, daemon=True).start()
         self.job(lambda: None, lambda _r: self.connected())
@@ -186,8 +185,8 @@ class App:
 
     def connected(self):
         if not self.data:
-            self.status.set("%s  |  type an address: hex, M+offset%s" % (
-                game_caption(self.meta), "  |  " + self.names.note if self.names.note else ""))
+            self.status.set(studio_link.joined(studio_link.caption(self.root, self.meta),
+                                               "type an address: hex, M+offset", self.names.note))
             if self.want is None:
                 self.goto(self.main)
 
@@ -302,7 +301,8 @@ class App:
             self.at.delete(0, "end")
             self.at.insert(0, "%X" % self.want)
         self.want = None
-        self.status.set("%s  |  %X .. %X  %s" % (game_caption(self.meta), self.start, self.start + len(self.data) - 1, self.where(self.start)))
+        self.status.set(studio_link.joined(studio_link.caption(self.root, self.meta), "%X .. %X  %s" % (
+            self.start, self.start + len(self.data) - 1, self.where(self.start))))
 
     def update(self):
         size = int(self.size.get())
@@ -488,6 +488,12 @@ class App:
         if at is not None:
             import studio_ptrscan
             studio_ptrscan.Window(self, at)
+
+    def ptrscan_address(self, address):
+        """The pointer chains to an address another tab hands over (studio_link.address_menu)."""
+        self.goto(address)
+        import studio_ptrscan
+        studio_ptrscan.Window(self, address)
 
 
 def main():

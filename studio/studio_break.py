@@ -2,7 +2,9 @@
 
   Break     a breakpoint on an instruction: the thread that reaches it is held there, with its
             registers and stack. The other threads run on.
-  Step      one instruction; Step over runs a call (bl, blr) to its return.
+  Step      one instruction; Step over runs a call (bl, blr) to its return; Step out runs on until
+            the function it is in returns (or, from the call chain, any frame above it).
+  Call chain  the held thread's callers, innermost first (lr, then the x29 frames).
   Trace     runs N instructions from the held one and lists each with the registers it changed.
 
 Served by the Lichii fork's probe (probe break / held / step / over / cont / trace / setreg). On a
@@ -10,7 +12,11 @@ Switch the same is Breeze's own Gen2 Action menu; a stock emulator has neither.
 Python 3 with tkinter only (capstone is used for the instructions when installed).
 """
 import struct
+import time
 import tkinter as tk
+
+import code_modules
+import studio_link
 from tkinter import ttk
 
 try:
@@ -37,6 +43,7 @@ class BreakPanel:
         self.held = False
         self.busy = False          # a poll is on its way
         self.breaks = []           # (where, hits, original)
+        self.breaks_read = 0.0     # when `break list` was last read
         self.regs, self.last_regs = {}, {}
         self.rows = []             # the trace: one dict of registers (and "pc") per instruction
         self.code_at = []          # the address of each line of the code pane
@@ -59,7 +66,8 @@ class BreakPanel:
         ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6)
         self.when_held = [ttk.Button(bar, text="Continue", command=lambda: self.do("cont")),
                           ttk.Button(bar, text="Step", command=lambda: self.do("step")),
-                          ttk.Button(bar, text="Step over", command=lambda: self.do("over"))]
+                          ttk.Button(bar, text="Step over", command=lambda: self.do("over")),
+                          ttk.Button(bar, text="Step out", command=self.step_out)]
         for b in self.when_held:
             b.pack(side="left", padx=2)
         ttk.Separator(bar, orient="vertical").pack(side="left", fill="y", padx=6)
@@ -92,6 +100,10 @@ class BreakPanel:
         top = ttk.Frame(left)
         self.break_tree = self.tree(top, ("at", "fn", "hits"), ("breakpoint", "in", "hits"), (110, 380, 60), 5)
         left.add(top, weight=1)
+        mid = ttk.Frame(left)
+        self.chain_tree = self.tree(mid, ("k", "at", "fn"), ("frame", "returns to", "in"), (50, 130, 400), 6)
+        left.add(mid, weight=1)
+        self.chain = []            # the held thread's call chain, innermost first
         low = ttk.Frame(left)
         self.trace_tree = self.tree(low, ("n", "at", "fn", "ins", "chg"),
                                     ("#", "address", "in", "instruction", "changed"), (50, 100, 230, 230, 300), 14)
@@ -113,6 +125,13 @@ class BreakPanel:
         m2.add_command(label="Break here", command=lambda: self.add(self.picked(self.trace_tree, 1)))
         m2.add_command(label="Copy address", command=lambda: self.copy(self.picked(self.trace_tree, 1)))
         self.trace_tree.bind("<Button-3>", lambda e: a.popup(e, self.trace_tree, m2))
+        m3 = tk.Menu(self.chain_tree, tearoff=0)
+        m3.add_command(label="Step out to here (run until this frame is returned to)", command=self.out_picked)
+        m3.add_command(label="Go to (Code)", command=lambda: self.goto(self.picked(self.chain_tree, 1)))
+        m3.add_command(label="Break here", command=lambda: self.add(self.picked(self.chain_tree, 1)))
+        m3.add_command(label="Copy address", command=lambda: self.copy(self.picked(self.chain_tree, 1)))
+        self.chain_tree.bind("<Button-3>", lambda e: a.popup(e, self.chain_tree, m3))
+        self.chain_tree.bind("<Double-1>", lambda e: self.goto(self.picked(self.chain_tree, 1)))
         self.code_menu = tk.Menu(self.code, tearoff=0)
         self.code_menu.add_command(label="Break here", command=lambda: self.add(self.code_pick))
         self.code_menu.add_command(label="Remove the breakpoint here", command=lambda: self.remove(self.code_pick))
@@ -154,11 +173,32 @@ class BreakPanel:
     # ------------------------------------------------------------------ addresses and code
     def rel(self, a):
         m = self.app.main
-        return "M+%X" % (a - m) if m and m <= a < m + 0x40000000 else "%X" % a
+        return code_modules.label(getattr(self.app, "mods", []), a) or (
+            "M+%X" % (a - m) if m and m <= a < m + 0x40000000 else "%X" % a)
 
     def name(self, a):
         m = self.app.main
+        mod = code_modules.module_of(getattr(self.app, "mods", []), a)
+        if mod is not None and mod[0] != "M":
+            return ""          # the function map names main only
         return self.app.names.label(a - m) if m and m <= a < m + 0x40000000 else ""
+
+    def goto(self, where):
+        """The Code tab at an address of the chain or a list."""
+        if not where:
+            return
+        try:
+            a = self.app.addr(where)
+        except ValueError:
+            return
+        self.app.said(studio_link.send(self.app.root, "Code", "goto_address", a) or "Code: %s" % where)
+
+    def out_picked(self):
+        sel = self.chain_tree.selection()
+        if not sel or not self.held:
+            self.app.said("Step out: a thread must be held, and a frame picked")
+            return
+        self.do("out %d" % self.chain_tree.index(sel[0]))
 
     def text_of(self, word, at):
         if CS is not None:
@@ -188,10 +228,17 @@ class BreakPanel:
         w = r[0].split()
         kv = dict(x.split("=", 1) for x in w[2:] if "=" in x)
         st = {"held": w[1] == "held", "kv": kv, "breaks": [], "fresh": False}
-        for l in probe("break list")[1:]:
-            p = l.split()
-            k = dict(x.split("=", 1) for x in p[1:] if "=" in x)
-            st["breaks"].append((p[0], k.get("hits", ""), int(k.get("original", "0"), 16)))
+        # The list changes when a breakpoint is set or hit: read it then, and every 5 s besides
+        # (each poll reading it filled every client's Activity log).
+        seq = (st["held"], kv.get("seq"))
+        if force or seq != self.key or time.time() - self.breaks_read > 5:
+            self.breaks_read = time.time()
+            for l in probe("break list")[1:]:
+                p = l.split()
+                k = dict(x.split("=", 1) for x in p[1:] if "=" in x)
+                st["breaks"].append((p[0], k.get("hits", ""), int(k.get("original", "0"), 16)))
+        else:
+            st["breaks"] = list(self.breaks)
         st["originals"] = {self.app.addr(x[0]): x[2] for x in st["breaks"]}
         if (st["held"], kv.get("seq")) != self.key or force:
             st["fresh"] = True
@@ -275,6 +322,7 @@ class BreakPanel:
             return
         self.last_regs, self.regs = self.regs, st["regs"]
         self.draw(st["code"], self.regs, self.last_regs, st["stack"])
+        self.fill_chain(kv.get("bt", "-"), kv.get("pc", ""))
         if "trace" in st:
             self.fill_trace(st["trace"])
 
@@ -298,6 +346,42 @@ class BreakPanel:
             where = x.split("=", 1)[1]
             fn = self.name(self.app.addr(where)) if where.startswith("M+") else ""
             self.code.insert("end", x + ("   " + fn if fn else "") + "\n", "ret" if "=M+" in x else "")
+
+    def same_function(self, a, pc):
+        """True when a return address lies in the function the thread is in: lr left over from a
+        call that function already made (it is not a caller), or the place a step out landed."""
+        if a is None or pc is None:
+            return False
+        if a == pc:
+            return True
+        here, there = self.name(pc).split("+")[0], self.name(a).split("+")[0]
+        return bool(here) and here == there
+
+    def fill_chain(self, bt, pc_text=""):
+        t = self.chain_tree
+        t.delete(*t.get_children())
+        self.chain = [] if bt in ("", "-") else bt.split(",")
+        try:
+            pc = self.app.addr(pc_text) if pc_text else None
+        except ValueError:
+            pc = None
+        self.out_frame = 0
+        for k, where in enumerate(self.chain):
+            try:
+                a = self.app.addr(where)
+            except ValueError:
+                a = None
+            shown = self.rel(a) if a is not None else where
+            name = self.name(a) if a is not None else ""
+            if k == self.out_frame and self.same_function(a, pc) and k + 1 < len(self.chain):
+                self.out_frame = k + 1
+                name = "(this function: the return of a call it already made - not a caller)  " + name
+            t.insert("", "end", values=(k, shown, name))
+
+    def step_out(self):
+        """Runs until the function the thread is in returns: the first frame of the chain that is
+        not in this function (lr may still hold the return of a call this function made)."""
+        self.do("out %d" % getattr(self, "out_frame", 0))
 
     def fill_trace(self, rows):
         self.rows = rows

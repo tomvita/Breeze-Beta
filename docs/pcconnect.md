@@ -184,7 +184,7 @@ cheat process` otherwise).
 
 | command | does |
 |---|---|
-| `meta` | JSON: title id, pid, build id, main / heap / alias regions |
+| `meta` | JSON: title id, pid, build id, main / heap / alias regions; with a master cheat that sets R1, `r1` (main + r1 = that loaded module's code, where `04010000` stores go) and `r1_size` |
 | `maps` | every mapped region: `addr size perm type=<n>` |
 | `peek <hexaddr> <len>` | up to 4096 bytes, as hex |
 | `poke <hexaddr> <hexbytes>` | writes them |
@@ -200,6 +200,7 @@ cheat process` otherwise).
 | `cheats add [on] [name] words... [name] words...` | adds cheats (off unless `on`) and prints their ids. Several cheats per line; the words are the cheat file's, without line breaks. The master code (`{...}`) cannot be added |
 | `cheats remove <id>...` | removes cheats (refused while Breeze is on Edit Cheats) |
 | `cheats save` | writes Breeze's cheat file for the game (`/switch/breeze/cheats/<tid>/<bid>.txt` and toggles), like Write Cheat to file |
+| `cheats load` | reads that file (and its toggles) again in place of the loaded cheats, like Load Cheats from file without the database fallback. Emulator hosts read the file their `cheats save` writes (`atmosphere/contents/<tid>/cheats/<bid>.txt`) |
 | `refs <addr> [hexrange] [max] [seconds]` | every 8-aligned qword in the game's writable memory whose value is in `[addr - range, addr]`: who points at an object, or into it. Defaults: range 0, 64 hits, 30 s. Prints `where region+off -> value (+distance)` |
 | `chain <base> <hexoff>... [+<hexoff>]` | the cheat VM's walk in one round trip: reads `[base]`, then `[value + off]` for each offset; a final `+off` is only added. Prints every hop and the 8 bytes at the end as hex, u32, f32 and u64 |
 | `ptrscan <addr> [depth] [hexmaxoff] [max] [seconds] [hexmaxnodes]` | emulator hosts: the pointer chains from main to an address, shortest first, each a line `chain` takes (`main+71BAD0 0 E8 +20`). One pass over the writable memory per level matches every qword against all of that level's nodes at once (a value up to `maxoff` below a node); a qword in main ends a chain, one in the heap is searched further. Defaults: depth 4, offsets up to 800, 50 chains, 120 s, 40000 nodes a level. Every level is searched to its end and the chains sorted afterwards; the header gives `found=` (all chains), `levels=` (new nodes per level) and `max` (more than `max` found), `capped` or `timed_out` when a limit was hit. Which chain the game keeps after a restart only a second run tells: Studio's Memory tab > Find pointer chains to here keeps the list and drops the ones that stop landing on the value |
@@ -1177,9 +1178,10 @@ The ip and code are remembered in `~/.breeze_pc.json`, so later it is just
     with the function a `bl` goes to, whether a branch lands above or below
     (its target line carries a `>`), and the address an `adrp` pair builds with
     what is there: a string, a pointer into the game, or a number. Double-click
-    or Enter follows a line's call, branch or address; **Back** / **Forward**
-    (Alt+Left / Alt+Right, or the mouse's back and forward buttons) retrace; **Func up** / **Func down** step through
-    the functions.
+    or Enter follows a line's call, branch or address; the **◀** / **▶** buttons
+    (Alt+Left / Alt+Right, or the mouse's back and forward buttons) retrace; **Function ▲** / **▼**
+    step through the functions. Reload, Memory used, Copy, Save, the instruction words and the font size
+    are under **More**; the Debug row shows only on a host with a debugger.
   - **Functions** (left) is the game's function map when Breeze has made one
     (Unity, Unreal, GameMaker), else the unwind table's list as
     `func_<offset>`, with script-table names where there are any. Typing in

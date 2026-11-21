@@ -41,6 +41,8 @@ from tkinter import ttk
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from game_title import window_title  # noqa: E402
 import studio_break  # noqa: E402
+import code_modules  # noqa: E402
+import studio_link  # noqa: E402
 
 try:
     import capstone
@@ -165,7 +167,7 @@ class Names:
             return ""
         start = self.starts[i]
         name = self.names.get(start)
-        if not name or rva - start > 0x40000:
+        if not name or rva - start > (0x40000 if self.sure else 0x8000):   # see pcconnect_asm.FAR_NAME
             return ""
         return (name if rva == start else "%s+%X" % (name, rva - start)) + ("" if self.sure else " ?")
 
@@ -178,6 +180,14 @@ class Back:
     lengths = None       # the lengths a data watch may have (None: any)
     modes = ("w", "r", "rw")
     note = ""
+    mods = []            # the code modules (code_modules.py): another module's code as sdk+5B1E78
+
+    def relabel(self, text):
+        """A bare address in another code module as 'sdk+5B1E78'; anything else as it is."""
+        try:
+            return code_modules.label(self.mods, int(text, 16)) or text
+        except (TypeError, ValueError):
+            return text
 
     def __init__(self, client, main, names):
         self.c, self.main, self.names = client, main, names
@@ -197,8 +207,25 @@ class Back:
         return self.names.label(r) if r is not None else ""
 
 
+# Code every game shares: a call chain is read past it to the first frame of the game's own.
+SHARED = ("System.", "Google.Protobuf.", "Mono.", "UnityEngine.", "Unity.", "Newtonsoft.", "il2cpp", "Cysharp.",
+          "MS.Internal.", "Internal.")
+
+
 class ProbeBack(Back):
     """The fork's probe, and emuhost's data watch: the same `probe` lines."""
+
+    def game_frame(self, frames, pc=""):
+        """The first frame of the chain in the game's own code (not sdk, not a shared library) and
+        not in the function the instruction itself is in, or None."""
+        own = self.named(pc).split("+")[0] if pc else ""
+        for where in frames:
+            if not where.startswith("M+"):
+                continue        # rtld, subsdk, sdk: the system's
+            name = self.named(where)
+            if name and not name.startswith(SHARED) and name.split("+")[0] != own:
+                return where
+        return None
 
     def __init__(self, client, main, names, status):
         Back.__init__(self, client, main, names)
@@ -227,10 +254,14 @@ class ProbeBack(Back):
         for l in r[1:]:
             p = l.split()
             kv = dict(x.split("=", 1) for x in p[2:] if "=" in x)
-            rows.append({"key": p[0], "rw": p[1], "pc": kv.get("pc", ""), "fn": self.named(kv.get("pc")),
-                         "caller": kv.get("lr", ""), "caller_fn": self.named(kv.get("lr")), "count": kv.get("count", ""),
+            frames = [] if kv.get("bt", "-") == "-" else kv["bt"].split(",")
+            # "called from": the first frame in the game's own code when the probe sends the chain
+            # (a shared reader's lr is the next shared function), else lr.
+            caller = self.game_frame(frames, kv.get("pc", "")) or kv.get("lr", "")
+            rows.append({"key": p[0], "rw": p[1], "pc": self.relabel(kv.get("pc", "")), "fn": self.named(kv.get("pc")),
+                         "caller": self.relabel(caller), "caller_fn": self.named(caller), "count": kv.get("count", ""),
                          "before": kv.get("before", ""), "after": kv.get("after", ""), "last": kv.get("last", ""),
-                         "thread": kv.get("thread", "")})
+                         "thread": kv.get("thread", ""), "frames": frames, "path": kv.get("path", "")})
         st = self.probe("status")
         on = 0
         try:
@@ -239,8 +270,17 @@ class ProbeBack(Back):
             pass
         return r[0][4:] + (", %d watch(es) on" % on if on else ", no watch on"), rows, on > 0
 
+    def data_hold(self, row, any_path):
+        """The next hit of the row's instruction (on its call path) holds the thread there."""
+        return self.probe("data hold %s 1%s" % (row["key"], " any" if any_path else ""))[0]
+
     def data_detail(self, row):
         out = []
+        if row.get("frames"):
+            out.append(("call chain (innermost first):", ""))
+            for k, where in enumerate(row["frames"]):
+                out.append(("  %2d  %-16s %s" % (k, self.relabel(where), self.named(where)), "ret"))
+            out.append(("", ""))
         for l in self.probe("data regs %s" % row["key"])[1:]:
             if l.startswith("sp+"):
                 for x in l.split():
@@ -486,6 +526,10 @@ class App:
             except Exception:  # noqa: BLE001 - names are a help, not a need
                 pass
             back = ProbeBack(self.client, self.main, self.names, json.loads(st[0][4:]))
+            try:
+                back.mods = self.mods = code_modules.code_modules(self.client.cmd("maps", multi=True)[1:], self.main)
+            except Exception:  # noqa: BLE001 - names for other modules are a help, not a need
+                pass
             back.has_break = studio_break.supported(back)
             ev = Client(self.host, self.port, self.code, "studio_watch_events")
             ev.cmd("events on")
@@ -532,12 +576,11 @@ class App:
             self.nb.forget(self.method_frame)
             if getattr(self.back, "has_break", False) and self.brk is None:
                 self.brk = studio_break.BreakPanel(self)
-                for menu, tree, entries in (
-                        (self.data_menu, self.data_tree, (("Break at this instruction", 1), ("Break at the caller", 3))),
-                        (self.code_menu, self.code_tree, (("Break at this function", 1),))):
-                    menu.add_separator()
-                    for label, column in entries:
-                        menu.add_command(label=label, command=lambda t=tree, c=column: self.break_picked(t, c))
+                self.data_menu.add_separator()
+                self.data_menu.add_command(label="Hold at the next hit on this call path (Break and trace)",
+                                           command=lambda: self.hold_picked(False))
+                self.data_menu.add_command(label="Hold at the next hit of this instruction, any path",
+                                           command=lambda: self.hold_picked(True))
             self.build_activity()
             for l in history:
                 self.event(l)
@@ -583,7 +626,8 @@ class App:
         t = text.strip()
         if t.upper().startswith("M+"):
             return self.main + int(t[2:], 16)
-        return int(t, 16)
+        other = code_modules.parse(getattr(self, "mods", []), t)
+        return other if other is not None else int(t, 16)
 
     def said(self, r):
         self.status.set(r if isinstance(r, str) else str(r))
@@ -639,10 +683,16 @@ class App:
         self.detail.tag_configure("here", background="#fe9")
         body.add(self.detail, weight=2)
         menu = tk.Menu(self.data_tree, tearoff=0)
+        menu.add_command(label="Go to this instruction (Code)", command=lambda: self.goto_picked(self.data_tree, 1))
+        menu.add_command(label="Go to the caller (Code)", command=lambda: self.goto_picked(self.data_tree, 3))
+        menu.add_separator()
         menu.add_command(label="Copy instruction address", command=lambda: self.copy(self.data_tree, 1))
         menu.add_command(label="Copy caller address", command=lambda: self.copy(self.data_tree, 3))
         self.data_menu = menu
         self.data_tree.bind("<Button-3>", lambda e: self.popup(e, self.data_tree, menu))
+        # A double click opens the Code tab there: on the caller's columns the caller, else the instruction.
+        self.data_tree.bind("<Double-1>", lambda e: self.goto_picked(
+            self.data_tree, 3 if self.data_tree.identify_column(e.x) in ("#4", "#5") else 1))
 
     def popup(self, e, tree, menu):
         row = tree.identify_row(e.y)
@@ -656,10 +706,38 @@ class App:
             self.root.clipboard_clear()
             self.root.clipboard_append(tree.item(sel[0], "values")[column])
 
-    def break_picked(self, tree, column):
+    def hold_picked(self, any_path):
+        """The next hit of the picked row holds its thread before the access: Break and trace
+        then shows its registers, stack and call chain, and steps or steps out from there."""
+        sel = self.data_tree.selection()
+        i = self.data_tree.index(sel[0]) if sel else -1
+        if not 0 <= i < len(self.data_rows) or not hasattr(self.back, "data_hold"):
+            return
+        row = self.data_rows[i]
+
+        def done(r):
+            self.said(r + ("   (Break and trace shows the thread once it is held)" if r.startswith("+OK") else ""))
+            if self.brk is not None:
+                self.nb.select(self.brk.frame)
+        self.run(lambda: self.back.data_hold(row, any_path), done)
+
+    def goto_picked(self, tree, column):
+        """The Code tab at the picked row's instruction (column 1) or caller (column 3)."""
         sel = tree.selection()
-        if sel and self.brk:
-            self.brk.add(tree.item(sel[0], "values")[column])
+        if not sel:
+            return
+        if tree is self.data_tree:
+            i = tree.index(sel[0])
+            if 0 <= i < len(self.data_rows) and "value" in self.data_rows[i] and column == 1:
+                self.status.set("that row is a register value, not an instruction")
+                return
+        text = str(tree.item(sel[0], "values")[column]).split()[0] if tree.item(sel[0], "values")[column] else ""
+        try:
+            address = self.addr(text)
+        except ValueError:
+            self.status.set("that row has no instruction address there")
+            return
+        self.status.set(studio_link.send(self.root, "Code", "goto_address", address) or "Code: %s" % text)
 
     def break_address(self, address):
         """A breakpoint on the instruction at an address. (Other tabs call this.)"""
@@ -826,7 +904,8 @@ class App:
             if CS is not None:
                 for ins in CS.disasm(data[k:k + 4], at):
                     text = "%-8s %s%s" % (ins.mnemonic, ins.op_str, self.target_note(ins))
-            rel = "M+%X" % (at - self.main) if self.main and self.main <= at < self.main + 0x40000000 else "%X" % at
+            rel = code_modules.label(getattr(self, "mods", []), at) or (
+                "M+%X" % (at - self.main) if self.main and self.main <= at < self.main + 0x40000000 else "%X" % at)
             out.append(("%-12s %s" % (rel, text), "here" if at == a else ""))
         if CS is None and out:
             out.append(("(pip install capstone to read these as instructions)", ""))
@@ -884,6 +963,8 @@ class App:
         self.disasm.tag_configure("here", background="#fe9")
         body.add(self.disasm, weight=2)
         menu = tk.Menu(self.code_tree, tearoff=0)
+        menu.add_command(label="Go to this function (Code)", command=lambda: self.goto_picked(self.code_tree, 1))
+        menu.add_separator()
         menu.add_command(label="Copy function address", command=lambda: self.copy(self.code_tree, 1))
         menu.add_command(label="Copy name", command=lambda: self.copy(self.code_tree, 2))
         self.code_menu = menu

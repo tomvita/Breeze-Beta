@@ -29,7 +29,7 @@ Type the Switch's address and the code at the top and press **Connect**. Both ar
 
 - **Address**, **Code**, **Connect**: which Switch. An address may be `ip:port` when the other side is not on port 6801.
 - **The Breeze button**: says whether Breeze is in front of the game and switches it. This matters more than it looks: **while Breeze is shown, the game is stopped.** Nothing in the game's memory changes, so a search for "changed" finds nothing and a watch records nothing. Press the button to hide Breeze, do the thing in the game, then come back.
-- To its right: Breeze's version, the game, its title id and build id.
+- To its right: Breeze's version, the game, its title id and build id. The window's title says the same, with Studio's own version first.
 
 A tab connects the first time you open it. Breeze takes six connections at a time; on a Switch the tabs other than Screen let go of theirs when you open another, so you never run out.
 
@@ -69,9 +69,12 @@ The cheat list as on Breeze's Cheats screen, with an editor beside it.
 - Double-click or Space turns a cheat on or off. **Turn off all** and **Restore** as on Breeze.
 - Select a cheat to see its code, one opcode per line. Change the name or the code and **Apply edit**; **Add as new**, **Duplicate**, **Delete**, **New folder**.
 - **Condition key...** makes a cheat run only while a button is held; **Add freeze game code** adds Breeze's two freeze cheats.
-- **Save to SD** writes the cheat file; **Import .txt** / **Export .txt** read and write a cheat file on the PC.
+- **Save to SD** writes the cheat file and **Load from SD** reads it again; **Import .txt** / **Export .txt** read and write a cheat file on the PC. Export adds a "<name> - restore" cheat after each code-patch cheat, for people whose cheat tool cannot put the game's code back.
+- The list shows each cheat's number (the one PC connect's `cheats on 7` takes) and its **kind**: ASM (a hook with a cave), patch (a code patch that keeps the game's instructions), code, pointer or value, with ", key" when a button gates it.
+- **Off** and **Turn off all** put a code-patch cheat's original instructions back, in one step (Breeze does it on the second press of a green cheat).
+- **Merge into...** moves the selected cheat's patches into another cheat, as Breeze's Merge into: one cheat that patches many places and keeps the game's instructions. Naming the cheat itself converts an older patch cheat (and its "- restore" cheat) into this kind.
 
-**What it does.** Under the code box the cheat is written out in words: each opcode, the address it reads or writes in the game right now and what that address holds, and for a write into the game's code the instruction itself (`main+958D5C:  nop   (there now: str s0, [x19, #0x1c])`). Conditions are taken as true and a loop is gone through once, as in Breeze's Trace cheat. Pick a line, then **Jump to target** opens its address in Memory and **Jump to ASM** opens the patched code in Code; double-click does whichever the line has. **Read again** follows an edit of the code box.
+**What it does.** Under the code box the cheat is written out in words: each opcode, the address it reads or writes in the game right now and what that address holds, and for a write into the game's code the instruction itself (`main+958D5C:  nop   (there now: str s0, [x19, #0x1c])`). An ASM cheat gets a line above saying so (`ASM hook at main+5B5BE50, branching to a cave at main+9ADFD40 (107 instructions ...)`), each 8-byte cave line shows its two instructions, and branch targets read `main+X`. Conditions are taken as true and a loop is gone through once, as in Breeze's Trace cheat. Pick a line, then **Jump to target** opens its address in Memory and **Jump to ASM** opens the patched code in Code; double-click does whichever the line has. **Read again** follows an edit of the code box.
 
 ## Bookmarks
 
@@ -93,7 +96,7 @@ The game's memory around one address, as Breeze's Memory Explorer shows it: each
 
 - Type an address and **Go**; **Back** returns to where you were. The value size is 1, 2, 4 or 8 bytes.
 - Double-click a pointer to follow it; double-click any other value to edit it.
-- Right-click a row: **Follow pointer**, **Edit value**, **Hold** / **Unhold**, **Who points here** (a list of the places that hold this address), **Watch this address**, **Add to bookmarks**, and **Field view** of the object here or of the object the value points at.
+- Right-click a row: **Follow pointer**, **Edit value**, **Hold** / **Unhold**, **Who points here** (a list of the places that hold this address), **Add to bookmarks**, **Field view of what it points at**, and the address menu every tab shares (see [Workbench](#workbench)).
 
 Other tabs open this one: "Open in Memory" on a Search candidate and on an Objects row.
 
@@ -131,6 +134,19 @@ That is Fast Fusion's file: its objects point at a table of names such as `sPlay
 - Right-click a row > **Label this field**: give the field a name and a type (`coins`, `u32`). The where column then reads `sPlayer+20 coins`. Labels go to `field_annotations.txt` in the game folder, the file Breeze's field views use, so Breeze's **Class field** shows them too: on a game with `object_names.txt` it opens the object by name (`sPlayer [named]`) with the cursor on your value.
 - An object can hold others inside it, each with its own type: Fast Fusion's `sPlayer` holds an `sSeriesResult` from +1C0, so the boost meter at +384 is both `sPlayer+384` and `sSeriesResult+1C4`. The label dialog asks which object the field belongs to, and a labelled field wins from then on.
 - The pointer chain list names the object each chain ends in: `? > ? > sPlayer+384 boost`.
+
+## Workbench
+
+One address, followed from its value to the code that changes it: the steps of making a cheat in one place. Open it from any address with **Work on this address**, or type an address (hex or `M+`) and **Go**.
+
+- **Top:** the value, live (hex, integer, float), with **Edit**, **Hold** / **Unhold**, **Bookmark**, and buttons to Memory, Field view and Pointer chains.
+- **Left, who reads or writes it:** **Watch** starts a watch on the address (w, r or rw); each row is an instruction that touched it, the function it is in, where it was called from, and how often. It is the Watch tab's watch (gen2 on a Switch, the probe on the Lichii fork, emuhost), so the list is shared with that tab: **Clear** clears both.
+- **Right, the instruction:** pick a row on the left to see that instruction with the code around it, then **Open in Code**, **Patch this instruction...** or **Hook here...**.
+- **Bottom:** the cheats that write the address or the picked instruction, with the line that does it.
+
+**Right-click any address.** Memory, Objects, Search, Bookmarks and a cheat's *What it does* line share one menu for the address picked: **Work on this address**, **Open in Memory**, **Open in Code**, **Field view (the object here)**, **Watch who reads or writes it**, **Find pointer chains to here**, **Copy address**.
+
+Tried on the Lichii fork (Disney Dreamlight Valley: a frame counter watched to the instruction that adds 1 to it); not yet on a Switch or emuhost.
 
 ## Objects
 
@@ -233,7 +249,11 @@ The disassembler and the debugger of the [PC app](pc%20connect%20app.md#the-disa
 
 **Instruction watch** (F8 on a line, or the pane under the listing): which addresses an instruction uses each time it runs. The register and the offset are read off the instruction (`ldr w8, [x19, #0x30]` watches x19+0x30); each row is an address with its hit count and what it holds now. Right-click a row to open it in Memory, to watch who touches it, or to break at the instruction for that value only. On a Switch this is gen2's instruction watch; on the Lichii fork the tab runs it from the PC. In the Watch tab, `x0` to `x30` in the mode box of *Who touches an address* starts one too.
 
+**Patch this instruction** (right-click a line): what the instruction becomes, picked from suggestions worked out from it (subtract nothing, add instead, always true or false, always or never jump, nop) or typed. It makes one cheat that keeps the game's instruction, so Breeze can put it back when the cheat is turned off; naming a cheat that is already one adds this patch to it.
+
 **Hook here** (right-click a line): make an ASM cheat at that instruction. A script editor opens with the usual cave: your code, then `{original}` (the instruction the hook replaces), then `b code1+4`. Its first lines say which registers your code may use without saving them, and whether the flags (`cmp`, `tst`...) may change: the game writes those registers before it reads them, or does not read them before the next call or return. **Check** assembles it on the PC and shows the cave instruction by instruction; **Add cheat** adds it to the game's cheats (off unless **turn it on** is ticked); the Cheats tab saves it. The cave goes in the unused end of the game's code, after the caves the cheats already use; when that room runs out the editor says so, and Breeze's Add ASM on the Switch, which knows more places, is the way. It works on every host: a Switch, the Lichii fork and emuhost.
+
+The toolbar: **Go**, the back and forward arrows, **Function** up and down, **Callers**, **Decompile F6** and **Find**; **More** has Reload, Memory used, Copy, Save, the instruction words and the font size. The Debug row shows only on a host with a debugger.
 
 **Pause** stops the whole game and **Run** lets it go (and lets go a thread held at a breakpoint); they work whichever tab paused it. On the Lichii fork the Debug row works too: breakpoints, Run to, Step, Over, Continue, the registers and the vector registers.
 

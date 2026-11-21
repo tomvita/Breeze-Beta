@@ -1,5 +1,15 @@
 # Changelog
 
+## [Beta 129.02] - 2026-11-21
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 129.01; Breeze.nro, the PC tools (`pc_app.zip`) and emuhost (`emuhost_0.3.zip`) changed.
+- **Code-patch cheats you can turn off:** a cheat that patches the game's code keeps the game's own instructions in a block at its top that no cheat VM runs (`C046E5E0` ... `20000000`, then the patches). Breeze puts them back when it is turned off, in three steps like an ASM cheat (on; off with the patch still working, green; off with the game's code back), so no separate "restore" cheat is needed and one cheat can patch many places. Turn off all puts them back too.
+- **Making them:** ASM Explorer > **Patch into cheat** (ZL+B) adds an instruction to such a cheat; Cheats menu > **Merge into** moves a cheat's patches into another and turns older patch cheats (and their "- restore" cheats) into the new kind. Both work in a loaded module too (`04010000` cheats), when the master code sets R1.
+- **For players without Breeze:** Write Cheat to atm adds a "<name> - restore" cheat after each of these; Breeze's own cheat file stays without them.
+- **Breeze Studio:** a **Workbench** tab follows one address from its value to the code that writes it (the value live, who reads or writes it, the instruction with Patch this instruction and Hook here, the cheats that touch it); right-click any address in any tab for the same menu (Work on this address, Memory, Code, Field view, Watch, Pointer chains, Copy); Code > **Patch this instruction**; the Cheats tab shows ASM cheats as ASM, has a number and a kind column, Merge into, Load from SD, and Off puts patched code back; Watch shows where each access was called from; Search has Inc N+; the version is in the title bar, the open tab is blue, tabs detach into windows. See the [Breeze Studio guide](docs/breeze%20studio.md).
+- **emuhost 0.3:** a version number (`emuhost --version`); patched code goes back when a code-patch cheat is turned off; tested on Eden (built from its source on November 15 2026). The klass scan no longer runs for ever when the heap runs past the last mapping.
+- **Fixed:** a patch made with Patch into cheat was lost when Edit Cheat was left afterwards; messages on the Cheats screen and in ASM Explorer were replaced at once by the button's help text.
+
 ## [Beta 129.01] - 2026-11-18
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 129.00; Breeze.nro, the PC tools (`pc_app.zip`) and `emuhost.zip` changed.

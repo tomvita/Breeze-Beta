@@ -430,9 +430,107 @@ class Game:
             # With a namespace the name is exact: a System.Object is not the UnityEngine.Object
             # that happens to be the only "Object" in the map.
             k = self.classes.get(space + "." + name) if space else (self.find_class(name) if name else None)
+            if k is None and name:
+                k = self.klass_from_memory(klass)
             if k is not None or space:
                 return k
         return self.find_class(declared)
+
+    # ------------------------------------------------------------ a class the map does not have
+    # The map lists the generic instances Breeze saw (LinkedListNode`1<System.Action>), not every
+    # one: LinkedListNode`1<KeyValuePair`2<int, int>> is not in it. Its klass in memory still says
+    # all: FieldInfo (0x20 bytes: name, type, parent, offset) at klass+0x80, parent at +0x58, the
+    # type of each field as an Il2CppType (data, then attrs with the type enum in bits 16-23).
+    MEM_PRIM = {0x2: "bool", 0x3: "char", 0x4: "sbyte", 0x5: "byte", 0x6: "short", 0x7: "ushort", 0x8: "int",
+                0x9: "uint", 0xA: "long", 0xB: "ulong", 0xC: "float", 0xD: "double", 0x18: "IntPtr", 0x19: "UIntPtr"}
+
+    def u32(self, address):
+        try:
+            return struct.unpack("<I", self.read(address, 4))[0]
+        except Exception:  # noqa: BLE001 - not mapped
+            return 0
+
+    def typedef_name(self, typedef):
+        """A type definition's namespace.name; the string table is found from the first klass read."""
+        if not typedef or not getattr(self, "string_base", 0):
+            return ""
+        name, space = self.cstring(self.string_base + self.u32(typedef)), self.cstring(self.string_base + self.u32(typedef + 4))
+        return space + "." + name if space and name else name
+
+    def mem_type(self, t, depth=0, build=True):
+        """(type name as the map writes it, is a reference) of an Il2CppType at t. With build, a
+        struct type's class is read too (its fields then open in place)."""
+        if not t or depth > 6:
+            return "?", False
+        e = (self.u64(t + 8) >> 16) & 0xFF
+        d = self.u64(t)
+        if e in self.MEM_PRIM:
+            return self.MEM_PRIM[e], False
+        if e == 0xE:
+            return "string", True
+        if e == 0x1C:
+            return "object", True
+        if e in (0x11, 0x12):
+            return self.typedef_name(d) or "?", e == 0x12
+        if e == 0x1D:       # an array: data is the element's type
+            return self.mem_type(d, depth + 1, build)[0] + "[]", True
+        if e == 0x15:       # a generic instance: data is its Il2CppGenericClass
+            definition = self.u64(d)
+            de = (self.u64(definition + 8) >> 16) & 0xFF
+            inst = self.u64(d + 8)
+            argc = min(self.u32(inst), 8)
+            argv = self.u64(inst + 8)
+            args = [self.mem_type(self.u64(argv + 8 * i), depth + 1, False)[0] for i in range(argc)]
+            name = "%s<%s>" % (self.typedef_name(self.u64(definition)) or "?", ", ".join(args))
+            cached = self.u64(d + 0x18)
+            if build and de == 0x11 and cached and depth < 3:
+                self.klass_from_memory(cached, depth + 1)     # a struct: its fields open in place
+            return name, de == 0x12
+        if e in (0x13, 0x1E):
+            return "T", False
+        return "?", True
+
+    def klass_from_memory(self, klass, depth=0):
+        """A Klass read from the klass itself (cached by name), or None when it is not a klass."""
+        if not hasattr(self, "mem_classes"):
+            self.mem_classes = {}
+        if self.u64(klass + 0x78) != klass:          # a klass points at itself here
+            return None
+        if not getattr(self, "string_base", 0):
+            t = self.u64(klass + 0x28) >> 16 & 0xFF
+            typedef = self.u64(klass + 0x20)
+            if t == 0x15:
+                typedef = self.u64(self.u64(typedef))
+            if typedef:
+                self.string_base = self.u64(klass + 0x10) - self.u32(typedef)
+        name = self.mem_type(klass + 0x20, build=False)[0]
+        name = {"object": "System.Object", "string": "System.String"}.get(name, name)
+        if name in self.classes:
+            return self.classes[name]
+        if name in self.mem_classes:
+            return self.mem_classes[name]
+        parent = self.u64(klass + 0x58)
+        pname = ""
+        if parent and depth < 6:
+            pk = self.klass_from_memory(parent, depth + 1)
+            pname = pk.name if pk is not None else ""
+        k = Klass(name, pname, None)
+        self.mem_classes[name] = k
+        fields = self.u64(klass + 0x80)
+        for i in range(512):
+            fi = fields + i * 0x20
+            if not fields or self.u64(fi + 0x10) != klass:
+                break
+            t = self.u64(fi + 8)
+            attrs = self.u64(t + 8) & 0xFFFF
+            if attrs & 0x40:          # a constant: no storage
+                continue
+            type_, ref = self.mem_type(t, depth)
+            offset = struct.unpack("<i", self.read(fi + 0x18, 4))[0]
+            k.fields.append(Field(self.cstring(self.u64(fi)) or "field%d" % i, offset,
+                                  type_ + ("*" if ref and not type_.endswith("[]") and type_ not in ("string", "object") else ""),
+                                  bool(attrs & 0x10)))
+        return k
 
     def locate(self, address):
         """The object that holds an address: (object, its class name), or None. An object starts
@@ -448,11 +546,14 @@ class Game:
                 continue
             space = self.cstring(self.u64(klass + 0x18))
             k = self.classes.get(space + "." + name if space else name) or (None if space else self.find_class(name))
+            if k is None:
+                # Not in the map (a generic instance Breeze did not list): the klass itself has it.
+                k = self.klass_from_memory(klass)
             # The klass points at itself through its own fields in no way a number does: a name
             # that is a class of the map, at a klass that says so, is an object's first word.
             if k is not None:
                 fields = self.instance_fields(k)
-                end = max([f.offset + 8 for f in fields] or [OBJECT_HEADER])
+                end = max([f.offset + 8 for _c, f in fields] or [OBJECT_HEADER])
                 return (at - back, k.name) if back < max(end, 0x18) else None
         return None
 
@@ -462,7 +563,7 @@ class Game:
         while k is not None and k.name not in seen:
             seen.add(k.name)
             chain.append(k)
-            k = self.find_class(base_type(k.parent)[0], k.name)
+            k = getattr(self, "mem_classes", {}).get(k.parent) or self.find_class(base_type(k.parent)[0], k.name)
         out = []
         for c in reversed(chain):
             out += [(c, f) for f in c.fields if not f.static]
@@ -512,8 +613,9 @@ class Game:
             at = address + f.offset - shift
             base, pointer = base_type(f.type)
             row = Row(("    " * depth) + f.name, f.type, at, "%s+%X" % (chain, f.offset - shift), depth, f.offset - shift,
-                      cls.name.rpartition(".")[2])
-            inner = None if pointer or base in PRIM else self.find_class(base)
+                      cls.name.split("<")[0].rpartition(".")[2])
+            inner = None if pointer or base in PRIM else (
+                self.classes.get(f.type) or getattr(self, "mem_classes", {}).get(f.type) or self.find_class(base))
             inner_fields = [(inner, x) for x in inner.fields if not x.static] if inner is not None else []
             # A generic struct's fields have no real offsets or types in the map (Nullable`1: T).
             usable = all(x.offset >= OBJECT_HEADER and x.type not in ("T", "TKey", "TValue") for _c, x in inner_fields)
@@ -545,7 +647,7 @@ class Game:
                 title += "   (not in use yet: its statics are not there)"
                 rows += [Row(f.name, f.type, 0, "", 0, f.offset, "static") for f in statics]
         for cls, f in self.instance_fields(k):
-            rows.append(Row(f.name, f.type, 0, "", 0, f.offset, cls.name.rpartition(".")[2]))
+            rows.append(Row(f.name, f.type, 0, "", 0, f.offset, cls.name.split("<")[0].rpartition(".")[2]))
         return title, rows
 
     def view_object(self, obj, declared, chain):
@@ -609,7 +711,7 @@ class Game:
             seen.add(k.name)
             if k.parent in ("System.ValueType", "System.Enum"):
                 return True
-            k = self.find_class(base_type(k.parent)[0], k.name)
+            k = getattr(self, "mem_classes", {}).get(k.parent) or self.find_class(base_type(k.parent)[0], k.name)
         return False
 
     def size_of(self, type_):
@@ -740,17 +842,25 @@ class App:
         self.show_menu = tk.Menu(self.menu, tearoff=0)
         self.menu.add_cascade(label="Show this field in rows of", menu=self.show_menu)
         self.menu.add_separator()
-        self.menu.add_command(label="Copy address", command=lambda: self.copy(lambda r: "%X" % r.address))
         self.menu.add_command(label="Copy chain", command=lambda: self.copy(lambda r: r.chain))
         self.menu.add_command(label="Hold at its value", command=lambda: self.hold(True))
         self.menu.add_command(label="Unhold", command=lambda: self.hold(False))
         self.menu.add_command(label="Add to bookmarks", command=self.bookmark)
         self.menu.add_command(label="Add to Breeze's bookmarks (a Switch)", command=self.to_breeze)
-        self.menu.add_command(label="Open in Memory", command=lambda: self.link("Memory", "goto"))
-        self.menu.add_command(label="Watch this address (who reads or writes it)", command=lambda: self.link("Watch", "watch_address"))
         self.menu.add_separator()
         self.menu.add_command(label="Find chain to this object", command=self.find_chain)
         self.menu.add_command(label="Make cheat...", command=self.make_cheat)
+        # The places every tab can take an address (studio_link.address_menu).
+        import studio_link
+
+        def row_address():
+            r = self.picked()
+            return r.address if r is not None and r.address else None
+
+        def row_size():
+            r = self.picked()
+            return len(r.raw) if r is not None and len(r.raw) in (1, 2, 4, 8) else 4
+        studio_link.address_menu(self.root, self.menu, row_address, self.status.set, size=row_size, skip=("Objects",))
 
         threading.Thread(target=self.worker, daemon=True).start()
         self.job(lambda g: g, self.on_game)
@@ -823,7 +933,8 @@ class App:
     # ------------------------------------------------------------ classes
     def on_game(self, g):
         built = getattr(self, "built_note", "")
-        self.status.set("%s  |  %s%s" % (game_caption(g.meta), g.note, "  |  built: " + built if built else ""))
+        import studio_link
+        self.status.set(studio_link.joined(studio_link.caption(self.root, g.meta), g.note, "built: " + built if built else ""))
         self.names = sorted(g.classes)
         g.say = lambda text: self.out.put((self.status.set, text, None))
         self.with_static = g.starred

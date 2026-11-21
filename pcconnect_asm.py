@@ -25,6 +25,10 @@ It needs the capstone package (pip install capstone).
   Switch.
 - Find searches the listing; Copy and Save take the selection or the whole
   function.
+- Right-click > Patch this instruction: one instruction becomes another (nop, subtract
+  nothing, always true, always jump, or typed), as a cheat that keeps the original in a block
+  that never runs, so Breeze puts it back when the cheat is turned off; naming an existing
+  code-patch cheat adds the patch to it (studio/patch_maker.py, studio/code_patch.py).
 - Right-click > Hook here: make an ASM cheat (studio/hook_maker.py): a script
   editor that starts with the registers the cave may use without saving them
   and {original} / b code1+4, a cave picked in the unused end of main's code
@@ -81,6 +85,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pcconnect import Breeze, game_caption  # noqa: E402
 import pcconnect_decomp  # noqa: E402
 from pcconnect_decomp import CPane  # noqa: E402
+sys.path.insert(1, os.path.join(os.path.dirname(os.path.abspath(__file__)), "studio"))
+import code_modules  # noqa: E402
 
 CONFIG = os.path.join(os.path.expanduser("~"), ".breeze_pc.json")
 CACHE = os.path.join(os.path.expanduser("~"), ".breeze_pc")
@@ -160,6 +166,9 @@ def map_names(text, text_size):
     return names
 
 
+FAR_NAME = 0x8000          # an offset past this from the nearest name is not that function (no unwind table)
+
+
 class Game:
     """What is known about the running game, and its memory, read through one connection (worker thread only)."""
 
@@ -184,6 +193,7 @@ class Game:
         if not self.console and "debug" not in b.caps():
             r = b.cmd("probe held")
             self.probe_debugger = isinstance(r, str) and r.startswith("+OK")
+        self.mods = []               # every code module: (name, base, size), main named "M"
         self.text_size = self.find_text()
         self.dir = ""
         self.title = ""
@@ -191,8 +201,10 @@ class Game:
         self.load_functions()
 
     def find_text(self):
-        """The size of the code region main starts with."""
-        for line in self.b.cmd("maps").split("\n")[1:]:
+        """The size of the code region main starts with (and every code module, in self.mods)."""
+        lines = self.b.cmd("maps").split("\n")[1:]
+        self.mods = code_modules.code_modules(lines, self.main)
+        for line in lines:
             p = line.split()
             if len(p) >= 3 and int(p[0], 16) == self.main and "x" in p[2]:
                 return int(p[1], 16)
@@ -216,6 +228,20 @@ class Game:
 
     def in_main(self, addr):
         return self.main <= addr < self.main + self.main_size
+
+    def is_code(self, rva):
+        """An offset from main that is code: main's, or another module's (rtld, subsdk, sdk)."""
+        return 0 <= rva < self.text_size or code_modules.module_of(self.mods, self.main + rva) is not None
+
+    def label(self, rva):
+        """'M+1234' in main, 'sdk+5B1E78' in another module."""
+        if 0 <= rva < self.main_size:
+            return "M+%X" % rva
+        return code_modules.label(self.mods, self.main + rva) or "%X" % (self.main + rva)
+
+    def debug_where(self, rva):
+        """An address as a debugger command takes it: M+ in main, absolute elsewhere."""
+        return "M+%X" % rva if 0 <= rva < self.main_size else "%X" % (self.main + rva)
 
     # ------------------------------------------------------------ functions
     def cached_file(self, name, size):
@@ -286,8 +312,13 @@ class Game:
 
     def where(self, rva):
         """'name+1C' for a code offset."""
-        f = self.func_of(rva) if rva < self.text_size else None
+        f = self.func_of(rva) if 0 <= rva < self.text_size else None
         if f is None:
+            return ""
+        # Without the unwind table a function's end is not known: code the map has no name for
+        # (generic instances, compiler-made helpers) would take the nearest name below, however
+        # far. Past FAR_NAME it is not that function.
+        if rva - f[0] > FAR_NAME and self.source.find("unwind") < 0:
             return ""
         return self.name_of(f[0]) + ("+%X" % (rva - f[0]) if rva != f[0] else "")
 
@@ -327,8 +358,11 @@ class Game:
         rva &= ~3
         f = self.func_of(rva)
         if f is None or rva >= self.text_size:
-            start, end = max(rva - 0x40, 0), rva + 0x400
-            title = "M+%X (no function here)" % rva
+            m = code_modules.module_of(self.mods, self.main + rva)
+            low, high = (m[1] - self.main, m[1] + m[2] - self.main) if m else (0, rva + 0x400)
+            start, end = max(rva - 0x40, low), min(rva + 0x400, high)
+            title = ("M+%X (no function here)" % rva if 0 <= rva < self.text_size
+                     else "%s (no function list for this module)" % self.label(rva))
         else:
             start, end = f
             title = "%s   M+%X..%X  (%d bytes)" % (self.name_of(start), start, end, end - start)
@@ -372,7 +406,7 @@ class Game:
                         line["note"] = "down" if target > at else "up"
                     else:
                         line["note"] = "-> " + short(self.where(target))
-                line["ops"] = line["ops"].replace("#0x%x" % ops[-1].imm, "M+%X" % target)
+                line["ops"] = line["ops"].replace("#0x%x" % ops[-1].imm, self.label(target))
             elif mnem in ("ret", "br"):
                 line["kind"] = "ret"
             elif mnem == "blr":
@@ -905,11 +939,15 @@ class Disassembler:
         self.go = tk.Entry(bar, width=30, textvariable=self.go_var)
         self.go.pack(side="left")
         self.go.bind("<Return>", lambda e: self.on_go())
-        for text, cmd in (("Back", lambda: self.step(-1)), ("Forward", lambda: self.step(1)),
-                          ("Func up", lambda: self.neighbour(-1)), ("Func down", lambda: self.neighbour(1)),
-                          ("Callers", self.on_callers), ("Reload", self.on_reload), ("Decompile F6", self.toggle_c),
-                          ("Memory used", self.on_operand_memory)):
-            tk.Button(bar, text=text, command=cmd, takefocus=0).pack(side="left")
+        # Moving about first (Back / Forward, the function before / after), then what to look at;
+        # what is used now and then is under More.
+        for text, cmd, tip in (("◀", lambda: self.step(-1), "Back"), ("▶", lambda: self.step(1), "Forward")):
+            tk.Button(bar, text=text, command=cmd, takefocus=0, width=2).pack(side="left", padx=(4 if tip == "Back" else 0, 0))
+        tk.Label(bar, text=" Function").pack(side="left", padx=(6, 0))
+        tk.Button(bar, text="▲", command=lambda: self.neighbour(-1), takefocus=0, width=2).pack(side="left")
+        tk.Button(bar, text="▼", command=lambda: self.neighbour(1), takefocus=0, width=2).pack(side="left")
+        tk.Button(bar, text="Callers", command=self.on_callers, takefocus=0).pack(side="left", padx=(6, 0))
+        tk.Button(bar, text="Decompile F6", command=self.toggle_c, takefocus=0).pack(side="left")
         # Two buttons, not one that flips: another tab (Search, Cheats) may have paused the game.
         tk.Button(bar, text="Run", bg="#5cb85c", fg="white", width=6, takefocus=0,
                   command=lambda: self.set_pause(False)).pack(side="right", padx=(2, 4))
@@ -921,15 +959,25 @@ class Disassembler:
         self.find.pack(side="left")
         self.find.bind("<Return>", lambda e: self.find_next(1))
         self.find.bind("<Shift-Return>", lambda e: self.find_next(-1))
-        tk.Button(bar, text="Copy", command=self.copy, takefocus=0).pack(side="left", padx=(8, 0))
-        tk.Button(bar, text="Save...", command=self.save, takefocus=0).pack(side="left")
-        tk.Label(bar, text="  Font:").pack(side="left")
         self.font_var = tk.StringVar(value=str(size))
-        tk.Spinbox(bar, from_=6, to=40, width=3, textvariable=self.font_var, command=self.set_font).pack(side="left")
         self.bytes_var = tk.BooleanVar(value=bool(self.cfg.get("asm_bytes", True)))
-        tk.Checkbutton(bar, text="Words", variable=self.bytes_var, command=self.render, takefocus=0).pack(side="left")
+        more = tk.Menubutton(bar, text="More ▾", relief="raised", takefocus=0)
+        more.pack(side="left", padx=(8, 0))
+        mm = tk.Menu(more, tearoff=0)
+        mm.add_command(label="Reload", command=self.on_reload)
+        mm.add_command(label="Memory used by this instruction", command=self.on_operand_memory)
+        mm.add_separator()
+        mm.add_command(label="Copy", command=self.copy)
+        mm.add_command(label="Save...", command=self.save)
+        mm.add_separator()
+        mm.add_checkbutton(label="Show the instruction words", variable=self.bytes_var, command=self.render)
+        fonts = tk.Menu(mm, tearoff=0)
+        for n in (8, 9, 10, 11, 12, 13, 14, 16, 18, 20, 24):
+            fonts.add_radiobutton(label=str(n), value=str(n), variable=self.font_var, command=self.set_font)
+        mm.add_cascade(label="Font size", menu=fonts)
+        more["menu"] = mm
 
-        dbar = tk.Frame(self.win)
+        dbar = self.dbar = tk.Frame(self.win)
         dbar.pack(fill="x")
         tk.Label(dbar, text=" Debug:").pack(side="left")
         for text, cmd in (("Break F9", self.on_break), ("Run to F4", self.on_runto), ("Step F11", lambda: self.debug("step")),
@@ -1004,6 +1052,7 @@ class Disassembler:
         menu.add_command(label="Watch: the addresses this instruction uses (F8)", command=self.on_g2_watch)
         menu.add_command(label="Watch: who touches the address it uses (when it is a fixed one)", command=self.on_g2_static)
         menu.add_separator()
+        menu.add_command(label="Patch this instruction: make a cheat, or add to one...", command=self.on_patch)
         menu.add_command(label="Hook here: make an ASM cheat...", command=self.on_hook)
         menu.add_separator()
         menu.add_command(label="Copy address", command=lambda: (self.win.clipboard_clear(),
@@ -1160,6 +1209,8 @@ class Disassembler:
         self.status.config(text="%s %s  main %X  code %X bytes  |  %d functions: %s" % (
             game.tid, game.bid, game.main, game.text_size, len(game.starts), game.source))
         self.fill_list()
+        if not (game.console or game.probe_debugger or "debug" in game.b.caps()):
+            self.dbar.pack_forget()      # no debugger on this host: its buttons would only say so
         self.g2_probe = bool(game.probe_debugger) and not game.console
         if game.console or self.g2_probe:
             if self.g2_probe:                # who touches an address is the Watch tab's there
@@ -1168,7 +1219,7 @@ class Disassembler:
             self.g2_frame.pack(side="bottom", fill="x", before=self.tf)
             self.g2_refresh(quiet=True)
         last = self.cfg.get("asm_last", {}).get(game.bid)
-        self.goto(last if last is not None and last < game.text_size else (game.starts[0] if game.starts else 0))
+        self.goto(last if last is not None and 0 <= last < game.text_size else (game.starts[0] if game.starts else 0))
         asked, self.asked = getattr(self, "asked", None), None
         if asked is not None:
             self.goto_address(asked)
@@ -1243,8 +1294,12 @@ class Disassembler:
 
     # ------------------------------------------------------------ navigation
     def parse(self, text):
-        """An address typed into Go: a main offset, or None when it is not one."""
+        """An address typed into Go: an offset from main, or None when it is not one. Another module's
+        code (sdk+5B1E78, or its absolute address) is an offset below 0 or past main's end."""
         g = self.game
+        other = code_modules.parse(g.mods, text)
+        if other is not None:
+            return other - g.main
         t = text.strip().replace("main+", "").replace("M+", "").replace("m+", "")
         if t.lower().startswith("0x"):
             t = t[2:]
@@ -1253,7 +1308,9 @@ class Disassembler:
         v = int(t, 16)
         if g.main <= v < g.main + g.main_size:
             return v - g.main
-        return v if v < g.main_size else None
+        if v < g.main_size:
+            return v
+        return v - g.main if code_modules.module_of(g.mods, v) is not None else None
 
     def on_go(self):
         g = self.game
@@ -1282,7 +1339,7 @@ class Disassembler:
         g = self.game
         if g is None:
             return
-        if rva >= g.text_size:
+        if not g.is_code(rva):
             # Data: nothing to disassemble; say what is there.
             self.job(lambda game: game.describe(game.main + rva), lambda r: self.status.config(
                 text="M+%X is data: %s" % (rva, r[1])))
@@ -1295,7 +1352,7 @@ class Disassembler:
         if self.lines and self.start <= rva < self.end and rva in self.row_of:
             self.set_cur(rva)
             return
-        self.job(lambda game: game.view(rva), lambda r: self.show(r, rva), "reading M+%X..." % rva)
+        self.job(lambda game: game.view(rva), lambda r: self.show(r, rva), "reading %s..." % g.label(rva))
 
     def step(self, d):
         if 0 <= self.hpos + d < len(self.history):
@@ -1361,7 +1418,9 @@ class Disassembler:
 
     def line_text(self, line):
         """One line as plain text, and the column ranges of its parts."""
-        parts = [("%s M+%-7X" % (">" if line["label"] else " ", line["rva"]), "label" if line["label"] else "addr")]
+        rva = line["rva"]
+        where = "M+%-7X" % rva if 0 <= rva < self.game.main_size else "%-9s" % self.game.label(rva)
+        parts = [("%s %s" % (">" if line["label"] else " ", where), "label" if line["label"] else "addr")]
         if self.bytes_var.get():
             parts.append((" %08X" % line["word"], "word"))
         parts.append(("  %-7s %-34s" % (line["mnem"], line["ops"]), line["kind"] if line["kind"] in ("call", "jump", "ret") else ""))
@@ -1398,7 +1457,7 @@ class Disassembler:
         t.see("%d.0" % max(row - 6, 1))
         t.see("%d.0" % min(row + 6, len(self.lines)))
         t.see("%d.0" % row)
-        self.go_var.set("M+%X" % self.cur)
+        self.go_var.set(self.game.label(self.cur))
         if self.c_open:
             self.cpane.highlight(self.cur)
 
@@ -1434,7 +1493,7 @@ class Disassembler:
             self.asked = address
             return
         rva = address - self.game.main
-        if 0 <= rva < self.game.text_size:
+        if self.game.is_code(rva):
             self.goto(rva)
         else:
             self.status.config(text="%X is not in the game's code" % address)
@@ -1511,6 +1570,19 @@ class Disassembler:
             else:
                 use(regs, "  (caught as it ran)")
         self.job(lambda game: game.catch(line["rva"]), done, "waiting for M+%X to run..." % line["rva"])
+
+    def on_patch(self):
+        """A code-patch cheat on the current instruction, keeping the game's instruction in the
+        cheat (studio/patch_maker.py)."""
+        if self.game is None or self.cur is None:
+            return
+        studio = os.path.join(os.path.dirname(os.path.abspath(__file__)), "studio")
+        if studio not in sys.path:
+            sys.path.insert(0, studio)
+        import patch_maker
+        start = self.game.func_of(self.cur) if 0 <= self.cur < self.game.text_size else None
+        title = self.game.name_of(start[0]).rpartition(".")[2] if start else "M+%X" % self.cur
+        patch_maker.PatchMaker(self.win, self.job, self.cur, title)
 
     def on_hook(self):
         """An ASM cheat hooked on the current instruction (studio/hook_maker.py). A named function's
@@ -2020,12 +2092,12 @@ class Disassembler:
 
     def on_break(self):
         if self.cur is not None:
-            self.debug("bp M+%X" % self.cur)
+            self.debug("bp " + self.game.debug_where(self.cur))
         return "break"
 
     def on_runto(self):
         if self.cur is not None:
-            self.debug("runto M+%X" % self.cur)
+            self.debug("runto " + self.game.debug_where(self.cur))
         return "break"
 
     def on_stop(self):

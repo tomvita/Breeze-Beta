@@ -26,11 +26,119 @@ KEYS = ["A", "B", "X", "Y", "LStick", "RStick", "L", "R", "ZL", "ZR", "Plus", "M
         "Down", "LS-Left", "LS-Up", "LS-Right", "LS-Down", "RS-Left", "RS-Up", "RS-Right", "RS-Down", "SL", "SR"]
 
 
+BRANCHES = ("b", "bl", "cbz", "cbnz", "tbz", "tbnz", "adr", "adrp")
+
+
+def summary(words, opcode_len):
+    """One line saying what kind of cheat this is, or "" when it is none of these:
+      - a code patch with the game's instructions kept (code_patch.py's block form);
+      - an ASM hook: its first two stores hit one code address (the game's instruction, then a
+        branch), and the rest writes the cave (4 or 8 bytes a line)."""
+    try:
+        import code_patch
+        got = code_patch.parse(words)
+    except ImportError:
+        got = None
+    if got:
+        n = len(got[1])
+        return "Code patch: %d place%s, the game's instructions kept (Breeze puts them back when it is turned off)" % (
+            n, "" if n == 1 else "s")
+    i = 1 if words and words[0] >> 28 == 0x8 else 0
+    if len(words) < i + 6:
+        return ""
+    w = words[i:]
+
+    def is_store(x):   # 0TMR00AA: a store to main (R 0) or R1 relative (R 1), 4 or 8 bytes
+        return x >> 28 == 0 and (x >> 20) & 0xF == 0 and (x >> 16) & 0xF in (0, 1) and x & 0xFF00 == 0 \
+            and (x >> 24) & 0xF in (4, 8)
+    if not (is_store(w[0]) and w[0] == w[3] and w[1] == w[4] and (w[0] >> 24) & 0xF == 4):
+        return ""
+    base = "R1" if (w[0] >> 16) & 0xF else "main"
+    hook = ((w[0] & 0xFF) << 32) | w[1]
+    branch = w[5]
+    if branch >> 26 != 0b000101:   # b imm26
+        return ""
+    off = (branch & 0x3FFFFFF) << 2
+    if off & (1 << 27):
+        off -= 1 << 28
+    count, lo, hi = 0, None, None
+    k = 6
+    while k < len(w):
+        n = opcode_len(w, k) or 1
+        if is_store(w[k]) and k + 2 < len(w):
+            width = (w[k] >> 24) & 0xF
+            at = ((w[k] & 0xFF) << 32) | w[k + 1]
+            count += width // 4
+            lo = at if lo is None else min(lo, at)
+            hi = at + width if hi is None else max(hi, at + width)
+        k += n
+    text = "ASM hook at %s+%X, branching to a cave at %s+%X" % (base, hook, base, hook + off)
+    if count:
+        text += " (%d instructions written at %s+%X..%X)" % (count, base, lo, hi)
+    return text
+
+
+def kind(words, main=0, executable=None):
+    """A word or two for the Cheats list: "ASM" (a hook with a cave), "patch" (a code patch that
+    keeps the game's instructions, code_patch.py), "code" (stores into the game's code, when
+    executable(address) can tell), "pointer" (it follows a pointer), "value" (it writes memory),
+    with ", key" when a button press gates it."""
+    import code_patch
+    if not words:
+        return ""
+    keyed = words[0] >> 28 == 0x8
+    opl = code_patch.opcode_words
+    s = summary(words, opl)
+    if s.startswith("Code patch"):
+        what = "patch"
+    elif s.startswith("ASM hook"):
+        what = "ASM"
+    else:
+        types, code_stores, stores = set(), 0, 0
+        i = 0
+        while i < len(words):
+            n = opl(words, i) or 1
+            w = words[i]
+            t = w >> 28
+            types.add(t)
+            if t == 0 and i + 1 < len(words):
+                stores += 1
+                at = main + ((((w & 0xFF) << 32) | words[i + 1]))
+                if (w >> 20) & 0xF == 0 and (w >> 16) & 0xF == 0 and executable is not None and main and executable(at):
+                    code_stores += 1
+            i += n
+        if types & {0x5, 0x6, 0xA}:
+            what = "pointer"
+        elif stores and code_stores == stores:
+            what = "code"
+        elif types & {0x0, 0x1, 0x4, 0x7, 0x9}:
+            what = "value"
+        else:
+            what = "other"
+    return what + (", key" if keyed else "")
+
+
 def asm(word, at):
     if CS is not None:
         for ins in CS.disasm(struct.pack("<I", word), at):
             return ("%s %s" % (ins.mnemonic, ins.op_str)).strip()
     return None
+
+
+def branch_named(text, where):
+    """A branch's target shown by where(address) ("main+X"); capstone writes it as an absolute
+    address. Any other instruction as it is."""
+    if not text:
+        return text
+    mnem, _, ops = text.partition(" ")
+    if not (mnem in BRANCHES or mnem.startswith("b.")):
+        return text
+    head, sep, target = ops.rpartition("#0x")
+    try:
+        address = int(target, 16)
+    except ValueError:
+        return text
+    return "%s %s%s" % (mnem, head, where(address)) if sep else text
 
 
 def explain(words, game, read, executable, opcode_len):
@@ -48,6 +156,9 @@ def explain(words, game, read, executable, opcode_len):
             return "?"
         main = game.get("main") or 0
         return "main+%X" % (address - main) if main and main <= address < main + 0x10000000 else "%X" % address
+
+    def named(text):
+        return branch_named(text, where)
 
     def add(*terms):
         return None if any(t is None for t in terms) else sum(terms) & 0xFFFFFFFFFFFFFFFF
@@ -74,12 +185,22 @@ def explain(words, game, read, executable, opcode_len):
             at = add(base(m), reg[r], a40)
             e["target"] = at
             place = "%s+%X%s" % (REGIONS[m] if m < 4 else "?", a40, "+R%d" % r if reg[r] else "")
-            code = width == 4 and m == 0 and a40 % 4 == 0 and at is not None and executable(at) and asm(value, at)
+            in_code = m == 0 and a40 % 4 == 0 and at is not None and executable(at)
+            code = in_code and width == 4 and asm(value, at)
+            # An 8-byte store into code is two instructions (a cave written 8 bytes a line):
+            # the low word goes to the lower address.
+            pair = in_code and width == 8 and [asm(value & 0xFFFFFFFF, at), asm(value >> 32, at + 4)]
             if code:
                 e["asm"] = at
                 cur = now(at, 4)
-                there = ("on" if cur == value else "there now: %s" % (asm(cur, at) or held(cur, 4))) if cur is not None else "?"
-                e["text"] = "%s:  %s      (%s)" % (place, code, there)
+                there = ("on" if cur == value else "there now: %s" % (named(asm(cur, at)) or held(cur, 4))) if cur is not None else "?"
+                e["text"] = "%s:  %s      (%s)" % (place, named(code), there)
+            elif pair and all(pair):
+                e["asm"] = at
+                cur = now(at, 8)
+                there = "on" if cur == value else "there now: %s" % held(cur, 8) if cur is not None else "?"
+                place2 = "%s+%X%s" % (REGIONS[m], a40 + 4, "+R%d" % r if reg[r] else "")
+                e["text"] = "%s:  %-28s %s:  %-28s (%s)" % (place, named(pair[0]), place2, named(pair[1]), there)
             else:
                 e["text"] = "write %s (%d byte%s) to %s = %s      (holds %s)" % (
                     held(value, width), width, "" if width == 1 else "s", place, where(at), held(now(at, width), width))

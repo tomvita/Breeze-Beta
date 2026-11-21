@@ -114,7 +114,8 @@ class App:
                     self.status.set("%s: %s" % (type(error).__name__, error))
                     continue
                 self.show(text)
-                self.status.set("  |  ".join(x for x in (caption, note) if x))
+                import studio_link
+                self.status.set(studio_link.joined("" if studio_link.in_studio(self.root) else caption, note))
         except queue.Empty:
             pass
         self.root.after(100, self.pump)

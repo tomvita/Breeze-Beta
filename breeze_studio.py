@@ -12,10 +12,15 @@ Which tabs there are depends on what the host can do (PC connect `caps`):
   Search     search targets, candidates, set / hold           a host with `search`
   Cheats     the cheat list, on / off, edit, add              a host with `cheats`
   Bookmarks  values by name from a game file, live            every host
+  Workbench  one address: value, who writes it, code, cheats  every host
   Objects    classes, fields and objects, live                every host, a Unity or Unreal game
   Watch      who touches an address, what code ran            a Switch, the fork, emuhost (data only)
   Code       the disassembler (and the debugger on a Switch)  every host
   Files      the SD card (or the folder that stands for it)   every host
+
+To see tabs side by side, double-click a tab (or right-click it, Detach): it becomes a window of
+its own, with its connection and what it shows kept. Closing that window docks it back as a tab
+(right-click any tab for Dock); each window's size is remembered.
 
 A tab connects when it is first opened; on a Switch a tab other than Screen lets go of its
 connection when another one is opened. For a Switch the header also says whether Breeze is in
@@ -24,6 +29,7 @@ front of the game (the game is stopped then) and has Show / Hide.
 import json
 import os
 import queue
+import re
 import sys
 import threading
 import tkinter as tk
@@ -36,6 +42,43 @@ from pcconnect import Breeze, PORT, game_caption  # noqa: E402
 import pcconnect_app  # noqa: E402
 
 NAME = "Breeze Studio"
+# The Breeze release this Studio comes with (pc_app.zip). Run from the Breeze repo, the version in
+# source/appversion.cpp is shown instead, so a checkout never shows a stale one.
+VERSION = "beta129.02"
+
+
+def studio_version():
+    try:
+        with open(os.path.join(HERE, "source", "appversion.cpp")) as f:
+            m = re.search(r'"(beta[0-9.]+[a-z]?)"', f.read())
+        if m:
+            return m.group(1)
+    except OSError:
+        pass
+    return VERSION
+
+
+TITLE = "%s %s" % (NAME, studio_version())
+
+
+def style_tabs(root):
+    """The tab shown stands out (blue, white text, a little taller). Windows' own theme draws every
+    tab the same and ignores colours, so the tabs are drawn with the plain element, which takes
+    them. It applies to every notebook in Studio (Watch's and Bookmarks' inner tabs too)."""
+    s = ttk.Style(root)
+    try:
+        s.element_create("Studio.Notebook.tab", "from", "default")
+    except tk.TclError:
+        pass                     # made already (a second Studio window in this process)
+    s.layout("TNotebook.Tab", [("Studio.Notebook.tab", {"sticky": "nswe", "children": [
+        ("Notebook.padding", {"side": "top", "sticky": "nswe", "children": [
+            ("Notebook.label", {"side": "top", "sticky": ""})]})]})])
+    s.configure("TNotebook.Tab", padding=(10, 3), background="#e1e1e1", foreground="#333", borderwidth=1)
+    s.map("TNotebook.Tab",
+          background=[("selected", "#1f6feb"), ("active", "#cddcf3")],
+          foreground=[("selected", "#ffffff")],
+          font=[("selected", ("Segoe UI", 9, "bold"))],
+          expand=[("selected", (1, 2, 1, 0))])
 
 
 def split_address(address):
@@ -58,6 +101,7 @@ class Panel(tk.Frame):
         self.caption = label
         self.size = ""
         self.dead = False
+        self.keys = []      # (sequence, func) the tool bound on its window: made again on a detached window
 
     def title(self, text=None):
         if text is None:
@@ -85,6 +129,10 @@ class Panel(tk.Frame):
                 return func(e)
             return None
 
+        self.keys.append((sequence, func))
+        holder = self.studio.holders.get(self.label)
+        if holder is not None and self.label in self.studio.detached:
+            self.studio.bind_detached(self, holder, sequence, func)
         return self.studio.root.bind(sequence, guarded, add="+")
 
     def lift(self, *a):
@@ -206,9 +254,11 @@ class Studio:
         self.has_probe = False
         self.panels = {}             # label -> Panel, made when the tab is first opened
         self.holders = {}            # label -> the empty frame the notebook shows for it
+        self.detached = set()        # labels whose holder is a window of its own (wm manage)
         self.results = queue.Queue()
         self.overlay, self.overlay_notes, self.overlay_state = None, queue.Queue(), ""
-        root.title(NAME)
+        root.title(TITLE)
+        style_tabs(root)
         root.geometry(cfg.get("studio_geometry", "1280x900"))
 
         bar = tk.Frame(root)
@@ -233,6 +283,10 @@ class Studio:
         self.tabs = ttk.Notebook(root)
         self.tabs.pack(fill="both", expand=True)
         self.tabs.bind("<<NotebookTabChanged>>", self.on_tab)
+        # A tab as a window of its own, to see two side by side: right-click it (or double-click).
+        self.tab_menu = tk.Menu(root, tearoff=0)
+        self.tabs.bind("<Button-3>", self.on_tab_menu)
+        self.tabs.bind("<Double-1>", self.on_tab_double)
         self.hint = tk.Label(self.tabs, text="Type the address and the code, then Connect.\n\n"
                              "A Switch: its IP and code are in Breeze, Settings > PC connect.\n"
                              "The Lichii fork: Configure > Debug > Enable PC connect; 127.0.0.1 and its code.\n"
@@ -242,6 +296,18 @@ class Studio:
 
         root.protocol("WM_DELETE_WINDOW", self.on_close)
         root.report_callback_exception = self.on_callback_error
+        # A script (or Claude) sees and drives this window over 127.0.0.1 (studio/studio_remote.py).
+        self.remote = None
+        # BREEZE_STUDIO_REMOTE_PORT first: a second Studio (a helper's) beside someone's own needs
+        # its own port, or the helper's commands land in the other window (Nov 21 2026).
+        port = int(os.environ.get("BREEZE_STUDIO_REMOTE_PORT") or cfg.get("studio_remote_port", 6810) or 0)
+        if port:
+            try:
+                import studio_remote
+                self.remote = studio_remote.RemoteServer(self, port)
+                self.remote.start()
+            except OSError:
+                self.remote = None       # another Studio has the port
         root.after(50, self.pump)
         if address and code:
             self.connect()
@@ -295,7 +361,9 @@ class Studio:
         name = pcconnect_app.connection_name(self.cfg, address)
         where = "%s (%s)" % (name, address) if name else address
         self.host_label.config(text="%s  |  %s  |  %s" % (self.banner, game_caption(game), " ".join(sorted(caps))), fg="#222")
-        self.root.title("%s - %s - %s" % (NAME, where, game_caption(game)))
+        self.root.title("%s - %s - %s" % (TITLE, where, game_caption(game)))
+        for label in list(self.detached):
+            self.dock(label, select=False)
         for tab in self.tabs.tabs():
             self.tabs.forget(tab)
         self.holders = {}
@@ -341,6 +409,7 @@ class Studio:
                 ("Cheats", "cheats" in c, self.make_cheats),
                 ("Bookmarks", "read" in c, self.make_bookmarks),
                 ("Memory", "read" in c, self.make_memory),
+                ("Workbench", "read" in c, self.make_workbench),
                 ("Objects", "read" in c, self.make_objects),
                 ("Watch", self.has_probe or "debug" in c, self.make_watch),
                 ("Code", "read" in c, self.make_code),
@@ -380,15 +449,23 @@ class Studio:
         import studio_memory
         return studio_memory.App(panel, self.address, self.code)
 
+    def make_workbench(self, panel):
+        import studio_workbench
+        return studio_workbench.App(panel, self.address, self.code)
+
     def send(self, label, method, *args):
         """One tab hands an address to another: opens that tab and calls its method.
         Returns "" or why it could not."""
         holder = self.holders.get(label)
         if holder is None:
             return "this host has no %s tab" % label
-        self.tabs.select(holder)
-        self.root.update_idletasks()
-        self.on_tab()
+        if label in self.detached:
+            self.open_panel(label)
+            self.raise_detached(label)
+        else:
+            self.tabs.select(holder)
+            self.root.update_idletasks()
+            self.on_tab()
         panel = self.panels.get(label)
         fn = getattr(getattr(panel, "app", None), method, None)
         if fn is None:
@@ -429,7 +506,9 @@ class Studio:
 
     def show(self, panel):
         holder = self.holders.get(panel.label)
-        if holder is not None:
+        if panel.label in self.detached:
+            self.raise_detached(panel.label)
+        elif holder is not None:
             self.tabs.select(holder)
 
     def panel_caption(self, panel):
@@ -442,11 +521,16 @@ class Studio:
             return
         if label not in self.holders:
             return
-        # A Switch serves three clients: Screen keeps its one, the others take turns.
+        # A Switch serves few clients: Screen keeps its one, the others take turns (a detached
+        # window keeps its own).
         if "ui" in self.caps:
             for other in list(self.panels):
-                if other not in (label, "Screen"):
+                if other not in (label, "Screen") and other not in self.detached:
                     self.close_panel(other)
+        self.open_panel(label)
+
+    def open_panel(self, label):
+        """The tab's tool, made when it is first shown."""
         panel = self.panels.get(label)
         if panel is not None and not panel.dead and panel.winfo_exists():
             return
@@ -488,6 +572,96 @@ class Studio:
         for label in list(self.panels):
             self.close_panel(label)
 
+    # ------------------------------------------------------------ detached tabs
+    def tab_at(self, e):
+        """The label of the tab under the mouse, or None."""
+        try:
+            index = self.tabs.index("@%d,%d" % (e.x, e.y))
+            label = self.tabs.tab(index, "text")
+        except tk.TclError:
+            return None
+        return label if label in self.holders else None
+
+    def on_tab_menu(self, e):
+        label = self.tab_at(e)
+        if label is None:
+            return
+        self.tab_menu.delete(0, "end")
+        self.tab_menu.add_command(label="Detach %s (a window of its own)" % label, command=lambda: self.detach(label))
+        if self.detached:
+            self.tab_menu.add_separator()
+            for other in sorted(self.detached):
+                self.tab_menu.add_command(label="Dock %s back" % other, command=lambda o=other: self.dock(o))
+        self.tab_menu.tk_popup(e.x_root, e.y_root)
+
+    def on_tab_double(self, e):
+        label = self.tab_at(e)
+        if label is not None:
+            self.detach(label)
+            return "break"
+        return None
+
+    def bind_detached(self, panel, holder, sequence, func):
+        """A key the tool bound on its window, on the detached window (the Studio window's
+        bindings do not reach a window of its own)."""
+        def guarded(e):
+            if not panel.dead:
+                return func(e)
+            return None
+        holder.bind(sequence, guarded, add="+")
+
+    def detach(self, label):
+        """The tab as a window of its own; closing that window docks it back."""
+        holder = self.holders.get(label)
+        if holder is None or label in self.detached:
+            return
+        self.open_panel(label)            # a tab that was never shown is made now
+        self.tabs.forget(holder)
+        self.detached.add(label)
+        self.root.tk.call("wm", "manage", holder)
+        self.root.tk.call("wm", "title", holder, "%s - %s" % (label, self.root.title()))
+        self.root.tk.call("wm", "protocol", holder, "WM_DELETE_WINDOW", self.root.register(lambda: self.dock(label)))
+        size = self.cfg.get("studio_detached", {}).get(label) or "%dx%d" % (
+            max(self.tabs.winfo_width(), 600) // 2 + 200, max(self.tabs.winfo_height(), 500))
+        self.root.tk.call("wm", "geometry", holder, size)
+        panel = self.panels.get(label)
+        if panel is not None:
+            for sequence, func in panel.keys:
+                self.bind_detached(panel, holder, sequence, func)
+        if not self.tabs.tabs():
+            self.tabs.add(self.hint, text="(every tab is a window: close one to dock it)")
+
+    def raise_detached(self, label):
+        holder = self.holders[label]
+        self.root.tk.call("wm", "deiconify", holder)
+        self.root.tk.call("raise", holder)
+
+    def dock(self, label, select=True):
+        """A detached window back as a tab, where it was."""
+        holder = self.holders.get(label)
+        if holder is None or label not in self.detached:
+            return
+        try:
+            self.cfg.setdefault("studio_detached", {})[label] = self.root.tk.call("wm", "geometry", holder)
+        except tk.TclError:
+            pass
+        self.root.tk.call("wm", "forget", holder)
+        self.detached.discard(label)
+        for sequence, _f in getattr(self.panels.get(label), "keys", []):
+            holder.unbind(sequence)
+        if self.hint in [self.tabs.nametowidget(t) for t in self.tabs.tabs()]:
+            self.tabs.forget(self.hint)
+        order = [l for l, _n, _m in self.specs() if l in self.holders]
+        shown = [self.tabs.tab(t, "text") for t in self.tabs.tabs()]
+        at = sum(1 for l in order[:order.index(label)] if l in shown)
+        if at >= len(shown):
+            self.tabs.add(holder, text=label)
+        else:
+            self.tabs.insert(at, holder, text=label)
+        holder.pack_propagate(True)
+        if select:
+            self.tabs.select(holder)
+
     # ------------------------------------------------------------ housekeeping
     def pump(self):
         try:
@@ -502,6 +676,8 @@ class Studio:
                     self.show_overlay(state)
         except queue.Empty:
             pass
+        if self.remote is not None:
+            self.remote.pump()
         self.root.after(50, self.pump)
 
     def on_callback_error(self, exc, val, tb):
@@ -520,8 +696,15 @@ class Studio:
 
     def on_close(self):
         self.cfg["studio_geometry"] = self.root.geometry()
+        for label in list(self.detached):
+            try:
+                self.cfg.setdefault("studio_detached", {})[label] = self.root.tk.call("wm", "geometry", self.holders[label])
+            except tk.TclError:
+                pass
         self.close_panels()
         self.stop_overlay()
+        if self.remote is not None:
+            self.remote.close()
         self.save_cfg()
         self.root.destroy()
 
@@ -538,6 +721,11 @@ def main():
     root = tk.Tk()
     Studio(root, cfg, address, code)
     root.mainloop()
+    # The window is closed and the settings saved (on_close). A tool's worker thread that is not
+    # a daemon (or one blocked on a socket) would keep the process alive with no window - found
+    # Nov 20 2026: nine windowless Studios left over, still connected to Lichii.
+    sys.stdout.flush()
+    os._exit(0)
 
 
 if __name__ == "__main__":

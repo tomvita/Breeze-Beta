@@ -520,9 +520,22 @@ class App:
         self.menu.add_command(label="Unhold", command=self.on_unhold)
         self.menu.add_command(label="Make cheat...", command=self.on_make_cheat)
         self.menu.add_command(label="Add to Breeze's bookmarks (a Switch)", command=self.on_to_breeze)
-        self.menu.add_separator()
-        self.menu.add_command(label="Copy address", command=lambda: self.on_copy(False))
         self.menu.add_command(label="Copy expression", command=lambda: self.on_copy(True))
+        # The places every tab can take an address (studio_link.address_menu).
+        import studio_link
+
+        def ctx_address():
+            try:
+                return self.target()[0] or None
+            except Exception:  # noqa: BLE001 - no row under the menu, or its address cannot be worked out
+                return None
+
+        def ctx_size():
+            try:
+                return self.target()[2].size
+            except Exception:  # noqa: BLE001
+                return 4
+        studio_link.address_menu(self.root, self.menu, ctx_address, self.status.set, size=ctx_size)
         self.ctx = None  # (view, row index, field) the menu is for
 
         self.reload()
@@ -783,8 +796,10 @@ class App:
             if keep and tree.exists(keep[0]):
                 tree.selection_set(keep[0])
         meta = self.game.meta
-        self.status.set("%s  %s  main %s%s" % (
-            meta.get("title_id", "?"), meta.get("build_id", "?"), meta.get("main", "?"),
+        import studio_link
+        ids = "" if studio_link.in_studio(self.root) else "%s  %s  " % (meta.get("title_id", "?"), meta.get("build_id", "?"))
+        self.status.set("%smain %s%s" % (
+            ids, meta.get("main", "?"),
             "" if not self.gf.title or self.gf.title == meta.get("title_id", "").upper()
             else "   (this file is for %s!)" % self.gf.title))
 
