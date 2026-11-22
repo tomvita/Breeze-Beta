@@ -1,5 +1,13 @@
 # Changelog
 
+## [Beta 129.05] - 2026-11-23
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o), sys-ftp and emuhost (0.5) as 129.04; Breeze.nro differs only in its version. Changed: **pchost** (`pchost_0.6.zip`) and the PC tools (`pc_app.zip`).
+- **pchost 0.6: Unity games on the PC.** A Unity IL2CPP game's code is in its `GameAssembly.dll`, not the exe: main is now that dll, so the IL2CPP maps are built (Void Reaver: 56,224 methods, where 0.5 found none). A Unity cheat made with pchost 0.5 has to be made again.
+- **Find chain for Unity (Studio, Objects tab):** Field view of a found value, then right-click it > Find chain to this object: the pointer chain from main to the value, ready for Make cheat (Void Reaver's money in 1.4 s). On a pointer, the chains to the object it points at. See the [Breeze Studio guide](docs/breeze%20studio.md#objects).
+- **has field** marks the matching fields of the class you pick; **matching only** shows just them.
+- **Unreal games on the PC:** the class list is read (Boltgun), maps and sets open as lists, and Field view of a value inside an array, map or set opens that container.
+
 ## [Beta 129.04] - 2026-11-22
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 129.03; Breeze.nro differs only in its version. New: **pchost** (`pchost_0.5.zip`); changed: the PC tools (`pc_app.zip`) and emuhost (`emuhost_0.5.zip`: the same as 0.4, except that the Unreal map logs it writes show whole 64-bit addresses).

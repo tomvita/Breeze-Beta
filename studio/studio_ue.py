@@ -28,6 +28,7 @@ CHAIN_LEVELS = 6          # pointers between a root and the object, at most
 CHAIN_WIDTH = 16          # holders looked up per level
 CHAIN_RESULTS = 12
 BUFFER_RANGE = 0x800      # how far before a place its array's start is looked for
+LOCATE_RANGE = 0x4000     # the same, for Field view of an address in no object
 
 NUMBERS = {  # property type: (struct format, C-like name, bookmark type)
     "Int8Property": ("<b", "int8", "s8"), "Int16Property": ("<h", "int16", "s16"),
@@ -50,7 +51,9 @@ class Prop:
         self.name, self.kind, self.offset, self.size, self.dim, self.owner = name, kind, offset, size, dim, owner
         self.type = kind
         self.target = 0       # the class of an object pointer, the struct, or the enum
-        self.inner = None     # an array's element
+        self.inner = None     # an array's element, a set's element, a map's key
+        self.value = None     # a map's value (its .offset = where the value sits in an entry)
+        self.entry = 0        # the size of one entry of a map or a set
         self.mask, self.byte = 0xFF, 0
         self.fmt = None
         self.bm = "s32"
@@ -351,6 +354,20 @@ class UeGame:
         elif kind == "ArrayProperty":
             p.inner = self.make_prop(extra, "", owner) if extra else None
             p.type, p.bm = "TArray<%s>" % (p.inner.type if p.inner is not None else "?"), "ptr"
+        elif kind == "MapProperty":
+            # KeyProp, ValueProp, then FScriptMapLayout: ValueOffset, HashNextIdOffset, HashIndexOffset, Size
+            # (measured on UE 4.27: an enum -> int map has entries of 16, the value at +4).
+            value = self.u64(node + self.type_off + 8)
+            p.inner = self.make_prop(extra, "key", owner) if extra else None
+            p.value = self.make_prop(value, "value", owner) if value else None
+            p.entry = self.u32(node + self.type_off + 0x1C)
+            p.type, p.bm = "TMap<%s, %s>" % (p.inner.type if p.inner is not None else "?",
+                                             p.value.type if p.value is not None else "?"), "ptr"
+        elif kind == "SetProperty":
+            # ElementProp, then FScriptSetLayout: HashNextIdOffset, HashIndexOffset, Size (not measured)
+            p.inner = self.make_prop(extra, "element", owner) if extra else None
+            p.entry = self.u32(node + self.type_off + 0x10)
+            p.type, p.bm = "TSet<%s>" % (p.inner.type if p.inner is not None else "?"), "ptr"
         elif kind == "NameProperty":
             p.type = "FName"
         elif kind == "StrProperty":
@@ -449,7 +466,11 @@ class UeGame:
                     if data and p.inner is not None and 0 < n <= 0x100000 else None
             elif p.kind in ("MapProperty", "SetProperty"):
                 row.raw = self.read(row.address, 8)
-                row.value = "%d entries" % self.u32(row.address + 8)
+                data, n = struct.unpack("<Q", row.raw)[0], self.u32(row.address + 8)
+                row.value = "%d entries" % (n - self.u32(row.address + 0x34)) if data else "empty"
+                row.target = 0
+                row.open = ("map", row.address, p, "[%s]" % row.chain if row.chain else "%X" % data, row.label.strip()) \
+                    if data and p.inner is not None and p.entry and 0 < n <= 0x100000 else None
             elif p.kind == "WeakObjectProperty":
                 row.raw = self.read(row.address, 8)
                 index, serial = struct.unpack("<II", row.raw)
@@ -602,8 +623,47 @@ class UeGame:
         self.fresh()
         holder = self.object_at(address)
         if holder is None:
-            return None
+            return self.container_holding(address)
         return holder[0], (self.obj_name(holder[1]) or "Object") + "*"
+
+    def container_prop(self, struct_ptr, off, depth=0):
+        """(property, its offset) of the TArray / TMap / TSet field whose data pointer is at off, or None.
+        Looks into struct fields too."""
+        for p in self.props(struct_ptr):
+            for i in range(min(p.dim, 16)):
+                at = p.offset + i * p.size
+                if p.kind in ("ArrayProperty", "MapProperty", "SetProperty") and at == off:
+                    return p, at
+                if p.kind == "StructProperty" and p.target and depth < 3 and at <= off < at + p.size:
+                    found = self.container_prop(p.target, off - at, depth + 1)
+                    if found:
+                        return found[0], at + found[1]
+        return None
+
+    def container_holding(self, address):
+        """For an address in no object: the object whose TArray, TMap or TSet has its memory there.
+        Returns (object, its class + "*", the view of that container), or None."""
+        for w, v in self.refs(address, LOCATE_RANGE):
+            holder = self.object_at(w)
+            if holder is None:
+                continue
+            obj, cls, _item = holder
+            found = self.container_prop(cls, w - obj)
+            if found is None:
+                continue
+            p, off = found
+            n = self.u32(w + 8)
+            chain = "[%X+%X]" % (obj, off)
+            if p.kind == "ArrayProperty":
+                if p.inner is None or not 0 < n <= 0x100000 or address - v >= n * max(p.inner.size, 1):
+                    continue
+                view = ("array", v, n, p.inner, chain, p.name)
+            else:
+                if p.inner is None or not p.entry or not 0 < n <= 0x100000 or address - v >= n * p.entry:
+                    continue
+                view = ("map", w, p, chain, p.name)
+            return obj, (self.obj_name(cls) or "Object") + "*", view
+        return None
 
     def refs(self, address, back=0):
         """[(where, value)]: the places in writable memory that point at address, or up to `back` before it."""
@@ -754,6 +814,8 @@ class UeGame:
         if view[0] == "struct":
             _k, at, struct_ptr, chain, label = view
             return "%s  struct %s  at %X" % (label, self.obj_name(struct_ptr), at), self.rows_for(self.props(struct_ptr), at, chain)
+        if view[0] == "map":
+            return self.view_map(view)
         _k, data, n, inner, chain, label = view
         rows = []
         size = max(inner.size, 1)
@@ -772,6 +834,47 @@ class UeGame:
                 self.describe(row)
         shown = ", first %d shown" % MAX_ELEMENTS if n > MAX_ELEMENTS else ""
         return "%s  %s  %d elements%s  at %X" % (label, "TArray<%s>" % inner.type, n, shown, data), rows
+
+    def map_entries(self, address):
+        """(data, [index of every entry in use]) of the TMap or TSet at address.
+
+        TSparseArray: Data +0, ArrayNum +8, ArrayMax +C, then the allocation bits (TBitArray with
+        4 dwords inline at +10, SecondaryData +20, NumBits +28, MaxBits +2C), FirstFreeIndex +30,
+        NumFreeIndices +34. A freed entry stays in Data; only its bit says so."""
+        head = self.read(address, 0x38)
+        data, n, _cap = struct.unpack_from("<QII", head, 0)
+        max_bits = struct.unpack_from("<I", head, 0x2C)[0]
+        n = min(n, 0x100000)
+        if max_bits > 128:
+            bits = self.read(struct.unpack_from("<Q", head, 0x20)[0], (n + 7) // 8)
+        else:
+            bits = head[0x10:0x20]
+        return data, [i for i in range(n) if i // 8 < len(bits) and bits[i // 8] >> (i % 8) & 1]
+
+    def view_map(self, view):
+        _k, address, p, chain, label = view
+        data, used = self.map_entries(address)
+        rows = []
+        parts = [("key", p.inner, p.inner.offset)]
+        if p.value is not None:
+            parts.append(("value", p.value, p.value.offset))
+        for i in used[:MAX_ELEMENTS]:
+            base = data + i * p.entry
+            for word, part, off in parts:
+                at = base + off
+                row = Row("[%d] %s" % (i, word), part, at, "%s+%X" % (chain, i * p.entry + off), 0, i * p.entry + off)
+                rows.append(row)
+                if part.kind == "StructProperty" and part.target:
+                    row.note = "struct"
+                    fields = self.props(part.target)
+                    if len(fields) <= MAX_STRUCT_ROWS:
+                        rows += self.rows_for(fields, at, row.chain, 1)
+                    else:
+                        row.value, row.open = "%d fields" % len(fields), ("struct", at, part.target, row.chain, "%s[%d]" % (label, i))
+                else:
+                    self.describe(row)
+        shown = ", first %d shown" % MAX_ELEMENTS if len(used) > MAX_ELEMENTS else ""
+        return "%s  %s  %d entries%s, %d bytes each  at %X" % (label, p.type, len(used), shown, p.entry, data), rows
 
     # ------------------------------------------------------------ every object (GUObjectArray)
     def wants_idle(self):
@@ -882,7 +985,7 @@ class UeGame:
             data = self.bulk(start + s["at"], n)
             for i in range(0, n - 0x1F, 8):
                 value = struct.unpack_from("<Q", data, i)[0]
-                if value and not value & 7 and not value >> 40 and self.writable(value) and self.probe(start + s["at"] + i, cache):
+                if value and not value & 7 and not value >> 47 and self.writable(value) and self.probe(start + s["at"] + i, cache):
                     os.makedirs(self.cache, exist_ok=True)
                     with open(self.array_file(), "w") as f:
                         f.write("%X %X\n# module_size, GUObjectArray::ObjObjects RVA (found by Breeze Studio)\n"

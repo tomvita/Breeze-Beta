@@ -24,8 +24,12 @@ Unity game, the profile for an Unreal one; see build_map.
   * "Object at" opens any address as an object of the class picked on the left.
   * "has field" under the class filter keeps the classes with a field of that name (Unreal:
     the fields of the structs inside a class count too, as Struct.Field).
-  * Right-click > Find chain to this object (Unreal): the pointer chains from main to an
-    object taken from a class's list, which has none of its own.
+  * Right-click > Find chain to this object: the pointer chains from main to an object that has
+    none of its own (taken from a class's list, or opened by Field view of an address). Unity: on
+    a pointer row, chains to the object it points at; on a value (money in the object Field view
+    opened), chains to that value, ready for Make cheat. Walked forwards from the statics as
+    Breeze's Main > Unity > Find chain does, through fields, arrays, List<T> and Dictionary
+    values whose declared types can lead to the object's class. Unreal: backwards from the object.
   * Right-click > Make cheat...: the row's chain and a value as cheat code, to copy or to add
     to the game's cheats (off).
   * Right-click > Show this field in rows of (Unity): Breeze's Extract. The field is shown in the
@@ -71,6 +75,14 @@ EXTRACT_HEADER = ("# Breeze field extract - inline display picked with the Extra
                   "# type|hop>hop>offset|field name|field type\n")
 MAX_ELEMENTS = 200
 MAX_DEPTH = 3             # structs inside structs
+CHAIN_DEPTH = 6           # Find chain: objects between a static and the target, at most
+CHAIN_MAX_OBJECTS = 40000
+CHAIN_SECONDS = 90
+CHAIN_MAX_ELEMENTS = 4096 # of one array, list or dictionary
+CHAIN_RESULTS = 12
+# Bases nearly every class has: a field declared as one of these is not followed.
+CHAIN_TOO_COMMON = {"Object", "Component", "Behaviour", "MonoBehaviour", "ScriptableObject", "ValueType",
+                    "IEnumerable", "ICollection", "IList", "IDisposable", "ISerializationCallbackReceiver"}
 
 
 class Field:
@@ -79,8 +91,9 @@ class Field:
 
 
 class Klass:
-    def __init__(self, name, parent, slot):
+    def __init__(self, name, parent, slot, implements=()):
         self.name, self.parent, self.slot = name, parent, slot
+        self.implements = list(implements)
         self.fields = []
 
 
@@ -103,7 +116,9 @@ def parse_map(text):
             continue
         m = head.match(line)
         if m:
-            classes.setdefault(m.group(1), Klass(m.group(1), m.group(2).strip(), int(m.group(3), 16)))
+            imp = re.search(r"\simplements=(\S+)", line)
+            classes.setdefault(m.group(1), Klass(m.group(1), m.group(2).strip(), int(m.group(3), 16),
+                                                 imp.group(1).split(";") if imp else ()))
     return classes, statics
 
 
@@ -257,6 +272,7 @@ class Game:
         self.short = {}       # last part of a class name -> full names
         self.pages = {}
         self.extracts, self.extract_note = {}, ""
+        self.say = None           # set by the window: progress of a long job
         self.load(files)
 
     def load(self, files=None):
@@ -752,6 +768,222 @@ class Game:
         self.describe(row)
         return row
 
+    # ------------------------------------------------------------ Find chain (Breeze's Main > Unity > Find chain)
+    # Forwards from the statics, as Breeze does: a backwards search (who points at the object?)
+    # scans all of the game's writable memory for each step, 9 s a scan on a PC game.
+    chains_to_fields = True       # a value row asks for the chains to the object that holds it
+
+    def reaching(self, target_class):
+        """Short class names a field may declare and still lead to an object of target_class: the
+        classes whose fields can reach it, their parents and interfaces. The bases every class
+        has are left out, or every Component field would be walked."""
+        def short(n):
+            return n.split("<")[0].rpartition(".")[2]
+
+        by_short = {}
+        for k in self.classes.values():
+            by_short.setdefault(short(k.name), []).append(k)
+
+        def ancestors(name, out):
+            todo = [name]
+            while todo:
+                n = todo.pop()
+                if n in out:
+                    continue
+                out.add(n)
+                for k in by_short.get(n, []):
+                    if k.parent:
+                        todo.append(short(k.parent))
+                    todo += [short(i) for i in k.implements]
+
+        tokens = {}
+        for k in self.classes.values():
+            t = set()
+            for f in k.fields:
+                if not f.static:
+                    t.update(short(x) for x in re.split(r"[<>,\s*\[\]]+", f.type) if x)
+            tokens[k.name] = t
+        reach = {short(target_class)}
+        holds = set()
+        ancestors(short(target_class), holds)
+        while True:
+            more = {short(k.name) for k in self.classes.values()
+                    if short(k.name) not in reach and tokens[k.name] & (holds - CHAIN_TOO_COMMON)}
+            # A class whose parent reaches reaches too (its object has the parent's fields).
+            more |= {short(k.name) for k in self.classes.values()
+                     if short(k.name) not in reach and k.parent and short(k.parent) in reach}
+            more -= reach
+            if not more:
+                break
+            reach |= more
+            for n in more:
+                ancestors(n, holds)
+        return holds - CHAIN_TOO_COMMON
+
+    def type_args(self, type_):
+        """'Dictionary`2<int, Foo*>*' -> ['int', 'Foo*']: the generic arguments, top level only."""
+        t = type_.rstrip("*")
+        if "<" not in t:
+            return []
+        inner, out, depth, cur = t[t.find("<") + 1:t.rfind(">")], [], 0, ""
+        for c in inner:
+            if c == "<":
+                depth += 1
+            elif c == ">":
+                depth -= 1
+            if c == "," and depth == 0:
+                out.append(cur.strip())
+                cur = ""
+            else:
+                cur += c
+        return out + ([cur.strip()] if cur.strip() else [])
+
+    def klass_name_at(self, klass):
+        """The short name of a klass pointer, '' when it is not one (cached)."""
+        cache = self.__dict__.setdefault("klass_names", {})
+        if klass not in cache:
+            ok = klass and not klass & 7 and klass < 1 << 47 and self.u64(klass + 0x78) == klass
+            cache[klass] = self.cstring(self.u64(klass + 0x10)) if ok else ""
+        return cache[klass]
+
+    def find_chains(self, target, target_class):
+        """[(place, its chain, the path in words)]: places reached from a static that hold target."""
+        say = self.say or (lambda text: None)
+        self.fresh()
+        passes = self.reaching(target_class)
+
+        def short(n):
+            return n.split("<")[0].rpartition(".")[2]
+
+        def wanted(type_):
+            if base_type(type_)[0] in ("string", "System.String", "object", "System.Object"):
+                return False
+            return any(short(x) in passes for x in re.split(r"[<>,\s*\[\]]+", type_) if x)
+
+        def is_ref(type_):
+            base = base_type(type_)[0]
+            return type_.endswith("*") or type_.endswith("[]") or base in ("object", "string")
+
+        def ptr(v):
+            return v if v and not v & 7 and 0x10000 <= v < 1 << 47 else 0
+
+        level, results, seen = [], [], set()
+        roots = 0
+        for name, k in self.classes.items():
+            statics = [f for f in k.fields if f.static and is_ref(f.type) and wanted(f.type)]
+            if not statics or k.slot is None:
+                continue
+            klass = self.u64(self.main + k.slot)
+            block = self.u64(klass + self.statics) if klass else 0
+            if not block:
+                continue
+            roots += 1
+            for f in statics:
+                place = block + f.offset
+                level.append((place, "[[main+%X]+%X]+%X" % (k.slot, self.statics, f.offset), f.type,
+                              "%s.%s" % (short(name), f.name)))
+        start, walked, first = time.time(), 0, None
+        for depth in range(CHAIN_DEPTH):
+            nxt = []
+
+            def add(place, expr, type_, path, same_level=False):
+                (level if same_level else nxt).append((place, expr, type_, path))
+
+            i = 0
+            while i < len(level):
+                place, expr, type_, path = level[i]
+                i += 1
+                obj = ptr(self.u64(place))
+                if not obj:
+                    continue
+                if obj == target:
+                    results.append((depth, place, expr, path))
+                    continue
+                if obj in seen:
+                    continue
+                seen.add(obj)
+                walked += 1
+                if walked % 200 == 0:
+                    say("Find chain: depth %d, %d objects walked, %d found (%.0f s)" % (depth + 1, walked, len(results), time.time() - start))
+                if walked > CHAIN_MAX_OBJECTS or time.time() - start > CHAIN_SECONDS:
+                    break
+                oexpr = "[%s]" % expr
+                cname = self.klass_name_at(self.u64(obj))
+                if not cname:
+                    continue
+                base = base_type(type_)[0]
+                args = self.type_args(type_)
+                if type_.rstrip("*").endswith("[]") or cname.endswith("[]"):
+                    element = type_.rstrip("*")[:-2] if type_.rstrip("*").endswith("[]") else ""
+                    if element and (not is_ref(element + "*") or base in PRIM or not wanted(element)):
+                        continue
+                    n = min(self.u64(obj + ARRAY_LEN), CHAIN_MAX_ELEMENTS)
+                    data = self.read(obj + ARRAY_DATA, 8 * n) if n else b""
+                    for j in range(len(data) // 8):
+                        # An element costs no depth: the array is part of the step that leads to it.
+                        add(obj + ARRAY_DATA + 8 * j, "%s+%X" % (oexpr, ARRAY_DATA + 8 * j), element or "object",
+                            "%s[%d]" % (path, j), True)
+                    continue
+                if cname == "List`1" or base.endswith("List`1"):
+                    if args and wanted(args[0]):
+                        items = ptr(self.u64(obj + 0x10))
+                        n = min(self.u32(obj + 0x18), CHAIN_MAX_ELEMENTS)
+                        data = self.read(items + ARRAY_DATA, 8 * n) if items and n else b""
+                        for j in range(len(data) // 8):
+                            add(items + ARRAY_DATA + 8 * j, "[%s+10]+%X" % (oexpr, ARRAY_DATA + 8 * j), args[0],
+                                "%s[%d]" % (path, j), True)
+                    continue
+                if cname == "Dictionary`2" or base.endswith("Dictionary`2"):
+                    # entries {hash, next, key, value}, 0x18 each: a key of up to 8 bytes, a reference value
+                    if len(args) == 2 and is_ref(args[1]) and wanted(args[1]) and self.size_of(args[0]) <= 8:
+                        entries = ptr(self.u64(obj + 0x18))
+                        n = min(self.u32(obj + 0x20), CHAIN_MAX_ELEMENTS)
+                        for j in range(n if entries else 0):
+                            at = entries + ARRAY_DATA + 0x18 * j + 0x10
+                            add(at, "[%s+18]+%X" % (oexpr, ARRAY_DATA + 0x18 * j + 0x10), args[1],
+                                "%s[%d]" % (path, j), True)
+                    continue
+                k = self.class_of(obj, base)
+                if k is None:
+                    continue
+                for _c, f in self.instance_fields(k):
+                    if is_ref(f.type) and wanted(f.type):
+                        add(obj + f.offset, "%s+%X" % (oexpr, f.offset), f.type, "%s > %s" % (path, f.name))
+            if results and first is None:
+                first = depth
+            if not nxt or walked > CHAIN_MAX_OBJECTS or time.time() - start > CHAIN_SECONDS or \
+                    (first is not None and depth >= first + 1):
+                break
+            level = nxt
+        say("Find chain: %d found, %d objects walked from %d classes' statics in %.1f s" % (
+            len(results), walked, roots, time.time() - start))
+        results.sort(key=lambda r: (r[0], r[2].count("[")))
+        return results[:CHAIN_RESULTS], walked, time.time() - start
+
+    def view_other(self, view):
+        if view[0] != "chains":
+            raise RuntimeError("no such view: %s" % view[0])
+        _k, target, declared, field = view[:4]
+        k = self.class_of(target, declared)
+        if k is None:
+            raise RuntimeError("the class of the object at %X is not in the map" % target)
+        cls = k.name
+        found, walked, seconds = self.find_chains(target, cls)
+        rows = []
+        for _depth, place, expr, path in found:
+            if field is None:
+                row = Row(path, cls + "*", place, expr, 0, None, "%d pointers" % expr.count("["))
+            else:
+                offset, type_, name = field
+                row = Row("%s > %s" % (path, name), type_, target + offset, "[%s]+%X" % (expr, offset), 0, offset,
+                          "%d pointers" % (expr.count("[") + 1))
+            self.describe(row)
+            rows.append(row)
+        what = "%s at %X" % (cls, target) + (" (%s)" % field[2] if field else "")
+        if not rows:
+            return "No chain found to %s from the statics (%d objects walked, %.0f s)" % (what, walked, seconds), rows
+        return "Chains to %s: double-click to %s" % (what, "change the value" if field else "open the object"), rows
+
 
 class App:
     def __init__(self, root, address, code, port=None):
@@ -784,6 +1016,11 @@ class App:
         self.picked_only = tk.BooleanVar(value=False)
         ttk.Checkbutton(bar, text="picked only", variable=self.picked_only,
                         command=lambda: self.show_rows(self.rows)).pack(side="left")
+        # The "has field" words also find the fields in the view: all are marked, and with this
+        # on the view shows only them (all rows again when none matches, e.g. after opening a pointer).
+        self.match_only = tk.BooleanVar(value=True)
+        ttk.Checkbutton(bar, text="matching only", variable=self.match_only,
+                        command=lambda: self.show_rows(self.rows)).pack(side="left", padx=8)
         self.status = tk.StringVar(value="connecting...")
         ttk.Label(bar, textvariable=self.status, foreground="#555").pack(side="left", padx=8)
 
@@ -798,7 +1035,7 @@ class App:
         ttk.Label(ff, text="has field").pack(side="left")
         self.field_filter = tk.StringVar()
         ttk.Entry(ff, textvariable=self.field_filter).pack(side="left", fill="x", expand=True)
-        self.field_filter.trace_add("write", lambda *a: self.fill_classes())
+        self.field_filter.trace_add("write", lambda *a: (self.fill_classes(), self.show_rows(self.rows)))
         self.only_static = tk.BooleanVar(value=True)
         self.star_box = ttk.Checkbutton(left, text="with statics", variable=self.only_static, command=self.fill_classes)
         self.star_box.pack(anchor="w")
@@ -830,6 +1067,7 @@ class App:
         self.tree.configure(yscrollcommand=sb2.set)
         sb2.pack(side="right", fill="y")
         self.tree.pack(side="left", fill="both", expand=True)
+        self.tree.tag_configure("match", background="#fff2a8", foreground="#000")
         self.tree.bind("<Double-Button-1>", self.on_double)
         self.tree.bind("<Button-3>", self.on_menu)
         panes.add(right, weight=3)
@@ -1062,14 +1300,21 @@ class App:
         self.rows = rows
         self.tree.delete(*self.tree.get_children())
         only = self.picked_only.get() and any(getattr(r, "extract", "") for r in rows)
+        want, self.pick_address = getattr(self, "pick_address", None), None
+        words = [w.split(".")[-1] for w in self.field_filter.get().lower().split()]
+        matched = {i for i, r in enumerate(rows)
+                   if words and r.note != "instance" and all(w in r.label.lower() for w in words)}
+        # A Field view of an address must show the row it picks: no filtering then.
+        filter_ = bool(matched) and self.match_only.get() and want is None
         for i, r in enumerate(rows):
             if only and not getattr(r, "extract", ""):
                 continue
-            self.tree.insert("", "end", iid=str(i), text=r.label, values=(
+            if filter_ and i not in matched:
+                continue
+            self.tree.insert("", "end", iid=str(i), text=r.label, tags=("match",) if i in matched else (), values=(
                 "" if r.offset is None else "+%X" % r.offset, r.type, r.value, what_of(r),
                 "%X" % r.address if r.address else "", r.note if not r.note.startswith('"') else ""))
         # Field view of an address: the row that holds it is shown and picked.
-        want, self.pick_address = getattr(self, "pick_address", None), None
         if want is not None:
             best = None
             for i, r in enumerate(rows):
@@ -1080,13 +1325,10 @@ class App:
                 self.tree.see(str(best))
                 return
         # A field search: the first field it found is shown and picked.
-        words = [w.split(".")[-1] for w in self.field_filter.get().lower().split()]
-        if words:
-            for i, r in enumerate(rows):
-                if r.note != "instance" and all(w in r.label.lower() for w in words):
-                    self.tree.selection_set(str(i))
-                    self.tree.see(str(i))
-                    break
+        for i in sorted(matched)[:1]:
+            if self.tree.exists(str(i)):
+                self.tree.selection_set(str(i))
+                self.tree.see(str(i))
 
     def update_values(self, rows):
         if rows is not self.rows:
@@ -1233,19 +1475,43 @@ class App:
                 self.status.set("Field view: no object of a known class holds %X%s" % (
                     address, "" if self.names and len(self.names) > 1 else " (the class list is not read yet)"))
                 return
-            obj, type_ = found
-            self.status.set("Field view: %X is +%X in the object at %X" % (address, address - obj, obj))
+            obj, type_ = found[:2]
             self.pick_address = address
+            if len(found) > 2:        # in the memory of an array or a map of that object (Unreal)
+                view = found[2]
+                self.status.set("Field view: %X is in %s of %s at %X" % (address, view[-1], type_.rstrip("*"), obj))
+                self.view = ("object", obj, type_, "%X" % obj, ((type_, obj, None),))
+                self.go(view)
+                return
+            self.status.set("Field view: %X is +%X in the object at %X" % (address, address - obj, obj))
             self.go(("object", obj, type_, "%X" % obj, ((type_, obj, None),)))
         self.job(lambda g: g.locate(address), done)
 
     def find_chain(self):
         r = self.picked()
+        v = self.view
+        if getattr(self.game, "chains_to_fields", False):
+            # Unity: a pointer row -> chains to the object it points at; a value row -> chains to
+            # the object of this view, with the value's offset after them (Breeze's field view).
+            base, pointer = base_type(r.type) if r is not None else ("", False)
+            if r is not None and r.target and (pointer or r.type.endswith("[]")) and base not in ("string", "System.String"):
+                view = ("chains", r.target, base_type(r.type)[0], None)
+                what = "%X" % r.target
+            elif r is not None and r.address and v is not None and v[0] == "object" and r.address >= v[1] \
+                    and not v[2].rstrip("*").endswith("[]"):
+                view = ("chains", v[1], base_type(v[2])[0], (r.address - v[1], r.type, r.label.strip()))
+                what = "the object at %X" % v[1]
+            else:
+                self.status.set("Find chain: open an object, then pick one of its values or a pointer")
+                return
+            self.status.set("Find chain: walking from the statics to %s..." % what)
+            self.go(view)
+            return
         if r is None or not r.target:
             self.status.set("Find chain: pick a row that points at an object")
             return
         if not hasattr(self.game, "find_chains"):
-            self.status.set("Find chain is for Unreal games here; Unity: Breeze's Main > Unity > Find chain")
+            self.status.set("Find chain: not for this engine here")
             return
         self.status.set("Find chain: looking for who points at %X..." % r.target)
         self.go(("chains", r.target))

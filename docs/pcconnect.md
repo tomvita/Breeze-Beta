@@ -953,9 +953,10 @@ emuhost does for a game in an emulator. Releases carry it as `pchost_<version>.z
 Studio the code is x86-64: its Code tab disassembles it as such (functions from the exe's
 `.pdata`), and the ARM64 tools (Patch, Hook, the F8 instruction watch, the C pane) stay off.
 
-- **The game as dmnt would see it:** main is the exe's image; heap is the whole address space,
+- **The game as dmnt would see it:** main is the exe's image (GameAssembly.dll's for
+  a Unity IL2CPP game); heap is the whole address space,
   so `heap+X` is the address X. The title id is `FC` and a hash of the exe's name, the build id
-  the exe's CodeView GUID (the README says what each means for a PC game).
+  main's CodeView GUID (the README says what each means for a PC game).
 - **The SD card** is `pchost_sd` next to pchost.exe (`--sd <folder>` for another):
   `sdmc:/switch/breeze/cheats/<title id>/` is `pchost_sd\switch\breeze\cheats\<title id>\`.
 - **`probe`:** the data watch as on emuhost (`probe data ...`), and the Lichii fork's break and

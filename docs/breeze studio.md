@@ -165,6 +165,8 @@ On an emulator **Build map** makes the Unity function map too, which is where th
 - Pick a class: its static fields with their values now, then its own fields as a layout.
 - Double-click a pointer to open the object it points at. Arrays and lists show their elements, a string shows its text. **Back** returns.
 - Double-click a number to change it. Right-click: **Hold** / **Unhold**, **Copy chain** (the pointer chain from main), **Add to bookmarks**, **Add to Breeze's bookmarks**.
+- **has field** under the class filter keeps the classes that have a field of that name. Pick one and its matching fields are marked; with **matching only** ticked (the default) the view shows only them. When nothing in the view matches (an object opened from a pointer), every field shows.
+- Right-click a value > **Find chain to this object**: the pointer chains from main to that value, for an object that has none of its own (one opened by Field view of an address). On a pointer, the chains to the object it points at. The search starts at every class's static fields and follows fields, arrays, lists and dictionaries whose type can lead to the object's class, as Breeze's Main > Unity > Find chain does. Right-click the chain it finds > **Make cheat...**. On Void Reaver (a PC game) the money's chain took 1.4 s.
 
 **Unreal.** It reads the profile (the one Breeze's Main > **Unreal** makes), then the game's own reflection data.
 
@@ -176,7 +178,7 @@ On an emulator **Build map** makes the Unity function map too, which is where th
 - An object shows its properties with its parents', structs in place. A pointer says what it points at, an enum value has its name, a bool is its one bit. Double-click an array or a large struct to open it.
 - A row reached from the engine route has a pointer chain from main, for **Copy chain** and the bookmarks. An object picked from a class's list has only its address.
 
-**Field view of an address.** "Field view" on a Search candidate or a Memory row opens the object that holds the address, with the field at it picked. On Unreal it needs the class list to be read first. On Unity it has not been tried yet.
+**Field view of an address.** "Field view" on a Search candidate or a Memory row opens the object that holds the address, with the field at it picked. On Unreal it needs the class list to be read first.
 
 ![Field view of a searched address](./images/studio_field_view.jpg)
 
@@ -184,7 +186,7 @@ On an emulator **Build map** makes the Unity function map too, which is where th
 
 **Show a field in the rows that point at its object** (Unity). An array or a list of objects shows a column of addresses, which says nothing. Open one of the objects, right-click the field that names it (a name, an id, a count) and pick **Show this field in rows of** > the object's type. From then on every row that points at an object of that type shows that field's value in the **what** column: the list reads as names. The menu also offers the objects you came through on the way, so a value one or two pointers further in can be shown too (an item's data's name). Pick the same entry again to stop showing it. Tick **picked only** to hide the rows that show nothing, which turns a long array into a short list. The picks are the same file as Extract in Breeze's field view (`field_extract.txt` in the game's folder), so what you pick here shows on the Switch, and the other way round.
 
-Not yet: dictionaries (Unity), maps and sets (Unreal), Find chain for Unity, and other engines.
+Not yet: dictionaries in the Unity view (Find chain walks through them), and other engines.
 
 ## Watch
 
@@ -275,9 +277,9 @@ Studio is not only for a Switch. The same window works with a game running in an
 
 ## PC games (pchost)
 
-Studio also works on a game that runs on the PC itself (64-bit Windows), through `pchost`, a small program that attaches to the game's process. Start the game, then `pchost.exe` (double-click it, or run it with part of the game's name, `pchost elliot`): with no name it lists the programs that have a window and you type the game's number. Then connect Studio to `127.0.0.1`. [PC Connect](pcconnect.md#pchost) and pchost's README have the details.
+Studio also works on a game that runs on the PC itself (64-bit Windows), through `pchost`, a small program that attaches to the game's process. Start the game, then `pchost.exe` (double-click it, or run it with part of the game's name, `pchost elliot`): with no name it lists the programs that have a window and you type the game's number. Then connect Studio to `127.0.0.1`. A Unity game's code is in its `GameAssembly.dll`, so there main is that dll, not the exe. [PC Connect](pcconnect.md#pchost) and pchost's README have the details.
 
-- Search, Objects (Unreal), Memory, Bookmarks, Cheats, Engine, Watch (with **Break and trace**) and Code work. There is no Screen or Files tab.
+- Search, Objects (Unity and Unreal), Memory, Bookmarks, Cheats, Engine, Watch (with **Break and trace**) and Code work. There is no Screen or Files tab.
 - The **Code** tab reads x86-64: functions come from the exe, calls and jumps are named, `[rip+X]` shows the address and what is there, and **Callers** works. **Patch this instruction**, **Hook here**, the instruction watch (F8) and Decompile are for Switch code and stay off.
 - In the **Watch** tab a row's instruction is the one *after* the access (a PC stops after the instruction has run); the code beside the row marks the one that made it.
 - A breakpoint holds the thread that reaches it while the rest of the game runs on; if that thread runs the game, the game waits until you press **Continue**. Breakpoints and watches share the PC's four debug registers. The registers show as `rax` to `r15`, `sp`, `pc` and `eflags`.
