@@ -19,6 +19,8 @@
     SD card (what loads at the next start); Import / Export read and write a cheat .txt on the PC.
     Export adds a "<name> - restore" cheat after each code-patch cheat that has none, for players
     whose cheat tool does not put the originals back (as Breeze's Write Cheat to atm).
+  * Make cheat... (Breeze's Cheats > Make cheat, make_cheat.py): pick rows of a recipe's table in
+    the game folder's make_cheat.ini (an item to give, a value to set), and the cheat is made, on.
   * Pause / Resume (F9 works with the game focused).
 
 Python 3 with tkinter only.
@@ -342,6 +344,7 @@ class App:
         ttk.Button(row2, text="Edit master code", command=self.select_master).pack(side="left")
         ttk.Button(row2, text="New cheat", command=self.new_blank).pack(side="left", padx=4)
         ttk.Button(row2, text="New folder", command=self.new_folder).pack(side="left")
+        ttk.Button(row2, text="Make cheat...", command=self.make_cheat).pack(side="left", padx=4)
 
         bar = ttk.Frame(root, padding=6)
         bar.pack(fill="x")
@@ -932,6 +935,26 @@ class App:
             # Lichii takes the new list on the cheat engine's next pass: list it again then.
             self.root.after(700, self.refresh)
         self.run(lambda: self.client.cmd("cheats load"), done)
+
+    def make_cheat(self):
+        """Breeze's Make cheat (Cheats, R+ZL): cheats from the game folder's make_cheat.ini recipes."""
+        if self.client is None:
+            self.status.set("connect first")
+            return
+        import os
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+        from pcconnect import Breeze
+        import make_cheat
+
+        def fn():
+            return Breeze(self.host.get(), self.code.get(), port=int(self.port.get()), timeout=60, connect_timeout=5)
+
+        def done(b):
+            try:
+                make_cheat.MakeCheatWindow(self, b)
+            except Exception as ex:  # noqa: BLE001
+                messagebox.showerror("Make cheat", str(ex), parent=self.root)
+        self.run(fn, done)
 
     # ---- files on the PC
     def import_file(self):

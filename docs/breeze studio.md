@@ -70,11 +70,12 @@ The cheat list as on Breeze's Cheats screen, with an editor beside it.
 - Select a cheat to see its code, one opcode per line. Change the name or the code and **Apply edit**; **Add as new**, **Duplicate**, **Delete**, **New folder**.
 - **Condition key...** makes a cheat run only while a button is held; **Add freeze game code** adds Breeze's two freeze cheats.
 - **Save to SD** writes the cheat file and **Load from SD** reads it again; **Import .txt** / **Export .txt** read and write a cheat file on the PC. Export adds a "<name> - restore" cheat after each code-patch cheat, for people whose cheat tool cannot put the game's code back.
+- **Make cheat** makes a cheat from one of the game's recipes, as Breeze's Cheats > Make cheat does (`make_cheat.ini` in the game's folder, the format in [make cheat recipes.md](./make%20cheat%20recipes.md)). Pick rows of the recipe's table (items, for example), fill in the values it asks for and the key, and the cheat is added on, replacing one of the same name, and saved to SD. A recipe that holds addresses must name this build; the cheat it `requires` must be in the list already (it is turned on when it is off).
 - The list shows each cheat's number (the one PC connect's `cheats on 7` takes) and its **kind**: ASM (a hook with a cave), patch (a code patch that keeps the game's instructions), code, pointer or value, with ", key" when a button gates it.
 - **Off** and **Turn off all** put a code-patch cheat's original instructions back, in one step (Breeze does it on the second press of a green cheat).
 - **Merge into...** moves the selected cheat's patches into another cheat, as Breeze's Merge into: one cheat that patches many places and keeps the game's instructions. Naming the cheat itself converts an older patch cheat (and its "- restore" cheat) into this kind.
 
-**What it does.** Under the code box the cheat is written out in words: each opcode, the address it reads or writes in the game right now and what that address holds, and for a write into the game's code the instruction itself (`main+958D5C:  nop   (there now: str s0, [x19, #0x1c])`). An ASM cheat gets a line above saying so (`ASM hook at main+5B5BE50, branching to a cave at main+9ADFD40 (107 instructions ...)`), each 8-byte cave line shows its two instructions, and branch targets read `main+X`. Conditions are taken as true and a loop is gone through once, as in Breeze's Trace cheat. Pick a line, then **Jump to target** opens its address in Memory and **Jump to ASM** opens the patched code in Code; double-click does whichever the line has. **Read again** follows an edit of the code box.
+**What it does.** Under the code box the cheat is written out in words: each opcode, the address it reads or writes in the game right now and what that address holds, and for a write into the game's code the instruction itself (`main+958D5C:  nop   (there now: str s0, [x19, #0x1c])`). An ASM cheat gets a line above saying so (`ASM hook at main+5B5BE50, branching to a cave at main+9ADFD40 (107 instructions ...)`), each 8-byte cave line shows its two instructions, and branch targets read `main+X`. Conditions are taken as true and a loop is gone through once, as in Breeze's Trace cheat. A key condition reads as the buttons it waits for, held or once a press (both the old `8` form and Breeze's `C4`). Pick a line, then **Jump to target** opens its address in Memory and **Jump to ASM** opens the patched code in Code; double-click does whichever the line has. **Read again** follows an edit of the code box.
 
 ## Bookmarks
 
@@ -245,9 +246,9 @@ The disassembler and the debugger of the [PC app](pc%20connect%20app.md#the-disa
 
 ![The Code tab](./images/studio_10_code.jpg)
 
-**Memory used** (also on the right-click menu) opens the Memory tab at the address the current line's instruction reads or writes. A fixed address works at once. One that goes through registers, such as `[x19, #0x18]`, uses the registers of the stopped game; on the Lichii fork with the game running it catches them the next time the line runs, and the game goes on.
+**Memory used** (also on the right-click menu) opens the Memory tab at the address the current line's instruction reads or writes. A fixed address works at once. One that goes through registers, such as `[x19, #0x18]`, uses the registers of the stopped game; on the Lichii fork and on emuhost, with the game running, it catches them the next time the line runs, and the game goes on.
 
-**Instruction watch** (F8 on a line, or the pane under the listing): which addresses an instruction uses each time it runs. The register and the offset are read off the instruction (`ldr w8, [x19, #0x30]` watches x19+0x30); each row is an address with its hit count and what it holds now. Right-click a row to open it in Memory, to watch who touches it, or to break at the instruction for that value only. On a Switch this is gen2's instruction watch; on the Lichii fork the tab runs it from the PC. In the Watch tab, `x0` to `x30` in the mode box of *Who touches an address* starts one too.
+**Instruction watch** (F8 on a line, or the pane under the listing): which addresses an instruction uses each time it runs. The register and the offset are read off the instruction (`ldr w8, [x19, #0x30]` watches x19+0x30); each row is an address with its hit count and what it holds now. Right-click a row to open it in Memory, to watch who touches it, or to break at the instruction for that value only. On a Switch this is gen2's instruction watch; on the Lichii fork the tab runs it from the PC; on emuhost emuhost runs it, with a breakpoint that stops the whole game for a moment each time the line runs (it comes off after 20,000 runs). In the Watch tab, `x0` to `x30` in the mode box of *Who touches an address* starts one too.
 
 **Patch this instruction** (right-click a line): what the instruction becomes, picked from suggestions worked out from it (subtract nothing, add instead, always true or false, always or never jump, nop) or typed. It makes one cheat that keeps the game's instruction, so Breeze can put it back when the cheat is turned off; naming a cheat that is already one adds this patch to it.
 
@@ -255,7 +256,7 @@ The disassembler and the debugger of the [PC app](pc%20connect%20app.md#the-disa
 
 The toolbar: **Go**, the back and forward arrows, **Function** up and down, **Callers**, **Decompile F6** and **Find**; **More** has Reload, Memory used, Copy, Save, the instruction words and the font size. The Debug row shows only on a host with a debugger.
 
-**Pause** stops the whole game and **Run** lets it go (and lets go a thread held at a breakpoint); they work whichever tab paused it. On the Lichii fork the Debug row works too: breakpoints, Run to, Step, Over, Continue, the registers and the vector registers.
+**Pause** stops the whole game and **Run** lets it go (and lets go a thread held at a breakpoint); they work whichever tab paused it. On the Lichii fork and on emuhost the Debug row works too: breakpoints, Run to, Step, Over, Continue, the registers and the vector registers.
 
 ## Files
 
@@ -268,7 +269,7 @@ The PC app's two-panel file manager: the SD card on one side, the PC on the othe
 Studio is not only for a Switch. The same window works with a game running in an emulator on the PC, when something there answers Breeze's PC connect protocol; give `127.0.0.1` (or `127.0.0.1:port`) as the address. Studio asks the other side what it can do and shows only the tabs that apply; there is no Screen tab, because there is no Breeze screen. [PC Connect](pcconnect.md#other-hosts-emulators) describes the two kinds of host: an emulator with Breeze's core built in, and `emuhost`, a small program that runs beside an unmodified emulator of the yuzu family and uses its GDB stub.
 
 - A game's files are in `switch/breeze/cheats/<title id>/` on the emulator's SD card. Breeze running inside the emulator uses that folder too, whatever its setting, so names, labels and maps made in Studio are where Breeze looks.
-- The Files tab names the game's folder on the PC after the game. emuhost cannot read the game's name and uses `TID_<title id>`.
+- The Files tab names the game's folder on the PC after the game (emuhost reads the name from the emulator's window title).
 - **Save to SD** in the Cheats tab starts the cheat file the way Breeze does: a `[Breeze ... TID: ... BID: ...]` line and your signature from Breeze's settings.
 - **Find pointer chains to here** (Memory tab) works only here, not with a Switch yet.
 

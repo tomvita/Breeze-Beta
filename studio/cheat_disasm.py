@@ -26,6 +26,12 @@ KEYS = ["A", "B", "X", "Y", "LStick", "RStick", "L", "R", "ZL", "ZR", "Plus", "M
         "Down", "LS-Left", "LS-Up", "LS-Right", "LS-Down", "RS-Left", "RS-Up", "RS-Right", "RS-Down", "SL", "SR"]
 
 
+def key_names(mask):
+    """The buttons of a dmnt key mask, "A+R"; bits past the named ones as bitN."""
+    names = [KEYS[b] if b < len(KEYS) else "bit%d" % b for b in range(64) if mask >> b & 1]
+    return "+".join(names) or "none"
+
+
 BRANCHES = ("b", "bl", "cbz", "cbnz", "tbz", "tbnz", "adr", "adrp")
 
 
@@ -43,7 +49,7 @@ def summary(words, opcode_len):
         n = len(got[1])
         return "Code patch: %d place%s, the game's instructions kept (Breeze puts them back when it is turned off)" % (
             n, "" if n == 1 else "s")
-    i = 1 if words and words[0] >> 28 == 0x8 else 0
+    i = (1 if words[0] >> 28 == 0x8 else 3 if words[0] >> 24 == 0xC4 else 0) if words else 0  # a key around it
     if len(words) < i + 6:
         return ""
     w = words[i:]
@@ -86,7 +92,7 @@ def kind(words, main=0, executable=None):
     import code_patch
     if not words:
         return ""
-    keyed = words[0] >> 28 == 0x8
+    keyed = words[0] >> 28 == 0x8 or words[0] >> 24 == 0xC4
     opl = code_patch.opcode_words
     s = summary(words, opl)
     if s.startswith("Code patch"):
@@ -248,7 +254,12 @@ def explain(words, game, read, executable, opcode_len):
             reg[r] = _math(op, reg[r], w[1], width)
         elif t == 0x8:
             mask = w[0] & 0x0FFFFFFF
-            e["text"] = "if keys held: " + ("+".join(k for b, k in enumerate(KEYS) if mask >> b & 1) or "none")
+            e["text"] = "if keys held: " + key_names(mask)
+        elif t == 0xC and width == 4:
+            # C4r00000 kkkkkkkk kkkkkkkk: Breeze's extended keypress, a 64-bit mask; r = 1 while
+            # the keys are held, 0 once on the pass they become held.
+            mask = (w[1] << 32) | w[2]
+            e["text"] = "if keys %s: %s" % ("held" if (w[0] >> 20) & 0xF else "pressed (once a press)", key_names(mask))
         elif t == 0x9:
             op, s, imm, s2 = (w[0] >> 20) & 0xF, (w[0] >> 12) & 0xF, (w[0] >> 8) & 0xF, (w[0] >> 4) & 0xF
             if imm:

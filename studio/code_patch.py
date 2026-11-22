@@ -108,11 +108,28 @@ def opcode_words(op, i):
     return n if n <= left else 0
 
 
-def parse(op):
-    """(key, [Patch]) for a cheat in this form (key 0 for none), else None."""
-    i, key = 0, 0
+def key_length(op):
+    """Words of a keypress condition opening the cheat: 8kkkkkkk (1) or Breeze's extended
+    C4r00000 kkkkkkkk kkkkkkkk (3); 0 when it does not open with one."""
     if op and op[0] >> 28 == 0x8:
-        key, i = op[0], 1
+        return 1
+    if len(op) >= 3 and op[0] >> 24 == 0xC4:
+        return 3
+    return 0
+
+
+def key_words(key):
+    """A key as build() takes it: () or 0 for none, one word (an int), or its words."""
+    if not key:
+        return ()
+    return (key,) if isinstance(key, int) else tuple(key)
+
+
+def parse(op):
+    """(key, [Patch]) for a cheat in this form, else None. key: the words of the keypress
+    condition wrapping it (one, or three for C4), () for none."""
+    i = key_length(op)
+    key = tuple(op[:i])
     if i >= len(op) or op[i] != NEVER:
         return None
     i += 1
@@ -142,9 +159,10 @@ def parse(op):
     return (key, patches) if all(written) else None
 
 
-def build(patches, key=0):
-    """The cheat's words: block, then the hacks in the same order; key wraps the whole cheat."""
-    ops = [key] if key else []
+def build(patches, key=()):
+    """The cheat's words: block, then the hacks in the same order; key (key_words) wraps the whole cheat."""
+    key = key_words(key)
+    ops = list(key)
     ops.append(NEVER)
     for p in patches:
         ops += [p.header, p.offset, p.original]
@@ -212,11 +230,12 @@ def cheat_patches(cid, cheats, read_word):
     got = parse(op)
     if got:
         return got[0], got[1], 0
-    key, i, end = 0, 0, len(op)
-    if op and op[0] >> 28 == 0x8:
-        if end < 2 or op[-1] != END:
+    i, end = key_length(op), len(op)
+    key = tuple(op[:i])
+    if i:
+        if end < i + 1 or op[-1] != END:
             raise ValueError("%s has more than code patches in it" % name)
-        key, i, end = op[0], 1, end - 1
+        end -= 1
     stores = []
     while i < end:
         if i + 3 > end or not is_code_store(op[i]):
@@ -272,7 +291,7 @@ def recorded_original(rel, cheats, skip_id=None, r1=False):
                 if p.r1 == r1 and p.rel == rel:
                     return p.original
             continue
-        i = 1 if op and op[0] >> 28 == 0x8 else 0
+        i = key_length(op)
         if len(op) >= i + 6 and is_code_store(op[i]) and op[i] == op[i + 3] and op[i + 1] == op[i + 4] \
                 and bool((op[i] >> 16) & 1) == r1 and (((op[i] & 0xFF) << 32) | op[i + 1]) == rel:
             return op[i + 2]

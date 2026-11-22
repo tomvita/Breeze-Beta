@@ -1,5 +1,13 @@
 # Changelog
 
+## [Beta 129.03] - 2026-11-22
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 129.02; Breeze.nro, the PC tools (`pc_app.zip`) and emuhost (`emuhost_0.4.zip`) changed.
+- **Breeze Studio with emuhost:** the Code tab's instruction watch (**F8**: which addresses a line uses, how often, a hold for one of them) and **Memory used** work on a game in a stock emulator; emuhost runs the watch itself, stopping the game for a moment at each run, and takes it off after 20,000 runs. **Step** and **Run** no longer stick on a line a data watch is watching.
+- **emuhost writes a cheat's code once a pass:** two cheats writing the same instruction (one patching the other's cave) had stopped the game 96 times a second in Disney Dreamlight Valley; now 3. Quit emuhost with Ctrl+C or by closing its window: it takes its breakpoints out.
+- **C4 key cheats:** Studio's "What it does" reads Breeze's C4 key condition as the buttons it waits for, and a code-patch cheat wrapped in a C4 key gets the game's code back when turned off (Breeze, Studio, emuhost).
+- **Studio:** Cheats > **Make cheat...** makes Breeze's recipe cheats (`make_cheat.ini`) on the PC; the instruction watch pane resizes, numbers its rows, has **Show as**, and takes a new offset on Refresh. See the [Breeze Studio guide](docs/breeze%20studio.md).
+
 ## [Beta 129.02] - 2026-11-21
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 129.01; Breeze.nro, the PC tools (`pc_app.zip`) and emuhost (`emuhost_0.3.zip`) changed.

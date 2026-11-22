@@ -825,7 +825,7 @@ One call of each command was sent to the fork's own server and to emuhost
 | `state` | Breeze's screen and the game | the game only: `"emulator":true`, `"menu":null` |
 | `events on` | `*EVENT state` lines | `*EVENT` lines about other clients' commands and the probe |
 | `rows` `action` `press` `keydown` `keyup` `button` `tap` `select` `text` `cancel` `show` `hide` `keys` `focus` `restart` | yes | `-ERR the emulator has no Breeze screens to drive` |
-| `probe` | samples values around a key press | the fork's code/data watch (another command under the same name; every `+OK` reply ends with `.`); emuhost: the `probe data` part with the same replies (`status`, `data add\|list\|regs\|max\|stop\|clear`), on the stub's watchpoints, cap `datawatch`; `probe code` is refused there |
+| `probe` | samples values around a key press | the fork's code/data watch (another command under the same name; every `+OK` reply ends with `.`); emuhost: the `probe data` part with the same replies (`status`, `data add\|list\|regs\|max\|stop\|clear`), on the stub's watchpoints, cap `datawatch`; `probe code` is refused there; `probe regwatch` (cap `regwatch`) is its instruction watch, below |
 | `hello <name>` `activity [n]` `breeze state\|stop` | no | yes: name this client, the last commands of every client, Breeze over the game |
 | `dbg` | yes (gen2) | emuhost: the same replies, on the stub's software breakpoints (`bp`, `bp clear`, `runto`, `step`, `over`, `cont`, `stop`, `reg`, `v`; no `threads`); the status also has `break_word`, the word the stub writes. The fork: no |
 | `capture` `gamepad` and the other game input, `gen2` `codewatch` `fieldwatch` `methodwatch` `gmvars` `stats` `ftp` and "Developing Breeze" | yes | no |
@@ -894,7 +894,17 @@ How it works:
   through the stub. The build id is read from the GNU note in the main module.
 - `maps` while the game runs stops it for the few milliseconds the stub needs.
 - Maps are written to `<sd>/switch/breeze/cheats/<TID>/`.
-- Its `caps`: `read write codewrite pause maps jobs search holds cheats debug datawatch`.
+- Its `caps`: `read write codewrite pause maps jobs search holds cheats debug datawatch regwatch`.
+- Instruction watch (Studio Code tab, F8, and Memory used): `probe regwatch start <addr> <base> <index|-> <shift> <disp hex>`
+  puts a breakpoint of emuhost's own on one instruction; each run, emuhost works out base + (index << shift) + disp
+  from the registers (x0-x30, w0-w30, sp, fp, lr), counts it, steps off and lets the game run on. `rows` = one line
+  `+OK regwatch on= at= total= rows= dropped= held= max=` then `<address> <count>` per address; `last` = the
+  registers of the last run; `hold <address>|off` keeps the game stopped there the first time that address is used
+  (the debugger's Continue runs on); `max <n>` (default 20000 runs, then it comes off); `stop`. Each run stops
+  the whole game for a moment (about 100 runs a second measured on a busy Unity method).
+- Code writes the cheats make during one pass are kept to the end of it and written once, only where the bytes
+  change: two cheats writing the same instruction (one patching the other's cave) no longer stop the game twice
+  each, every pass.
 - Cheats: Breeze's cheat VM (`core/cheatvm/`, the one the fork runs, with Breeze's rules for ASM
   hooks, split cheats, folders and mods) runs inside emuhost twelve times a second, on the
   memory mirror; its writes into code go through the stub, and only when the bytes change.

@@ -193,6 +193,8 @@ class Game:
         if not self.console and "debug" not in b.caps():
             r = b.cmd("probe held")
             self.probe_debugger = isinstance(r, str) and r.startswith("+OK")
+        # emuhost: the instruction watch runs inside it (probe regwatch), a stub break stopping the game
+        self.emu_regwatch = not self.console and "regwatch" in b.caps()
         self.mods = []               # every code module: (name, base, size), main named "M"
         self.text_size = self.find_text()
         self.dir = ""
@@ -662,6 +664,8 @@ class Game:
         """The registers the next time the instruction at rva runs (the Lichii fork): a breakpoint
         there for a moment, taken off again, and the game runs on. None when nothing ran it."""
         where = "M+%X" % rva
+        if self.emu_regwatch:
+            return self.emu_catch(rva)
         if self.probe("held")[0].startswith("+OK held"):
             return None
         had = where in [l.split()[0] for l in self.probe("break list")[1:]]
@@ -682,6 +686,25 @@ class Game:
                 self.probe("break remove " + where)
             if self.probe("held")[0].startswith("+OK held"):
                 self.probe("cont")
+        return regs
+
+    def emu_catch(self, rva):
+        """catch() on emuhost: its instruction watch for one run, the registers of that run."""
+        if self.rw is not None and self.rw["on"]:
+            raise RuntimeError("the instruction watch is on: stop it first")
+        self.probe("regwatch start %X - - 0 0" % (self.main + rva))
+        regs = None
+        try:
+            for _ in range(150):
+                r = self.probe("regwatch rows")
+                if "total=0" not in r[0]:
+                    r = self.probe("regwatch last")
+                    if len(r) > 1:
+                        regs = {k: int(v, 16) for k, v in (x.split("=", 1) for x in r[1].split())}
+                    break
+                time.sleep(0.02)
+        finally:
+            self.probe("regwatch stop")
         return regs
 
     def pause(self, want=None):
@@ -733,21 +756,23 @@ class Game:
             raise RuntimeError(r[5:] if r.startswith("-ERR ") else r)
         return json.loads(r[4:]) if r[4:5] == "{" else {}
 
-    def gen2_rows(self, mine):
+    def gen2_rows(self, mine, offset=None):
         """`gen2 rows`. `mine` is the instruction watch this window started ({"at", "offset", "size"}):
         when gen2 still holds it, each row gets the address the instruction used (the register's value
-        plus the offset) and, for the first rows, what is there now."""
+        plus the offset, or plus `offset` when given) and, for the first rows, the 8 bytes there now."""
         st = self.gen2("rows")
         ours = mine is not None and int(st.get("address", "0"), 16) == mine["at"]
         st["ours"] = ours
-        off, size = (mine["offset"], mine["size"]) if ours and mine["kind"] == "reg" else (0, 8)
+        off = mine["offset"] if ours and mine["kind"] == "reg" else 0
+        if ours and offset is not None:
+            off = offset
         for i, x in enumerate(st.get("list", [])):
             if "pc" in x:
                 continue
             x["address"] = (int(x["value"], 16) + off) & 0xFFFFFFFFFFFFFFFF
             if i < GEN2_PEEK:
                 try:
-                    x["data"] = self.live(x["address"], size)
+                    x["data"] = self.live(x["address"], 8)
                 except Exception:  # noqa: BLE001 - not an address
                     x["data"] = b""
         return st
@@ -766,6 +791,12 @@ class Game:
 
     def regwatch_start(self, mine):
         self.regwatch_stop()
+        if self.emu_regwatch:
+            index = mine["index"] or "-"
+            r = self.probe("regwatch start %X %s %s %d %X" % (mine["at"], mine["base"], index, mine["shift"],
+                                                           mine["disp"] & 0xFFFFFFFFFFFFFFFF))
+            self.rw = dict(mine, counts={}, total=0, on=True, hold=None, matched=None)
+            return r
         if self.held() is not None:
             raise RuntimeError("a thread is held at a breakpoint: Continue first")
         have = [l.split()[0] for l in self.probe("break list")[1:] if l.split()]
@@ -779,6 +810,9 @@ class Game:
         if rw is None or not rw["on"]:
             return
         rw["on"] = False
+        if self.emu_regwatch:
+            self.probe("regwatch stop")
+            return
         try:
             self.probe("break remove %X" % rw["at"])
         except RuntimeError:
@@ -791,11 +825,24 @@ class Game:
         """From now the thread stays held when the instruction uses this address (None: never)."""
         if self.rw is not None:
             self.rw["hold"] = address
+            if self.emu_regwatch:
+                self.probe("regwatch hold %s" % ("off" if address is None else "%X" % address))
 
     def regwatch_collect(self, ms):
         """Takes every hit for `ms` milliseconds (0: the one waiting, if any)."""
         rw = self.rw
         if rw is None or not rw["on"]:
+            return
+        if self.emu_regwatch:                       # emuhost takes the hits itself: only read them
+            r = self.probe("regwatch rows")
+            head = dict(x.split("=", 1) for x in r[0].split() if "=" in x)
+            rw["counts"] = {int(a, 16): int(n) for a, n in (l.split() for l in r[1:] if len(l.split()) == 2)}
+            rw["total"] = int(head.get("total", "0"))
+            rw["on"] = head.get("on") == "1"
+            if not rw["on"]:
+                self.probe("regwatch stop")         # it came off by itself (its hit limit)
+            if ms:
+                time.sleep(min(ms, 150) / 1000.0)
             return
         end = time.time() + ms / 1000.0
 
@@ -824,8 +871,10 @@ class Game:
                 return
             time.sleep(0.001)
 
-    def regwatch_rows(self):
-        """What the instruction watch has, in the shape `gen2 rows` answers."""
+    def regwatch_rows(self, offset=None):
+        """What the instruction watch has, in the shape `gen2 rows` answers. With `offset` the
+        addresses shown are the registers plus that offset instead of the watch's own; "value" stays
+        the address the instruction used (what a hold matches)."""
         rw = self.rw
         st = {"gen2": "probe", "breeze_expects": "probe", "ours": True, "read": False, "write": False, "type": "probe",
               "attached": False, "address": "0", "rows": 0, "trig": 0, "list": []}
@@ -833,11 +882,13 @@ class Game:
             return st
         self.regwatch_collect(0)
         st.update(attached=rw["on"], address="%X" % rw["at"], rows=len(rw["counts"]), trig=rw["total"])
+        delta = 0 if offset is None else offset - rw["disp"]
         for i, (a, n) in enumerate(list(rw["counts"].items())):
-            x = {"value": "%X" % a, "address": a, "count": n, "data": b""}
+            shown = (a + delta) & 0xFFFFFFFFFFFFFFFF
+            x = {"value": "%X" % a, "address": shown, "count": n, "data": b""}
             if i < GEN2_PEEK:
                 try:
-                    x["data"] = self.live(a, rw["size"])
+                    x["data"] = self.live(shown, 8)
                 except Exception:  # noqa: BLE001 - not an address
                     pass
             st["list"].append(x)
@@ -851,6 +902,32 @@ def access_size(mnem, ops):
         return {"b": 1, "h": 2, "w": 4}[m.group(1)], "i"
     r = ops.split(",")[0].strip().lower()[:1]
     return {"w": (4, "i"), "x": (8, "i"), "s": (4, "f"), "d": (8, "d"), "b": (1, "i"), "h": (2, "i")}.get(r, (8, "i"))
+
+
+# The instruction watch's "show as": (bytes, kind); kind "i" unsigned, "s" signed, "f" float, "d" double.
+SHOW_AS = {"auto": None, "u8": (1, "i"), "u16": (2, "i"), "u32": (4, "i"), "u64": (8, "i"),
+           "s8": (1, "s"), "s16": (2, "s"), "s32": (4, "s"), "s64": (8, "s"), "f32": (4, "f"), "f64": (8, "d")}
+
+
+def value_as(data, show, size, kind):
+    """(hex, as a number) of the first bytes of `data` read as `show` (a SHOW_AS key); "auto" is the
+    instruction's own size and kind, with no number for a plain 8-byte value (most are pointers)."""
+    pick = SHOW_AS.get(show)
+    if pick is None:
+        return value_text(data[:size], kind)
+    n, k = pick
+    data = data[:n]
+    if len(data) < n:
+        return "", ""
+    v = int.from_bytes(data, "little")
+    hexa = "%0*X" % (n * 2, v)
+    if k == "s":
+        return hexa, str(v - (1 << (8 * n)) if v >> (8 * n - 1) else v)
+    if k == "f":
+        return hexa, "%.7g" % struct.unpack("<f", data)[0]
+    if k == "d":
+        return hexa, "%.15g" % struct.unpack("<d", data)[0]
+    return hexa, str(v)
 
 
 def value_text(data, kind):
@@ -1022,8 +1099,11 @@ class Disassembler:
         mid = self.mid = tk.Frame(panes, bg=BG_PANEL)
         self.title = tk.Label(mid, text="", anchor="w", bg=BG_PANEL, fg="white", font=("Segoe UI", max(size, 9), "bold"))
         self.title.pack(fill="x")
-        tf = self.tf = tk.Frame(mid)
-        tf.pack(fill="both", expand=True)
+        # The listing over the watch pane, with a divider to drag (the watch pane is added on a host that has one).
+        self.vpanes = tk.PanedWindow(mid, orient="vertical", sashwidth=6, bg=BG_PANEL, bd=0, sashrelief="raised")
+        self.vpanes.pack(fill="both", expand=True)
+        tf = self.tf = tk.Frame(self.vpanes)
+        self.vpanes.add(tf, stretch="always", minsize=80)
         tbar = tk.Scrollbar(tf)
         tbar.pack(side="right", fill="y")
         self.text = tk.Text(tf, wrap="none", bg=BG, fg=FG, font=self.font, insertwidth=0, bd=0, highlightthickness=0,
@@ -1164,6 +1244,8 @@ class Disassembler:
         self.cfg["asm_c_open"] = self.c_open
         if self.c_open:
             self.cfg["asm_c_width"] = self.cpane.frame.winfo_width()
+        if str(self.g2_frame) in [str(w) for w in self.vpanes.panes()] and self.g2_frame.winfo_height() > 1:
+            self.cfg["asm_watch_height"] = self.g2_frame.winfo_height()
         self.save_cfg()
         if self.g2_probe and self.g2_on:     # its break must come off: a thread held with nobody to let it go
             self.worker.jobs.put((lambda game: game.regwatch_stop(), None))
@@ -1211,12 +1293,13 @@ class Disassembler:
         self.fill_list()
         if not (game.console or game.probe_debugger or "debug" in game.b.caps()):
             self.dbar.pack_forget()      # no debugger on this host: its buttons would only say so
-        self.g2_probe = bool(game.probe_debugger) and not game.console
+        self.g2_probe = bool(game.probe_debugger or game.emu_regwatch) and not game.console
         if game.console or self.g2_probe:
             if self.g2_probe:                # who touches an address is the Watch tab's there
                 self.g2_label.config(text=" probe:")
                 self.g2_who.pack_forget()
-            self.g2_frame.pack(side="bottom", fill="x", before=self.tf)
+            if str(self.g2_frame) not in [str(w) for w in self.vpanes.panes()]:
+                self.vpanes.add(self.g2_frame, stretch="never", minsize=90, height=self.cfg.get("asm_watch_height", 230))
             self.g2_refresh(quiet=True)
         last = self.cfg.get("asm_last", {}).get(game.bid)
         self.goto(last if last is not None and 0 <= last < game.text_size else (game.starts[0] if game.starts else 0))
@@ -1560,7 +1643,7 @@ class Disassembler:
             at_pc = self.pc_rva() == line["rva"]
             use(regs, "" if at_pc else "  (with the registers at the PC, which is not this line)")
             return
-        if not g.probe_debugger:
+        if not (g.probe_debugger or g.emu_regwatch):
             self.status.config(text="%s needs the registers: stop the game on this line first (Run to F4)" % text)
             return
 
@@ -1641,6 +1724,7 @@ class Disassembler:
         tk.Label(bar, text=" offset", **lab).pack(side="left")
         self.g2_off = tk.Entry(bar, width=7)
         self.g2_off.pack(side="left")
+        self.g2_off.bind("<Return>", lambda e: self.g2_refresh())
         tk.Label(bar, text="(hex; empty: the instruction's)", bg=BG_PANEL, fg=FG_DIM).pack(side="left")
         tk.Button(bar, text="Stop", command=self.on_g2_stop, takefocus=0).pack(side="left", padx=(8, 0))
         tk.Button(bar, text="Refresh", command=self.g2_refresh, takefocus=0).pack(side="left")
@@ -1651,6 +1735,11 @@ class Disassembler:
                            activebackground=BG_PANEL).pack(side="left")
         bar2 = tk.Frame(f, bg=BG_PANEL)
         bar2.pack(fill="x")
+        tk.Label(bar2, text=" show as", **lab).pack(side="left")
+        self.g2_as = ttk.Combobox(bar2, width=5, state="readonly", height=14, values=list(SHOW_AS))
+        self.g2_as.set("auto")
+        self.g2_as.pack(side="left")
+        self.g2_as.bind("<<ComboboxSelected>>", lambda e: self.g2_fill())
         bar = self.g2_who = tk.Frame(bar2, bg=BG_PANEL)
         bar.pack(side="left")
         tk.Label(bar, text=" who touches", bg=BG_PANEL, fg="white").pack(side="left")
@@ -1672,15 +1761,15 @@ class Disassembler:
         self.g2_info = tk.Label(bar2, text="", anchor="w", bg=BG_PANEL, fg=FG_NOTE)
         self.g2_info.pack(side="left", fill="x", expand=True, padx=8)
         box = tk.Frame(f)
-        box.pack(fill="x")
-        cols = ("a", "count", "b", "c", "d")
-        self.g2_tree = ttk.Treeview(box, columns=cols, show="headings", selectmode="browse", height=7)
-        for c, w in zip(cols, (150, 70, 260, 150, 260)):
-            self.g2_tree.column(c, width=w, anchor="w")
+        box.pack(fill="both", expand=True)
+        cols = ("n", "a", "count", "b", "c", "d")
+        self.g2_tree = ttk.Treeview(box, columns=cols, show="headings", selectmode="browse", height=4)
+        for c, w in zip(cols, (50, 150, 70, 260, 150, 260)):
+            self.g2_tree.column(c, width=w, anchor="e" if c in ("n", "count") else "w", stretch=c != "n")
         sb = ttk.Scrollbar(box, command=self.g2_tree.yview)
         self.g2_tree.configure(yscrollcommand=sb.set)
         sb.pack(side="right", fill="y")
-        self.g2_tree.pack(fill="x")
+        self.g2_tree.pack(fill="both", expand=True)
         self.g2_tree.bind("<Double-1>", lambda e: self.on_g2_open())
         menu = self.g2_menu = tk.Menu(self.g2_tree, tearoff=0)
         menu.add_command(label="Open (the address in Memory, the instruction in the listing)", command=self.on_g2_open)
@@ -1701,8 +1790,9 @@ class Disassembler:
         self.g2_heads(False)
 
     def g2_heads(self, memory):
-        heads = ("instruction", "hits", "in", "called from", "in") if memory else ("address", "hits", "holds now", "as a number", "")
-        for c, h in zip(("a", "count", "b", "c", "d"), heads):
+        heads = ("#", "instruction", "hits", "in", "called from", "in") if memory else \
+            ("#", "address", "hits", "holds now", "as a number", "")
+        for c, h in zip(("n", "a", "count", "b", "c", "d"), heads):
             self.g2_tree.heading(c, text=h)
 
     def g2_clear_to_start(self):
@@ -1784,7 +1874,8 @@ class Disassembler:
         def done(_r):
             self.g2 = mine
             self.g2_on = True
-            self.status.config(text="the probe records %s: each run holds its thread for a moment" % mine["text"])
+            self.status.config(text=("emuhost records %s: each run stops the game for a moment" if g.emu_regwatch else
+                                     "the probe records %s: each run holds its thread for a moment") % mine["text"])
             self.g2_refresh(quiet=True)
         self.job(lambda game: game.regwatch_start(mine), done, "probe: watching %s..." % mine["text"])
         return "break"
@@ -1881,10 +1972,23 @@ class Disassembler:
         self.g2_out = True
         self.g2_read = time.time()
         mine = self.g2
+        off = self.g2_view_offset()
         if self.g2_probe:
-            self.job(lambda game: game.regwatch_rows(), self.on_g2_rows, "" if quiet else "probe: reading the rows...")
+            self.job(lambda game: game.regwatch_rows(off), self.on_g2_rows, "" if quiet else "probe: reading the rows...")
             return
-        self.job(lambda game: game.gen2_rows(mine), self.on_g2_rows, "" if quiet else "gen2: reading the rows...")
+        self.job(lambda game: game.gen2_rows(mine, off), self.on_g2_rows, "" if quiet else "gen2: reading the rows...")
+
+    def g2_view_offset(self):
+        """The offset box, once a register watch runs: the rows show register + this offset (None:
+        empty or not hex, the watch's own). Changing it needs no new watch."""
+        mine = self.g2
+        if mine is None or mine["kind"] != "reg":
+            return None
+        try:
+            off = int(self.g2_off.get().strip(), 16)
+        except ValueError:
+            return None
+        return off if off != mine.get("disp", mine.get("offset", 0)) else None
 
     def on_g2_rows(self, st):
         self.g2_out = False
@@ -1898,8 +2002,12 @@ class Disassembler:
         elif int(st.get("address", "0"), 16) == 0:
             text = "no watch yet: F8 on an instruction, or an address to the left"
         else:
-            text = "%s: %s rows, %s hits%s%s" % (what, st.get("rows", 0), st.get("trig", 0),
-                                              "" if st.get("attached") else "  (stopped)",
+            off = self.g2_view_offset() if mine else None
+            shown = len(st.get("list", []))
+            text = "%s:  %s rows%s,  %s hits%s%s%s" % (
+                what, st.get("rows", 0), "" if shown == int(st.get("rows", 0) or 0) else " (%d listed)" % shown,
+                st.get("trig", 0), "  (shown at %+#x)" % off if off is not None else "",
+                "" if st.get("attached") else "  (stopped)",
                                               "  (%d could not be set)" % st["failed"] if st.get("failed") else "")
         self.g2_info.config(text=text)
         self.g2_list = [dict(x, memory="pc" in x) for x in st.get("list", [])]
@@ -1911,16 +2019,19 @@ class Disassembler:
         if self.g2_bycount.get():
             rows.sort(key=lambda x: -int(x.get("count", 0)))
         st = getattr(self, "g2_st", {})
-        fmt = self.g2["fmt"] if st.get("ours") and self.g2 and self.g2["kind"] == "reg" else "i"
+        reg = st.get("ours") and self.g2 and self.g2["kind"] == "reg"
+        fmt = self.g2["fmt"] if reg else "i"
+        size = self.g2["size"] if reg and self.g2.get("size") in (1, 2, 4, 8) else 8
+        show = self.g2_as.get()
         values, keys = [], []
-        for x in rows:
+        for n, x in enumerate(rows, 1):
             if x["memory"]:
-                values.append((x.get("pc", ""), x.get("count", ""), x.get("pc_name", ""), x.get("call_site", ""),
+                values.append((n, x.get("pc", ""), x.get("count", ""), x.get("pc_name", ""), x.get("call_site", ""),
                                x.get("call_site_name", "")))
                 keys.append(x.get("pc", "") + x.get("call_site", ""))
             else:
-                hexa, number = value_text(x.get("data", b""), fmt)
-                values.append(("%X" % x["address"], x.get("count", ""), hexa, number, x.get("call_site", "")))
+                hexa, number = value_as(x.get("data", b""), show, size, fmt)
+                values.append((n, "%X" % x["address"], x.get("count", ""), hexa, number, x.get("call_site", "")))
                 keys.append("%X" % x["address"] + x.get("call_site", ""))
         t = self.g2_tree
         kids = t.get_children()
@@ -1980,7 +2091,7 @@ class Disassembler:
             if not self.g2_on:
                 self.status.config(text="the watch is stopped: F8 starts it again")
                 return
-            a = x["address"]
+            a = int(x["value"], 16)                 # the address the instruction used, not the one shown
             self.job(lambda game: game.regwatch_hold(a), lambda _r: self.status.config(
                 text="the thread stays held at M+%X when it uses %X. Continue F5 runs on to the next; Stop ends it" % (
                     mine["rva"], a)))
