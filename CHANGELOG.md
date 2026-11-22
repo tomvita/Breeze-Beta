@@ -2,7 +2,7 @@
 
 ## [Beta 129.04] - 2026-11-22
 
-- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o), sys-ftp and emuhost (0.4) as 129.03; Breeze.nro differs only in its version. New: **pchost** (`pchost_0.5.zip`); changed: the PC tools (`pc_app.zip`).
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o) and sys-ftp as 129.03; Breeze.nro differs only in its version. New: **pchost** (`pchost_0.5.zip`); changed: the PC tools (`pc_app.zip`) and emuhost (`emuhost_0.5.zip`: the same as 0.4, except that the Unreal map logs it writes show whole 64-bit addresses).
 - **pchost: Breeze Studio on a PC game.** A small program that attaches to a 64-bit Windows game, as emuhost does to a game in an emulator: Search, Objects (Unreal), Memory, Bookmarks, Cheats, Engine, Watch and Code work on it. Start it with no name to pick the game from a list, or with part of its name (`pchost elliot`). Checked on The Adventures of Elliot (Unreal Engine 5.6): the maps, the player through Objects, an infinite HP cheat. See [PC Connect](docs/pcconnect.md#pchost) and the [Breeze Studio guide](docs/breeze%20studio.md#pc-games-pchost).
 - **Watch, Break and trace on a PC game:** who reads or writes an address, breakpoints that hold one thread, step, over, out and trace, on the PC's four debug registers (the game's code is never written). Quit pchost with Ctrl+C or by closing its window, not from the Task Manager while a watch or breakpoint is on.
 - **Studio's Code tab reads x86-64:** functions from the exe, calls named, `[rip+X]` resolved, Callers, and registers `rax`..`r15`.
