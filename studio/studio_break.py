@@ -7,10 +7,13 @@
   Call chain  the held thread's callers, innermost first (lr, then the x29 frames).
   Trace     runs N instructions from the held one and lists each with the registers it changed.
 
-Served by the Lichii fork's probe (probe break / held / step / over / cont / trace / setreg). On a
+Served by the Lichii fork's probe (probe break / held / step / over / cont / trace / setreg), and by
+pchost on a PC game in the same words (x86-64: the registers rax..r15, breakpoints in the CPU's
+debug registers, four shared with the data watches). On a
 Switch the same is Breeze's own Gen2 Action menu; a stock emulator has neither.
 Python 3 with tkinter only (capstone is used for the instructions when installed).
 """
+import re
 import struct
 import time
 import tkinter as tk
@@ -26,6 +29,12 @@ except Exception:  # noqa: BLE001
     CS = None
 
 REGS = ["x%d" % i for i in range(31)] + ["sp"]
+# pchost (a PC game, caps x64): the x86-64 registers, as its `probe held` names them.
+REGS_X64 = ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "sp"] + ["r%d" % i for i in range(8, 16)]
+try:
+    CS64 = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+except Exception:  # noqa: BLE001
+    CS64 = None
 
 
 def supported(back):
@@ -200,6 +209,55 @@ class BreakPanel:
             return
         self.do("out %d" % self.chain_tree.index(sel[0]))
 
+    def regs_list(self):
+        return REGS_X64 if getattr(self.app, "x64", False) else REGS
+
+    def text_x64(self, data, at):
+        """The x86-64 instruction at the start of data (read at `at`)."""
+        if CS64 is not None:
+            for ins in CS64.disasm(data[:15], at):
+                return "%-8s %s" % (ins.mnemonic, self.m_labels(ins.op_str))
+        return data[:8].hex().upper()
+
+    def m_labels(self, ops):
+        m = self.app.main
+        if not m:
+            return ops
+        return re.sub(r"0x[0-9a-f]{6,}", lambda x: self.rel(int(x.group(0), 16)), ops)
+
+    def window_x64(self, a, before=8, after=20):
+        """window() for x86-64: decoded from a point before `a` that lands on it exactly."""
+        back = 15 * before
+        data = self.app.client.peek(a - back, back + 15 * (after + 1))
+        if CS64 is None:
+            return [(a, "(pip install capstone to read these as instructions)", "here")]
+
+        def decode(k):
+            out, off = [], k
+            while off < len(data):
+                ins = next(CS64.disasm(data[off:off + 15], a - back + off), None)
+                if ins is None:
+                    return out if off > len(data) - 15 else None
+                out.append(ins)
+                off += ins.size
+            return out
+
+        listing = None
+        for k in range(back):
+            got = decode(k)
+            if got and any(i.address == a for i in got):
+                listing = got
+                break
+        listing = listing or decode(back) or []
+        at_a = next((n for n, i in enumerate(listing) if i.address == a), 0)
+        brk = {self.app.addr(x[0]) for x in self.breaks}
+        out = []
+        for ins in listing[max(0, at_a - before):at_a + after + 1]:
+            mark = "*" if ins.address in brk else " "
+            out.append((ins.address, "%s%-12s %-8s %s" % (mark, self.rel(ins.address), ins.mnemonic, self.m_labels(ins.op_str)),
+                        "here" if ins.address == a else "brk" if ins.address in brk else ""))
+        return out
+
     def text_of(self, word, at):
         if CS is not None:
             for ins in CS.disasm(struct.pack("<I", word), at):
@@ -209,6 +267,8 @@ class BreakPanel:
     def window(self, a, originals, before=8, after=20):
         """(address, text, tag) for the instructions around a, the one at a marked. A breakpoint's
         line shows the instruction it stands on."""
+        if getattr(self.app, "x64", False):
+            return self.window_x64(a, before, after)
         data = self.app.client.peek(a - before * 4, (before + after + 1) * 4)
         out = []
         for k in range(0, len(data) - 3, 4):
@@ -259,6 +319,13 @@ class BreakPanel:
                 cur[k] = self.app.addr(v) if k == "pc" else int(v, 16)
             rows.append(dict(cur))
         words = {}
+        if getattr(self.app, "x64", False):
+            texts = {}
+            for r in rows:
+                if r["pc"] not in texts:
+                    texts[r["pc"]] = self.text_x64(self.app.client.peek(r["pc"], 15), r["pc"])
+                r["text"] = texts[r["pc"]]
+            return rows
         for r in rows:
             pc = r["pc"]
             if pc not in words:
@@ -333,7 +400,7 @@ class BreakPanel:
             self.code.insert("end", text + "\n", tag)
             self.code_at.append(at)
         self.code.insert("end", "\n")
-        names = [n for n in REGS + ["pc", "pstate"] if n in regs]
+        names = [n for n in self.regs_list() + ["pc", "pstate", "eflags"] if n in regs]
         for i in range(0, len(names), 3):
             for n in names[i:i + 3]:
                 v = regs[n] if isinstance(regs[n], str) else "%X" % regs[n]
@@ -391,7 +458,7 @@ class BreakPanel:
             chg = ""
             if i + 1 < len(rows):
                 nxt = rows[i + 1]
-                chg = "  ".join("%s=%X" % (n, nxt[n]) for n in REGS if n in nxt and nxt[n] != r.get(n))
+                chg = "  ".join("%s=%X" % (n, nxt[n]) for n in self.regs_list() if n in nxt and nxt[n] != r.get(n))
             t.insert("", "end", values=(i, self.rel(r["pc"]), self.name(r["pc"]), r["text"], chg))
         self.app.said("trace: %d instructions. Each row shows what its instruction changed." % len(rows))
 
@@ -405,8 +472,8 @@ class BreakPanel:
         row, before = self.rows[i], self.rows[i - 1] if i else {}
         originals = {self.app.addr(x[0]): x[2] for x in self.breaks}
         self.app.run(lambda: self.window(row["pc"], originals),
-                     lambda code: self.draw(code, {n: row[n] for n in REGS if n in row},
-                                            {n: before[n] for n in REGS if n in before}, []))
+                     lambda code: self.draw(code, {n: row[n] for n in self.regs_list() if n in row},
+                                            {n: before[n] for n in self.regs_list() if n in before}, []))
 
     def show_picked(self, tree, column):
         where = self.picked(tree, column)
@@ -453,7 +520,8 @@ class BreakPanel:
     def set_register(self):
         t = self.reg.get().replace(" ", "")
         if "=" not in t:
-            self.app.said("write it as x0=1F (x0..x30, sp or pc; the value in hex)")
+            self.app.said("write it as rax=1F (rax..r15, sp or pc; the value in hex)" if getattr(self.app, "x64", False)
+                          else "write it as x0=1F (x0..x30, sp or pc; the value in hex)")
             return
         name, value = t.split("=", 1)
         self.do("setreg %s %s" % (name.lower(), value), force=True)

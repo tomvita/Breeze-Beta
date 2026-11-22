@@ -62,6 +62,13 @@ breaks:
   The list beside it picks the format: 8-byte values with what each points
   at, 4-byte hex, signed, float, double, 2-byte, or bytes with their text.
 
+On a PC game (pchost, caps x64) the listing is x86-64: functions from the exe's .pdata (a leaf
+function, which has no entry, shows as the piece after the function before it), [rip+X] shown as
+the address it reads and what is there, Callers found on the PC (every call / jmp rel32 to the
+function, the code read once). Breakpoints, the instruction watch, Patch, Hook and the C pane are
+ARM64 tools and stay off there; Break, Step, Over, Run to and the registers work through
+pchost's probe (hardware breakpoints, rax..r15).
+
 Code is read 4 KB at a time and kept, so going back to a function is instant;
 Reload reads it again (after a cheat or a hook has changed it). The window
 uses a connection of its own.
@@ -80,6 +87,7 @@ from tkinter import filedialog, messagebox, ttk
 
 import capstone
 from capstone import arm64_const as A
+from capstone.x86_const import X86_OP_IMM, X86_OP_MEM, X86_REG_RIP
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pcconnect import Breeze, game_caption  # noqa: E402
@@ -107,6 +115,16 @@ GEN2_PEEK = 64              # rows of an instruction watch whose address is read
 FORMATS = ("8 bytes + what it is", "4 bytes hex", "4 bytes signed", "float", "double", "2 bytes hex", "bytes + text")
 VECTOR_VIEWS = ("d and s", "4 s", "2 d")      # how a vector register shows: its scalars, or every lane
 REG_NAMES = ["x%d" % i for i in range(29)] + ["fp", "lr", "sp", "pc", "pstate"]
+# pchost (a PC game): the x86-64 registers as its `probe held` names them.
+X64_REG_NAMES = ["rax", "rbx", "rcx", "rdx", "rsi", "rdi", "rbp", "sp"] + ["r%d" % i for i in range(8, 16)] + ["pc", "eflags"]
+
+
+def reg_list(st, x64):
+    """[(name, hex text)] of a stopped state: x0..x29, fp, lr, sp, pc, pstate; on x64 rax..r15, sp, pc, eflags."""
+    if x64:
+        r = st.get("regs") or {}
+        return [(n, r.get(n, "0")) for n in X64_REG_NAMES]
+    return list(zip(REG_NAMES, st.get("x", []) + [st.get("sp"), st.get("pc"), st.get("pstate")]))
 
 BRANCHES = {"b", "bl", "cbz", "cbnz", "tbz", "tbnz"}
 CALLER_SAVED = set(range(A.ARM64_REG_X0, A.ARM64_REG_X0 + 19)) | {A.ARM64_REG_X29, A.ARM64_REG_X30}
@@ -189,6 +207,13 @@ class Game:
         self.probe_debugger = None   # an emulator host whose probe has breakpoints (the Lichii fork)
         self.run_to = None           # the breakpoint a Run to put, taken off at the next stop
         self.console = "ui" in b.caps()   # Breeze on a Switch: the host with gen2's watches
+        # pchost: a PC game, x86-64 code in a PE image. Its "heap" is the whole address space (heap+X = X),
+        # so no heap+ labels; functions come from the exe's .pdata.
+        self.x64 = "x64" in b.caps()
+        if self.x64:
+            self.heap, self.heap_size = 0, 0
+        self.pdata_end = {}          # x64: a function's start -> its end, from .pdata
+        self.pe_dirs, self.text_bytes, self.exec_ranges = [], None, []
         self.rw = None               # the instruction watch run from here on the Lichii fork's probe
         if not self.console and "debug" not in b.caps():
             r = b.cmd("probe held")
@@ -206,11 +231,56 @@ class Game:
         """The size of the code region main starts with (and every code module, in self.mods)."""
         lines = self.b.cmd("maps").split("\n")[1:]
         self.mods = code_modules.code_modules(lines, self.main)
+        if self.x64:
+            # The exe's first executable section is the game's code (whatever it is called: a protector
+            # renames them, and may add executable sections of its own further up, kept in exec_ranges).
+            self.exec_ranges = sorted((va, va + size) for _name, va, size, flags in self.pe_sections()
+                                      if flags & 0x20000000)
+            return self.exec_ranges[0][1] if self.exec_ranges else self.main_size
         for line in lines:
             p = line.split()
             if len(p) >= 3 and int(p[0], 16) == self.main and "x" in p[2]:
                 return int(p[1], 16)
         return self.main_size
+
+    def pe_sections(self):
+        """x64: the exe's sections [(name, rva, size, flags)]; self.pe_dirs gets its data directories."""
+        h = self.b.peek(self.main, 0x1000)
+        pe = struct.unpack_from("<I", h, 0x3C)[0]
+        if h[pe:pe + 4] != b"PE\0\0":
+            return []
+        count, opt_size = struct.unpack_from("<H", h, pe + 6)[0], struct.unpack_from("<H", h, pe + 20)[0]
+        opt = pe + 24
+        self.pe_dirs = [struct.unpack_from("<II", h, opt + 112 + 8 * i) for i in range(16)]
+        out, o = [], opt + opt_size
+        for _ in range(count):
+            if o + 40 > len(h):
+                break
+            size, va = struct.unpack_from("<II", h, o + 8)
+            out.append((h[o:o + 8].rstrip(b"\0").decode("ascii", "replace"), va, size, struct.unpack_from("<I", h, o + 36)[0]))
+            o += 40
+        return out
+
+    def read_big(self, addr, n):
+        """n bytes in one go (peekb, up to 16 MB a reply); b"" when they cannot be read."""
+        out = b""
+        while len(out) < n:
+            k = min(n - len(out), 0x1000000)
+            self.b.sock.sendall(("peekb %X %d\n" % (addr + len(out), k)).encode())
+            hdr = self.b._line()
+            if not hdr.startswith("+OK"):
+                return b""
+            want = int(hdr.split("bytes=")[1].split()[0])
+            while len(self.b.buf) < want:
+                d = self.b.sock.recv(1 << 20)
+                if not d:
+                    raise ConnectionError("PC connect closed the connection")
+                self.b.buf += d
+            piece, self.b.buf = self.b.buf[:want], self.b.buf[want:]
+            if len(piece) != k:
+                return b""
+            out += piece
+        return out
 
     # ------------------------------------------------------------ memory
     def read(self, addr, n):
@@ -233,6 +303,8 @@ class Game:
 
     def is_code(self, rva):
         """An offset from main that is code: main's, or another module's (rtld, subsdk, sdk)."""
+        if self.x64 and any(lo <= rva < hi for lo, hi in self.exec_ranges):
+            return True
         return 0 <= rva < self.text_size or code_modules.module_of(self.mods, self.main + rva) is not None
 
     def label(self, rva):
@@ -265,6 +337,15 @@ class Game:
             pass
         have = {f["name"]: f["size"] for f in files.get("files", []) if "size" in f}
         starts, names, source = set(), {}, []
+        if self.x64 and len(self.pe_dirs) > 3 and self.pe_dirs[3][1]:
+            # .pdata: RUNTIME_FUNCTION {begin, end, unwind} for every function that is not a leaf.
+            rva, size = self.pe_dirs[3]
+            data = self.read_big(self.main + rva, size - size % 12)
+            for begin, end, _unwind in struct.iter_unpack("<III", data):
+                if begin < end <= self.text_size:
+                    starts.add(begin)
+                    self.pdata_end[begin] = max(self.pdata_end.get(begin, 0), end)
+            source.append("%d from .pdata" % len(self.pdata_end))
         eh = "ehframe_%s.bin" % self.bid[:16]
         if eh in have:
             data = self.cached_file(eh, have[eh])
@@ -310,6 +391,11 @@ class Game:
         if i < 0:
             return None
         end = self.starts[i + 1] if i + 1 < len(self.starts) else self.text_size
+        known = self.pdata_end.get(self.starts[i])
+        if known is not None:
+            # x64: .pdata gives the end. Past it, up to the next start: a leaf function (no .pdata
+            # entry) or padding, shown as a piece of its own.
+            return (self.starts[i], min(known, end)) if rva < known else (known, end)
         return self.starts[i], end
 
     def where(self, rva):
@@ -331,7 +417,7 @@ class Game:
                 return "data", "heap+%X" % (addr - self.heap)
             return "data", ""
         rva = addr - self.main
-        if rva < self.text_size:
+        if rva < self.text_size or (self.x64 and self.is_code(rva)):
             return "code", self.where(rva)
         try:
             data = self.read(addr, 48)
@@ -357,6 +443,8 @@ class Game:
     # ------------------------------------------------------------ disassembly
     def view(self, rva):
         """The function holding rva, disassembled: (start, end, title, lines)."""
+        if self.x64:
+            return self.view_x64(rva)
         rva &= ~3
         f = self.func_of(rva)
         if f is None or rva >= self.text_size:
@@ -464,6 +552,72 @@ class Game:
                 i = bisect.bisect_left(self.starts, t)
                 if i == len(self.starts) or self.starts[i] != t:
                     self.starts.insert(i, t)
+        return start, end, title, lines
+
+    def view_x64(self, rva):
+        """view() for x86-64 (pchost): instructions of any length, decoded from the function's start,
+        calls and jumps named, [rip+X] resolved to the address and what is there."""
+        f = self.func_of(rva) if 0 <= rva < self.text_size else None
+        if f is None:
+            start, end = rva, min(rva + 0x400, self.text_size) if rva < self.text_size else rva + 0x400
+            title = "M+%X (no function here)" % rva if 0 <= rva < self.text_size else "%s" % self.label(rva)
+        else:
+            start, end = f
+            title = "%s   M+%X..%X  (%d bytes)" % (self.name_of(start), start, end, end - start)
+            if end - start > MAX_VIEW:
+                start = max(start, min(rva - 0x1000, end - MAX_VIEW))
+                end = start + MAX_VIEW
+                title += "   showing M+%X..%X" % (start, end)
+        code = self.read(self.main + start, end - start)
+        md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+        md.detail = True
+        lines, local = [], set()
+        off = 0
+        while off < len(code):
+            at = start + off
+            ins = next(md.disasm(code[off:off + 16], self.main + at), None)
+            if ins is None:
+                lines.append({"rva": at, "word": 0, "raw": code[off:off + 1], "mnem": "db", "ops": "%02X" % code[off],
+                              "kind": "", "target": None, "note": ""})
+                off += 1
+                continue
+            off += ins.size
+            line = {"rva": at, "word": 0, "raw": bytes(ins.bytes), "mnem": ins.mnemonic, "ops": ins.op_str, "kind": "",
+                    "target": None, "note": ""}
+            lines.append(line)
+            ops = ins.operands
+            is_call = ins.group(capstone.CS_GRP_CALL)
+            is_jump = ins.group(capstone.CS_GRP_JUMP)
+            if ins.group(capstone.CS_GRP_RET) or ins.mnemonic in ("ret", "retf", "int3", "ud2"):
+                line["kind"] = "ret"
+            elif is_call or is_jump:
+                line["kind"] = "call" if is_call else "jump"
+                if len(ops) == 1 and ops[0].type == X86_OP_IMM:
+                    target = ops[0].imm - self.main
+                    line["target"] = target
+                    if is_call:
+                        line["note"] = short(self.where(target))
+                    elif start <= target < end:
+                        local.add(target)
+                        line["note"] = "down" if target > at else "up"
+                    else:
+                        line["note"] = "-> " + short(self.where(target))
+                    line["ops"] = line["ops"].replace("0x%x" % ops[0].imm, self.label(target))
+            # [rip + X]: the address it builds, and what is there.
+            for op in ops:
+                if op.type == X86_OP_MEM and op.mem.base == X86_REG_RIP:
+                    built = ins.address + ins.size + op.mem.disp
+                    line["addr"] = built
+                    kind, text = self.describe(built)
+                    where = "M+%X" % (built - self.main) if self.in_main(built) else "%X" % built
+                    line["ops"] = re.sub(r"\[rip [+-] 0x[0-9a-f]+\]", "[%s]" % where, line["ops"])
+                    if self.in_main(built) and line["target"] is None:
+                        line["target"] = built - self.main
+                    line["note"] = (line["note"] + "  " if line["note"] else "") + where + ("  " + text if text else "")
+                    line["kind"] = line["kind"] or kind
+                    break
+        for line in lines:
+            line["label"] = line["rva"] in local
         return start, end, title, lines
 
     def code_page(self, rva):
@@ -631,10 +785,11 @@ class Game:
         self.break_word = 0xD4284840
         if stopped and len(r) > 1:
             kv = dict(x.split("=", 1) for x in r[1].split())
+            st["regs"] = kv
             st["x"] = [kv.get("x%d" % i, "0") for i in range(31)]
             st["sp"], st["pc"], st["pstate"] = kv.get("sp", "0"), kv.get("pc", "0"), kv.get("pstate", "0")
             st["stack"] = self.block(int(st["sp"], 16))
-            if vectors:
+            if vectors and not self.x64:     # pchost sends no vector registers
                 r = self.probe("held v")
                 if len(r) > 3:
                     kv = dict(x.split("=", 1) for x in r[3].split())
@@ -647,6 +802,19 @@ class Game:
         text) for one that goes through registers, or None when it uses none."""
         if line.get("addr") is not None:
             return ("static", line["addr"])
+        if self.x64:
+            md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+            md.detail = True
+            for ins in md.disasm(line.get("raw", b""), self.main + line["rva"]):
+                for op in ins.operands:
+                    if op.type == X86_OP_MEM and op.mem.base != 0:
+                        base = ins.reg_name(op.mem.base)
+                        index = ins.reg_name(op.mem.index) if op.mem.index != 0 else None
+                        shift = {1: 0, 2: 1, 4: 2, 8: 3}.get(op.mem.scale, 0) if index else 0
+                        text = "%s%s%s" % (base, "+%s*%d" % (index, op.mem.scale) if index else "",
+                                           "%+#x" % op.mem.disp if op.mem.disp else "")
+                        return ("reg", base, index, shift, op.mem.disp, text)
+            return None
         md = capstone.Cs(capstone.CS_ARCH_ARM64, capstone.CS_MODE_ARM)
         md.detail = True
         for ins in md.disasm(struct.pack("<I", line["word"]), self.main + line["rva"]):
@@ -728,8 +896,44 @@ class Game:
         return st
 
     def callers(self, rva):
+        if self.x64:
+            # On the PC: every call rel32 (E8) and jmp rel32 (E9, a tail call) in the code that lands
+            # there. The code is read once (peekb) and kept. Calls through a pointer are not found.
+            if self.text_bytes is None:
+                self.text_bytes = self.read_big(self.main, self.text_size)
+            code, hits = self.text_bytes, []
+            try:
+                import numpy as np
+                a = np.frombuffer(code, dtype=np.uint8)
+                pos = np.flatnonzero((a[:-5] == 0xE8) | (a[:-5] == 0xE9))
+                rel = (a[pos + 1].astype(np.uint32) | a[pos + 2].astype(np.uint32) << 8 |
+                       a[pos + 3].astype(np.uint32) << 16 | a[pos + 4].astype(np.uint32) << 24).view(np.int32)
+                hits = [int(h) for h in pos[pos + 5 + rel.astype(np.int64) == rva]]
+            except ImportError:      # without numpy: the same, a byte at a time (slow on a big game)
+                for op in (b"\xE8", b"\xE9"):
+                    at = code.find(op)
+                    while 0 <= at < len(code) - 5:
+                        if at + 5 + struct.unpack_from("<i", code, at + 1)[0] == rva:
+                            hits.append(at)
+                        at = code.find(op, at + 1)
+            # A byte pattern can also match inside another instruction: keep the hits that decode as
+            # a call / jmp from the start of their function.
+            return [(h, self.where(h)) for h in sorted(hits) if self.decodes_at(h)]
         hits = self.b.xref_call(self.main + rva)
         return [(h, self.where(h)) for h in hits]
+
+    def decodes_at(self, rva):
+        """x64: rva starts an instruction when its function is decoded from the function's start
+        (true when no function is known: nothing to check against)."""
+        f = self.func_of(rva)
+        if f is None or rva - f[0] > MAX_VIEW:
+            return True
+        md = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)
+        code, at = self.text_bytes, f[0]
+        while at < rva:
+            ins = next(md.disasm(code[at:at + 16], self.main + at), None)
+            at += ins.size if ins is not None else 1
+        return at == rva
 
     def code_watch(self):
         """The last code watch's result: [(order, rva, caller rva or None, name, new)]."""
@@ -1123,6 +1327,7 @@ class Disassembler:
         self.text.bind("<Double-Button-1>", self.on_follow)
         self.text.bind("<Return>", self.on_follow)
         menu = tk.Menu(self.text, tearoff=0)
+        self.code_menu = menu
         menu.add_command(label="Memory this instruction uses", command=self.on_operand_memory)
         menu.add_command(label="Go where it points (call, jump, address)", command=lambda: self.on_follow_cur())
         menu.add_separator()
@@ -1293,6 +1498,16 @@ class Disassembler:
         self.fill_list()
         if not (game.console or game.probe_debugger or "debug" in game.b.caps()):
             self.dbar.pack_forget()      # no debugger on this host: its buttons would only say so
+        if game.x64:
+            # pchost: x86-64 code. Breakpoints and steps go through its probe (hardware breakpoints); the
+            # instruction watch, patches and hooks are ARM64 tools.
+            for i in range(self.code_menu.index("end") + 1):
+                try:
+                    label = self.code_menu.entrycget(i, "label")
+                except tk.TclError:
+                    continue      # a separator
+                if label.startswith(("Watch: the addresses", "Patch", "Hook")):
+                    self.code_menu.entryconfig(i, state="disabled")
         self.g2_probe = bool(game.probe_debugger or game.emu_regwatch) and not game.console
         if game.console or self.g2_probe:
             if self.g2_probe:                # who touches an address is the Watch tab's there
@@ -1479,6 +1694,9 @@ class Disassembler:
 
     # ------------------------------------------------------------ the C pane
     def toggle_c(self):
+        if not self.c_open and self.game is not None and self.game.x64:
+            self.status.config(text="the C pane decompiles ARM64 code: not for a PC game yet")
+            return "break"
         if self.c_open:
             self.cfg["asm_c_width"] = self.cpane.frame.winfo_width()
             self.panes.forget(self.cpane.frame)
@@ -1505,7 +1723,10 @@ class Disassembler:
         where = "M+%-7X" % rva if 0 <= rva < self.game.main_size else "%-9s" % self.game.label(rva)
         parts = [("%s %s" % (">" if line["label"] else " ", where), "label" if line["label"] else "addr")]
         if self.bytes_var.get():
-            parts.append((" %08X" % line["word"], "word"))
+            if "raw" in line:    # x64: the instruction's bytes, 1 to 15
+                parts.append((" %-20s" % line["raw"].hex().upper()[:20], "word"))
+            else:
+                parts.append((" %08X" % line["word"], "word"))
         parts.append(("  %-7s %-34s" % (line["mnem"], line["ops"]), line["kind"] if line["kind"] in ("call", "jump", "ret") else ""))
         if line["note"]:
             parts.append(("  ; " + line["note"], "str" if line["kind"] == "str" else "note"))
@@ -1523,17 +1744,27 @@ class Disassembler:
             self.row_of[line["rva"]] = n
             for text, tag in self.line_text(line):
                 t.insert("end", text, (tag,) if tag else ())
+        self.line_rvas = [line["rva"] for line in self.lines]
         t.config(state="disabled")
         t.yview_moveto(top)
         if self.cur is not None:
             self.set_cur(self.cur)
         self.mark_debug()
 
+    def line_start(self, rva):
+        """The listing's line that holds rva: every 4 bytes on ARM64; on x64 the instruction at or before it."""
+        if self.game is None or not self.game.x64:
+            return rva & ~3
+        starts = self.line_rvas if getattr(self, "line_rvas", None) else sorted(self.row_of)
+        i = bisect.bisect_right(starts, rva) - 1
+        return starts[i] if i >= 0 else rva
+
     def set_cur(self, rva):
-        row = self.row_of.get(rva & ~3)
+        rva = self.line_start(rva)
+        row = self.row_of.get(rva)
         if row is None:
             return
-        self.cur = rva & ~3
+        self.cur = rva
         t = self.text
         t.tag_remove("cur", "1.0", "end")
         t.tag_add("cur", "%d.0" % row, "%d.0" % (row + 1))
@@ -1623,7 +1854,10 @@ class Disassembler:
 
         def value(regs, name):
             name = {"x29": "fp", "x30": "lr"}.get(name, name) if "fp" in regs else name
+            name = {"rsp": "sp", "rip": "pc"}.get(name, name) if "rax" in regs else name
             v = regs.get(name)
+            if v is None and "rax" in regs and name.startswith("e") and "r" + name[1:] in regs:
+                v = regs["r" + name[1:]] & 0xFFFFFFFF     # eax: the low half of rax
             if v is None and name.startswith("w"):
                 v = regs.get("x" + name[1:])
                 v = v & 0xFFFFFFFF if v is not None else None
@@ -1639,7 +1873,7 @@ class Disassembler:
 
         st = self.dbg
         if st.get("stopped"):
-            regs = dict(zip(REG_NAMES, [int(v, 16) for v in st["x"] + [st["sp"], st["pc"], st["pstate"]]]))
+            regs = {n: int(v, 16) for n, v in reg_list(st, g.x64)}
             at_pc = self.pc_rva() == line["rva"]
             use(regs, "" if at_pc else "  (with the registers at the PC, which is not this line)")
             return
@@ -2167,7 +2401,7 @@ class Disassembler:
         moved = st.get("stopped") and (not was.get("stopped") or was.get("pc") != st.get("pc"))
         if moved:
             if was.get("stopped"):
-                self.regs_before = was.get("x", []) + [was.get("sp"), was.get("pc"), was.get("pstate")]
+                self.regs_before = [v for _n, v in reg_list(was, self.game is not None and self.game.x64)]
                 self.v_before = was.get("v")
             if pc is not None and pc < g.text_size:
                 self.goto(pc, record=not (self.lines and self.start <= pc < self.end))
@@ -2266,14 +2500,15 @@ class Disassembler:
             t.config(state="disabled")
             return
         self.regs_title.config(text="click = memory there, double-click = change")
-        values = st["x"] + [st["sp"], st["pc"], st["pstate"]]
         before = self.regs_before or []
-        for n, (name, value) in enumerate(zip(REG_NAMES, values), 1):
+        for n, (name, value) in enumerate(reg_list(st, g.x64), 1):
             v = int(value, 16)
             changed = n - 1 < len(before) and before[n - 1] is not None and before[n - 1] != value
             note = ""
             if name == "pstate":
                 note = "".join(c if v >> b & 1 else "-" for c, b in (("N", 31), ("Z", 30), ("C", 29), ("V", 28)))
+            elif name == "eflags":
+                note = "".join(c if v >> b & 1 else "-" for c, b in (("O", 11), ("S", 7), ("Z", 6), ("C", 0)))
             elif g.in_main(v):
                 rva = v - g.main
                 note = "M+%X %s" % (rva, short(g.where(rva)) if rva < g.text_size else "")
@@ -2281,7 +2516,7 @@ class Disassembler:
                 note = "heap+%X" % (v - g.heap)
             if n > 1:
                 t.insert("end", "\n")
-            t.insert("end", "%-6s" % name, ("name",))
+            t.insert("end", "%-7s" % name, ("name",))
             t.insert("end", "%016X" % v, ("changed",) if changed else ())
             if note:
                 t.insert("end", "  " + note, ("note",))
@@ -2291,9 +2526,11 @@ class Disassembler:
     def reg_value(self, name):
         """A general register of the stopped game, or None."""
         st = self.dbg
-        if not st.get("stopped") or name not in REG_NAMES:
+        if not st.get("stopped"):
             return None
-        return int((st["x"] + [st["sp"], st["pc"], st["pstate"]])[REG_NAMES.index(name)], 16)
+        name = {"rsp": "sp", "rip": "pc"}.get(name, name)
+        regs = dict(reg_list(st, self.game is not None and self.game.x64))
+        return int(regs[name], 16) if name in regs else None
 
     def mem_address(self, text):
         """What is typed into the memory box: terms joined by + or -, each hex, M+off, heap+off or a register."""
@@ -2389,7 +2626,7 @@ class Disassembler:
 
     def on_reg_click(self, e):
         row, name = self.reg_at(e)
-        if name is None or name == "pstate" or name.startswith("v"):
+        if name is None or name in ("pstate", "eflags") or name.startswith("v"):
             return
         self.regs.tag_remove("cur", "1.0", "end")
         self.regs.tag_add("cur", "%d.0" % row, "%d.0" % (row + 1))

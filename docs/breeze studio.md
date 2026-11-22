@@ -273,6 +273,17 @@ Studio is not only for a Switch. The same window works with a game running in an
 - **Save to SD** in the Cheats tab starts the cheat file the way Breeze does: a `[Breeze ... TID: ... BID: ...]` line and your signature from Breeze's settings.
 - **Find pointer chains to here** (Memory tab) works only here, not with a Switch yet.
 
+## PC games (pchost)
+
+Studio also works on a game that runs on the PC itself (64-bit Windows), through `pchost`, a small program that attaches to the game's process. Start the game, then `pchost.exe` (double-click it, or run it with part of the game's name, `pchost elliot`): with no name it lists the programs that have a window and you type the game's number. Then connect Studio to `127.0.0.1`. [PC Connect](pcconnect.md#pchost) and pchost's README have the details.
+
+- Search, Objects (Unreal), Memory, Bookmarks, Cheats, Engine, Watch (with **Break and trace**) and Code work. There is no Screen or Files tab.
+- The **Code** tab reads x86-64: functions come from the exe, calls and jumps are named, `[rip+X]` shows the address and what is there, and **Callers** works. **Patch this instruction**, **Hook here**, the instruction watch (F8) and Decompile are for Switch code and stay off.
+- In the **Watch** tab a row's instruction is the one *after* the access (a PC stops after the instruction has run); the code beside the row marks the one that made it.
+- A breakpoint holds the thread that reaches it while the rest of the game runs on; if that thread runs the game, the game waits until you press **Continue**. Breakpoints and watches share the PC's four debug registers. The registers show as `rax` to `r15`, `sp`, `pc` and `eflags`.
+- The game's folder and cheat file are under `pchost_sd` next to pchost.exe, where they would be on a Switch's SD card; pchost prints the cheat file's path when it attaches.
+- Quit pchost with **Ctrl+C** or by closing its window, never from the Task Manager while a watch or a breakpoint is on: the game would crash.
+
 ## Example: freezing the round timer in Overcooked! 2
 
 A whole cheat, from the number on the screen to the code that counts it. Overcooked! 2 1.0.0 (build A9C2FE9E764D064E, Unity), running in the Lichii fork. The steps are the same on a Switch; there gen2 runs one watch at a time and the game only runs while Breeze is hidden.

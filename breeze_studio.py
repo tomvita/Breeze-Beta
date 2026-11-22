@@ -44,7 +44,7 @@ import pcconnect_app  # noqa: E402
 NAME = "Breeze Studio"
 # The Breeze release this Studio comes with (pc_app.zip). Run from the Breeze repo, the version in
 # source/appversion.cpp is shown instead, so a checkout never shows a stale one.
-VERSION = "beta129.03"
+VERSION = "beta129.04"
 
 
 def studio_version():

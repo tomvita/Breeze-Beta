@@ -31,6 +31,7 @@ import bisect
 import json
 import os
 import queue
+import re
 import socket
 import struct
 import sys
@@ -47,8 +48,9 @@ import studio_link  # noqa: E402
 try:
     import capstone
     CS = capstone.Cs(capstone.CS_ARCH_ARM64, capstone.CS_MODE_ARM)
+    CS64 = capstone.Cs(capstone.CS_ARCH_X86, capstone.CS_MODE_64)   # pchost: a PC game
 except Exception:  # noqa: BLE001
-    CS = None
+    CS = CS64 = None
 
 CACHE = os.path.join(os.path.expanduser("~"), ".breeze_pc_cache")
 
@@ -232,7 +234,12 @@ class ProbeBack(Back):
         self.has_code = status.get("code") is not None
         self.code_views = ("new", "all", "hot")
         slots = status.get("data", {}).get("slots")
-        if slots:
+        if status.get("host") == "pc":
+            # pchost: the CPU's debug registers, 1, 2, 4 or 8 aligned bytes each; x86 breaks after the access.
+            self.lengths = (1, 2, 4, 8)
+            self.note = ("a PC game: %d debug registers, pc is the instruction AFTER the access; the watches come "
+                         "off after %s hits" % (slots or 4, status["data"].get("max", "?")))
+        elif slots:
             self.note = ("a stock emulator: each hit stops the game for a moment, %d watches at most, and they come "
                          "off after %s hits" % (slots, status["data"].get("max", "?")))
 
@@ -508,6 +515,7 @@ class App:
     def connect(self):
         self.client = Client(self.host, self.port, self.code, "studio_watch")
         caps = self.client.cmd("caps").split()[1:]
+        self.x64 = "x64" in caps     # pchost: x86-64 code, and a row's pc is the instruction after the access
         meta = {}
         try:
             meta = json.loads(self.client.cmd("meta")[4:])
@@ -895,6 +903,8 @@ class App:
             a = self.addr(where.split()[0])
         except (ValueError, IndexError):
             return []
+        if getattr(self, "x64", False):
+            return self.code_around_x64(a, before, after)
         data = self.client.peek(a - before * 4, (before + after + 1) * 4)
         out = []
         for k in range(0, len(data) - 3, 4):
@@ -909,6 +919,49 @@ class App:
             out.append(("%-12s %s" % (rel, text), "here" if at == a else ""))
         if CS is None and out:
             out.append(("(pip install capstone to read these as instructions)", ""))
+        return out
+
+    def code_around_x64(self, a, before, after):
+        """code_around for x86-64 (pchost): instructions have any length, so the listing is decoded
+        from a point before `a` that lands on it exactly (x86 falls into step within a few
+        instructions). A data watch's pc is the instruction after the access: the one that ends at
+        `a` is marked as the access."""
+        back = 15 * max(before, 4)
+        data = self.client.peek(a - back, back + 15 * (after + 1))
+        if CS64 is None:
+            return [("(pip install capstone to read these as instructions)", "")]
+
+        def decode(k):
+            out, off = [], k
+            while off < len(data):
+                ins = next(CS64.disasm(data[off:off + 15], a - back + off), None)
+                if ins is None:
+                    return out if off > len(data) - 15 else None   # the end of what was read cuts it
+                out.append(ins)
+                off += ins.size
+            return out
+
+        listing = None
+        for k in range(0, back):             # the furthest start that falls on a exactly
+            got = decode(k)
+            if got and any(i.address == a for i in got):
+                listing = got
+                break
+        if listing is None:
+            listing = decode(back) or []
+        at_a = next((n for n, i in enumerate(listing) if i.address == a), 0)
+        out = []
+        for n, ins in enumerate(listing[max(0, at_a - before):at_a + after + 1], max(0, at_a - before)):
+            in_main = self.main and self.main <= ins.address < self.main + 0x40000000
+            rel = "M+%X" % (ins.address - self.main) if in_main else "%X" % ins.address
+            mark, note = "", ""
+            if n == at_a - 1:
+                mark, note = "here", "   <- the access (the row's pc is the next instruction)"
+            ops = ins.op_str
+            if self.main:     # call / jump targets in main as M+offset
+                ops = re.sub(r"0x[0-9a-f]{6,}", lambda m: "M+%X" % (int(m.group(0), 16) - self.main)
+                             if self.main <= int(m.group(0), 16) < self.main + 0x40000000 else m.group(0), ops)
+            out.append(("%-12s %-22s %-8s %s%s" % (rel, ins.bytes.hex().upper(), ins.mnemonic, ops, note), mark))
         return out
 
     # ------------------------------------------------------------------ what code ran

@@ -766,6 +766,7 @@ The same protocol is served for a game that runs in an emulator. A client asks
 | Breeze on a console | `source/pcconnect.cpp` | dmnt |
 | an emulator with Breeze's core built in (Lichii) | `core/pcserver/`, inside the emulator | the emulator's own memory and cheat VM |
 | any yuzu-family emulator, unchanged | `core/emuhost/emuhost.exe`, a program next to it | the emulator's GDB stub and its memory mirror |
+| a Windows game on this PC (x86-64) | `core/pchost/pchost.exe`, a program next to it | the game's own process: Windows' process and debug calls |
 
 `caps` answers `+OK` and the names, separated by spaces. A Breeze from
 before this command answers `-ERR`; treat that as "a console: everything in
@@ -932,6 +933,43 @@ the first instruction of `EventSystem::Update`, `DOTweenComponent::Update`,
 stopped every memory sample from changing (3 of 400 changed a second before, 0
 while patched), and the game went on once the instruction was put back. The
 same patch on two methods that do not run every frame changed nothing.
+
+### pchost
+
+`pchost.exe` serves PC connect for a game running natively on the PC (64-bit Windows), the way
+emuhost does for a game in an emulator. Releases carry it as `pchost_<version>.zip` (with
+`core/pchost/README.md`, which has the details).
+
+1. Start the game, then `pchost.exe` with no name (or double-click it): it lists the programs
+   with a window, biggest first, and takes the game's number. `pchost elliot` (part of the exe's
+   name or of the window title) or the exe's full name works too. pchost attaches, serves PC
+   connect on 6801, code 1234, and waits again when the game closes.
+2. Connect Breeze Studio to `127.0.0.1`.
+3. Stop it with Ctrl+C or by closing its window, never from the Task Manager while a watch or a
+   breakpoint is on: they live in the game's threads, and a killed pchost leaves them there, which
+   crashes the game at the next hit.
+
+`caps`: `read write codewrite pause maps jobs search holds cheats datawatch x64`. `x64` tells
+Studio the code is x86-64: its Code tab disassembles it as such (functions from the exe's
+`.pdata`), and the ARM64 tools (Patch, Hook, the F8 instruction watch, the C pane) stay off.
+
+- **The game as dmnt would see it:** main is the exe's image; heap is the whole address space,
+  so `heap+X` is the address X. The title id is `FC` and a hash of the exe's name, the build id
+  the exe's CodeView GUID (the README says what each means for a PC game).
+- **The SD card** is `pchost_sd` next to pchost.exe (`--sd <folder>` for another):
+  `sdmc:/switch/breeze/cheats/<title id>/` is `pchost_sd\switch\breeze\cheats\<title id>\`.
+- **`probe`:** the data watch as on emuhost (`probe data ...`), and the Lichii fork's break and
+  trace (`probe held`, `break add|remove|clear|list`, `step`, `over`, `cont`, `trace <n> [over]`,
+  `trace list|stop`, `out <frame>`, `setreg`), on the CPU's four debug registers, shared. A data
+  row's pc is the instruction after the access (x86 breaks once it ran). Registers: `rax`..`r15`,
+  `sp`, `pc`, `eflags`. `probe status` has `"host":"pc"`. No `dbg`: Studio's Code tab takes the
+  probe for its debugger, as on the fork.
+- **Cheats:** Breeze's cheat VM, 12 passes a second; key cheats read an XInput pad by the
+  buttons' names (A = A, LB / RB = L / R, LT / RT = ZL / ZR, Menu / View = Plus / Minus).
+
+Checked on The Adventures of Elliot (Unreal Engine 5.6, a protected exe): engine scan, `uemap`
+(200,424 objects, 6,575 classes), Studio's Objects, field view, search (26 s for a first u32 over
+all writable memory), an infinite HP cheat, the data watch, break and trace.
 
 ## Measured on the console
 
