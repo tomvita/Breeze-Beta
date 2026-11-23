@@ -43,7 +43,7 @@ import pcconnect_app  # noqa: E402
 NAME = "Breeze Studio"
 # Studio's own version, released on tomvita/Breeze-Studio (pc_app.zip and pchost). A Breeze-Beta
 # release note names the Studio release to use with it.
-VERSION = "0.05"
+VERSION = "0.06"
 
 
 TITLE = "%s %s" % (NAME, VERSION)

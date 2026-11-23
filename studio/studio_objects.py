@@ -1057,7 +1057,8 @@ class App:
         tf = ttk.Frame(right)
         tf.pack(fill="both", expand=True)
         cols = ("offset", "type", "value", "what", "address", "from")
-        self.tree = ttk.Treeview(tf, columns=cols, show="tree headings", selectmode="browse")
+        # Several rows can be picked (ctrl / shift): Make cheats (attributes) takes them all.
+        self.tree = ttk.Treeview(tf, columns=cols, show="tree headings", selectmode="extended")
         self.tree.heading("#0", text="field")
         self.tree.column("#0", width=260)
         for c, w in zip(cols, (60, 260, 150, 240, 110, 130)):
@@ -1088,6 +1089,8 @@ class App:
         self.menu.add_separator()
         self.menu.add_command(label="Find chain to this object", command=self.find_chain)
         self.menu.add_command(label="Make cheat...", command=self.make_cheat)
+        self.menu.add_command(label="Make cheats (attributes)...", command=self.make_gas_cheats)
+        self.menu.add_command(label="Set the cap of this attribute...", command=self.set_gas_cap)
         # The places every tab can take an address (studio_link.address_menu).
         import studio_link
 
@@ -1342,6 +1345,35 @@ class App:
         sel = self.tree.selection()
         return self.rows[int(sel[0])] if sel else None
 
+    def picked_all(self):
+        return [self.rows[int(i)] for i in self.tree.selection()]
+
+    def make_gas_cheats(self):
+        rows = [r for r in self.picked_all() if getattr(r, "gas", None)]
+        if not rows:
+            self.status.set("Make cheats (attributes): pick attribute rows of %s (ctrl / shift for several)" % GAS_VIEW)
+            return
+        self.gas_box = GasCheatBox(self, rows)
+
+    def set_gas_cap(self):
+        r = self.picked()
+        if r is None or not getattr(r, "gas", None):
+            self.status.set("Set the cap: pick an attribute row of %s" % GAS_VIEW)
+            return
+        name = r.prop.name
+        text = simpledialog.askstring("Cap of " + name, "The attribute of the same set that caps %s\n"
+                                      "(a fill cheat copies it). Empty: none." % name,
+                                      initialvalue=r.gas.get("cap") or "", parent=self.root)
+        if text is None:
+            return
+        view = self.view
+
+        def done(_r):
+            self.status.set("cap of %s: %s (saved in views/<TID>_gas.txt)" % (name, text.strip() or "none"))
+            if view is not None:
+                self.go(view, record=False)
+        self.job(lambda g: g.save_gas_setting("cap", name, text.strip()), done)
+
     def on_double(self, e):
         row_id = self.tree.identify_row(e.y)
         if not row_id:
@@ -1386,7 +1418,8 @@ class App:
     def on_menu(self, e):
         row_id = self.tree.identify_row(e.y)
         if row_id:
-            self.tree.selection_set(row_id)
+            if row_id not in self.tree.selection():      # a right-click inside a selection keeps it
+                self.tree.selection_set(row_id)
             self.fill_show_menu(self.rows[int(row_id)])
             self.menu.tk_popup(e.x_root, e.y_root)
 
@@ -1649,6 +1682,179 @@ class CheatBox:
         line = "cheats add [%s] %s" % (m.group(1), " ".join(m.group(2).split()))
         self.app.job(lambda g: g.b.cmd(line), lambda reply: self.note.set(
             reply + ("   (in memory: the Cheats tab's Save writes the file)" if reply.startswith("+OK") else "")))
+
+
+GAS_VIEW = "(attributes, GAS)"
+GAS_ACTIONS = ("fill from cap", "set", "leave out")
+
+
+def gas_value_text(v):
+    return "%.7g" % v
+
+
+def gas_cheat_lines(row, action, value=None):
+    """The code of one attribute cheat: the chain to the set, then Base and Current written
+    (fill: copied from the cap's Current; set: the float value)."""
+    import studio_bookmarks as sb
+    c = sb.chain_of(sb.parse_expr(row.chain), {})
+    if c is None or c[0] != "main":
+        raise ValueError("%s: no chain from main" % row.prop.name)
+    offsets = list(c[1])
+    if offsets[0] >> 40 or any(o < 0 or o >> 32 for o in offsets[1:]):
+        raise ValueError("%s: an offset of the chain does not fit a cheat" % row.prop.name)
+    cur = offsets[-1]
+    lines = ["580F00%02X %08X" % (offsets[0] >> 32, offsets[0] & 0xFFFFFFFF)]
+    lines += ["580F1000 %08X" % o for o in offsets[1:-1]]
+    if action == "fill from cap":
+        if row.gas.get("cap_offset") is None:
+            raise ValueError("%s has no cap: set it, or use set" % row.prop.name)
+        lines.append("540E2F00 %08X" % (row.gas["cap_offset"] + 0xC))
+    else:
+        bits = struct.unpack("<I", struct.pack("<f", float(value)))[0]
+        lines.append("400E0000 00000000 %08X" % bits)
+    lines += ["A4EF0200 %08X" % (cur - 4), "A4EF0200 %08X" % cur]
+    return lines
+
+
+class GasCheatBox:
+    """Make cheats (attributes): one line per picked attribute (name, what to do, value, an off
+    cheat that writes back the value read now), the code of them all, Add all, Try."""
+
+    def __init__(self, app, rows):
+        self.app, self.rows, self.added = app, rows, []
+        w = self.win = tk.Toplevel(app.root)
+        w.title("Make cheats (attributes)")
+        w.transient(app.root)
+        f = ttk.Frame(w, padding=8)
+        f.pack(fill="both", expand=True)
+        grid = ttk.Frame(f)
+        grid.pack(fill="x")
+        for col, text in enumerate(("attribute", "now", "cheat name", "does", "value", "off cheat")):
+            ttk.Label(grid, text=text, foreground="#555").grid(row=0, column=col, sticky="w", padx=3)
+        self.lines_ = []
+        for i, r in enumerate(rows, 1):
+            kind = r.note
+            action = "fill from cap" if kind == "fill from cap" else "set"
+            cur = r.gas.get("cur", 0.0)
+            value = gas_value_text(10.0 if kind == "multiplier" else cur)
+            label = {"fill from cap": "Infinite %s", "multiplier": "%s x10"}.get(kind, "%s " + value) % r.prop.name
+            v = {"name": tk.StringVar(value=label), "action": tk.StringVar(value=action),
+                 "value": tk.StringVar(value=value), "off": tk.BooleanVar(value=action == "set"),
+                 "old": cur, "row": r}
+            ttk.Label(grid, text=r.prop.name + ("  (changed by the game)" if kind == "changed by the game" else "")
+                      ).grid(row=i, column=0, sticky="w", padx=3)
+            ttk.Label(grid, text=gas_value_text(cur) + ("  cap %s" % r.gas["cap"] if r.gas.get("cap") else "")
+                      ).grid(row=i, column=1, sticky="w", padx=3)
+            ttk.Entry(grid, textvariable=v["name"], width=30).grid(row=i, column=2, sticky="we", padx=3)
+            ttk.Combobox(grid, textvariable=v["action"], values=GAS_ACTIONS, width=13, state="readonly"
+                         ).grid(row=i, column=3, padx=3)
+            ttk.Entry(grid, textvariable=v["value"], width=10).grid(row=i, column=4, padx=3)
+            ttk.Checkbutton(grid, variable=v["off"]).grid(row=i, column=5)
+            for key in ("name", "action", "value", "off"):
+                v[key].trace_add("write", lambda *a: self.fill())
+            self.lines_.append(v)
+        grid.columnconfigure(2, weight=1)
+        self.text = tk.Text(f, width=72, height=16, font=("Consolas", 10))
+        self.text.pack(fill="both", expand=True, pady=6)
+        self.note = tk.StringVar()
+        ttk.Label(f, textvariable=self.note, foreground="#555", wraplength=640, justify="left").pack(anchor="w")
+        bar = ttk.Frame(f)
+        bar.pack(fill="x", pady=(6, 0))
+        ttk.Button(bar, text="Copy", command=self.copy).pack(side="left")
+        ttk.Button(bar, text="Add all to the game's cheats (off)", command=self.add).pack(side="left", padx=6)
+        self.try_btn = ttk.Button(bar, text="Try them", command=self.try_them, state="disabled")
+        self.try_btn.pack(side="left")
+        ttk.Button(bar, text="Close", command=w.destroy).pack(side="right")
+        self.fill()
+
+    def cheats(self):
+        """[(name, lines, kind, line, expected value)]; kind "on" or "off" (an off cheat)."""
+        out = []
+        for v in self.lines_:
+            action = v["action"].get()
+            if action == "leave out":
+                continue
+            r, name = v["row"], v["name"].get().strip() or v["row"].prop.name
+            value = v["value"].get().strip()
+            out.append((name, gas_cheat_lines(r, action, value), "on", v,
+                        None if action == "fill from cap" else float(value)))
+            if action == "set" and v["off"].get():
+                out.append((name + " off", gas_cheat_lines(r, "set", v["old"]), "off", v, v["old"]))
+        return out
+
+    def fill(self):
+        try:
+            text = "\n".join("[%s]\n%s\n" % (n, "\n".join(lines)) for n, lines, _k, _v, _e in self.cheats())
+            sets = sorted({v["row"].gas["set"] for v in self.lines_})
+            self.note.set("Base and Current are both written. The set is picked by its place in "
+                          "SpawnedAttributes (%s); the view says so if a set there changes class."
+                          % ", ".join("[%d]" % s for s in sets))
+        except (ValueError, struct.error) as e:
+            text = ""
+            self.note.set(str(e) or "a value is not a number")
+        self.text.delete("1.0", "end")
+        self.text.insert("1.0", text)
+
+    def copy(self):
+        self.app.root.clipboard_clear()
+        self.app.root.clipboard_append(self.text.get("1.0", "end").strip() + "\n")
+        self.note.set("copied")
+
+    def add(self):
+        try:
+            cheats = self.cheats()
+        except (ValueError, struct.error) as e:
+            self.note.set(str(e))
+            return
+        if not cheats:
+            return
+        line = "cheats add " + " ".join("[%s] %s" % (n, " ".join(" ".join(lines).split()))
+                                        for n, lines, _k, _v, _e in cheats)
+        sets = {(v["row"].gas["set"], v["row"].gas["set_class"]) for v in self.lines_}
+
+        def run(g):
+            reply = g.b.cmd(line)
+            if reply.startswith("+OK"):
+                for i, cls in sets:
+                    g.save_gas_setting("set", i, cls)
+            return reply
+
+        def done(reply):
+            m = re.search(r"ids=([\d ]+)", reply)
+            ids = [int(x) for x in m.group(1).split()] if m else []
+            self.added = list(zip(ids, cheats)) if len(ids) == len(cheats) else []
+            self.try_btn.config(state="normal" if self.added else "disabled")
+            self.note.set(reply + ("   In memory, off. The Cheats tab's Save writes the file; Try them checks "
+                                   "each one now." if self.added else ""))
+        self.app.job(run, done)
+
+    def try_them(self):
+        """Each added cheat on for a second and its value read back: a fill cheat after the value
+        is halved, a set cheat, then its off cheat. Everything is left off."""
+        added = list(self.added)
+        self.note.set("trying %d cheats..." % len(added))
+
+        def run(g):
+            report = []
+            for cid, (name, _lines, _kind, v, expect) in added:
+                r = v["row"]
+                if expect is None:          # fill: lower it, the cheat must put it back
+                    set_at = r.address - 0xC - r.gas["offset"]
+                    g.fresh()
+                    cap = struct.unpack("<f", g.read(set_at + r.gas["cap_offset"] + 0xC, 4))[0]
+                    g.b.cmd("poke %X %s" % (r.address - 4, (struct.pack("<f", cap / 2) * 2).hex()))
+                    expect = cap
+                g.b.cmd("cheats on %d" % cid)
+                time.sleep(1.0)
+                g.fresh()
+                got = struct.unpack("<f", g.read(r.address, 4))[0]
+                g.b.cmd("cheats off %d" % cid)
+                ok = abs(got - expect) <= max(1e-3, abs(expect) * 1e-4)
+                report.append("%s %s: %s%s" % ("PASS" if ok else "FAIL", name, gas_value_text(got),
+                                               "" if ok else " (wanted %s)" % gas_value_text(expect)))
+            return report
+
+        self.app.job(run, lambda report: self.note.set("   ".join(report) + "   (all left off)"))
 
 
 def what_of(row):

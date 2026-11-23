@@ -1,5 +1,12 @@
 # Changelog
 
+## [Beta 129.06] - 2026-11-23
+
+- Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o), sys-ftp and emuhost (0.5) as 129.04. Breeze.nro changed. The PC tools are released on their own now: use [Breeze Studio 0.06](https://github.com/tomvita/Breeze-Studio/releases/tag/0.06) (`pc_app.zip`, `pchost_0.6c.zip`).
+- **Attributes (GAS):** Main > Unreal > Attributes > Make cheat finds an attribute's cap under more names (`MaxHealth`, `CurrentAmmo` with `MaxAmmo`, `HealthPower` with `MaxHealth`), not only `HealthMax`, so the cheat keeps it at its cap.
+- **Unreal names on PC heaps** (shared core): the profile scan no longer takes the top half of a pointer for UObject's name; on Revenge of the Mage through pchost every class had been "None_<n>". Nothing changes on a Switch.
+- **Breeze Studio 0.06:** Objects > **(attributes, GAS)** lists the player's attributes and makes cheats from several at once, with an off cheat each and a Try that checks them on the game. See the [Breeze Studio guide](docs/breeze%20studio.md#objects).
+
 ## Breeze Studio 0.05 - 2026-11-23
 
 - Breeze Studio is now released on its own, at [Breeze-Studio](https://github.com/tomvita/Breeze-Studio/releases); each Breeze release note names the Studio release to use with it. [0.05](https://github.com/tomvita/Breeze-Studio/releases/tag/0.05) needs no new Breeze (beta129.04 or later): pchost 0.6 for Unity games on the PC, Find chain for Unity in the Objects tab, has field marks the fields, Unreal maps and sets on the PC.

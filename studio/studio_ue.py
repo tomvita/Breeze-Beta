@@ -19,6 +19,8 @@ import struct
 import time
 
 ROUTE = "(engine route)"
+GAS = "(attributes, GAS)"
+GAS_KIND = "GasAttribute"   # a Prop kind of our own: an FGameplayAttributeData, Base +8, Current +C
 MAX_ELEMENTS = 200
 MAX_INSTANCES = 400
 MAX_DEPTH = 2
@@ -42,6 +44,38 @@ OBJECT_KINDS = ("ObjectProperty", "ObjectPtrProperty", "ClassProperty", "ClassPt
 
 def ident(text):
     return bool(text) and len(text) <= 1024 and all(32 <= ord(c) < 127 for c in text)
+
+
+def cap_of(name, names):
+    """The attribute of the same set that caps this one, or None. Games name it every way:
+    HealthMax, MaxHealth, CurrentAmmo / MaxAmmo, HealthPower / MaxHealth (Revenge of the Mage).
+    Breeze's ue_gas.cpp max_sibling keeps the same rules."""
+    if name.startswith("Max") or name.endswith("Max"):
+        return None                     # a cap itself
+    stems = [name]
+    if name.startswith("Current") and len(name) > 7:
+        stems.append(name[7:])
+    stems += [name[:-len(s)] for s in ("Power", "Points", "Value", "Amount") if name.endswith(s) and len(name) > len(s)]
+    have = set(names)
+    for stem in stems:
+        for want in (stem + "Max", "Max" + stem):
+            if want != name and want in have:
+                return want
+    return None
+
+
+def kind_of_attribute(name, gas, caps=()):
+    """What a cheat on it should do: fill (from its cap), cap (of another attribute here),
+    multiplier, set, or avoid (the game changes it: Current differs from Base, nothing caps it)."""
+    if gas.get("cap"):
+        return "fill from cap"
+    if name in caps:
+        return "cap"
+    if "Multiplier" in name:
+        return "multiplier"
+    if abs(gas.get("base", 0) - gas.get("cur", 0)) > 1e-4:
+        return "changed by the game"
+    return "set"
 
 
 class Prop:
@@ -99,7 +133,7 @@ class UeGame:
         self.have = {f["name"]: f.get("size", 0) for f in files.get("files", [])}
         self.pages, self.keep, self.names = {}, {}, {}
         self.layouts, self.enums, self.kinds = {}, {}, {}
-        self.classes, self.starred = {ROUTE: Entry(0)}, {ROUTE}
+        self.classes, self.starred = {ROUTE: Entry(0), GAS: Entry(0)}, {ROUTE, GAS}
         self.regions, self.region_starts = [], []
         self.scan, self.array = None, None
         self.own = {}             # class name -> its own property names (and its structs'), for "has field"
@@ -322,7 +356,13 @@ class UeGame:
             fclass = self.u64(node + 8)
             kind = self.kinds.get(fclass)
             if kind is None:
-                kind = self.kinds[fclass] = self.fname(fclass)
+                # FFieldClass: the name first, or (UE 5.8, Revenge of the Mage) a vtable and then it.
+                off = getattr(self, "fclass_name_off", None)
+                if off is None:
+                    off = next((o for o in (0, 8) if self.fname(fclass + o).endswith("Property")), None)
+                    if off is not None:
+                        self.fclass_name_off = off
+                kind = self.kinds[fclass] = self.fname(fclass + (off or 0))
             return kind
         return self.class_name(node)
 
@@ -432,7 +472,18 @@ class UeGame:
         if p is None or not row.address:
             return
         try:
-            if p.bm == "ptr" and p.kind in OBJECT_KINDS:
+            if p.kind == GAS_KIND:      # row.address = CurrentValue, BaseValue 4 before it
+                raw = self.read(row.address - 4, 8)
+                base, cur = struct.unpack("<ff", raw)
+                row.raw = raw[4:]
+                row.value = "%.7g" % cur
+                gas = row.gas
+                gas["base"], gas["cur"] = base, cur
+                what = "base %.7g" % base if base != cur else ""
+                if gas.get("cap"):
+                    what = ("cap %s" % gas["cap"]) + ("   " + what if what else "")
+                row.what = what
+            elif p.bm == "ptr" and p.kind in OBJECT_KINDS:
                 row.raw = self.read(row.address, 8)
                 row.target = struct.unpack("<Q", row.raw)[0]
                 row.value = "%X" % row.target if row.target else "null"
@@ -514,7 +565,10 @@ class UeGame:
         p = row.prop
         if p is None or not row.address:
             raise RuntimeError("this row has no value to change")
-        if p.kind in OBJECT_KINDS:
+        at = row.address
+        if p.kind == GAS_KIND:      # Base and Current together, or the next recompute undoes it
+            data, at = struct.pack("<ff", float(text), float(text)), row.address - 4
+        elif p.kind in OBJECT_KINDS:
             data = struct.pack("<Q", int(text, 16))
         elif p.fmt is not None:
             data = struct.pack(p.fmt, float(text) if p.fmt in ("<f", "<d") else int(text, 0))
@@ -525,7 +579,7 @@ class UeGame:
             data = bytes([(old | p.mask) if on else (old & ~p.mask & 0xFF)])
         else:
             raise RuntimeError("a %s is not changed from here" % p.type)
-        reply = self.b.cmd("poke %X %s" % (row.address, data.hex()))
+        reply = self.b.cmd("poke %X %s" % (at, data.hex()))
         if not reply.startswith("+OK"):
             raise RuntimeError(reply)
         self.fresh()
@@ -563,10 +617,144 @@ class UeGame:
             rows.append(self.pointer_row(label, at, chain, self.class_name(last.target)))
         return "Engine route: double-click a row to open that object", rows
 
+    # ------------------------------------------------------------ GAS attributes
+    def is_a(self, cls, name):
+        return any(self.obj_name(s) == name for s in self.supers(cls)) if cls else False
+
+    def prop_named(self, cls, name):
+        return next((p for p in self.props(cls) if p.name == name), None)
+
+    def gas_file(self):
+        return os.path.join(os.path.dirname(os.path.abspath(__file__)), "views",
+                            "%s_gas.txt" % self.meta.get("title_id", "game").upper())
+
+    def gas_settings(self):
+        """{"cap": {attribute: its cap}, "set": {index: class}}: the overrides and the set classes
+        that cheats were made with, from views/<TID>_gas.txt."""
+        out = {"cap": {}, "set": {}}
+        try:
+            for line in open(self.gas_file(), encoding="utf-8"):
+                m = re.match(r"\s*(cap|set)\s+(\S+)\s*=\s*(\S*)", line)
+                if m:
+                    out[m.group(1)][m.group(2)] = m.group(3)
+        except OSError:
+            pass
+        return out
+
+    def save_gas_setting(self, kind, key, value):
+        s = self.gas_settings()
+        s[kind][str(key)] = value
+        path = self.gas_file()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            f.write("# Breeze Studio, Objects > %s: cap <attribute> = <its cap> (empty: none),\n"
+                    "# set <index> = the set class cheats were made with (checked on every view)\n" % GAS)
+            for k in ("cap", "set"):
+                for name, v in sorted(s[k].items()):
+                    f.write("%s %s = %s\n" % (k, name, v))
+
+    def find_asc(self):
+        """(ASC object, its chain, how it was found) from the engine route, or raises."""
+        route = {r.label: r for r in self.view_route()[1]}
+        pawn, pc = route.get("AcknowledgedPawn"), route.get("PlayerController")
+        tried = []
+        holders = [(n, r) for n, r in (("pawn", pawn), ("controller", pc)) if r is not None and r.target]
+        for holder_name, holder in holders:
+            cls = self.u64(holder.target + 0x10)
+            for p in self.props(cls):
+                if p.kind in OBJECT_KINDS and p.kind not in ("ClassProperty", "ClassPtrProperty") and \
+                        self.is_a(p.target, "AbilitySystemComponent"):
+                    asc = self.u64(holder.target + p.offset)
+                    if asc:
+                        return asc, "[%s]+%X" % (holder.chain, p.offset), "%s.%s" % (holder_name, p.name)
+            tried.append(holder_name)
+            # Many games keep the ASC on the PlayerState, so it survives a respawn.
+            ps = self.prop_named(cls, "PlayerState")
+            state = self.u64(holder.target + ps.offset) if ps is not None else 0
+            if state:
+                scls = self.u64(state + 0x10)
+                for p in self.props(scls):
+                    if p.kind in OBJECT_KINDS and self.is_a(p.target, "AbilitySystemComponent"):
+                        asc = self.u64(state + p.offset)
+                        if asc:
+                            return asc, "[[%s]+%X]+%X" % (holder.chain, ps.offset, p.offset), \
+                                "%s.PlayerState.%s" % (holder_name, p.name)
+        if pawn is None or not pawn.target:
+            raise RuntimeError("no pawn on the engine route now (in a menu or loading?): try again in game")
+        raise RuntimeError("no AbilitySystemComponent property on the %s or its PlayerState: not a GAS game"
+                           % " or ".join(tried))
+
+    def is_attribute_struct(self, struct_ptr):
+        return self.is_a(struct_ptr, "GameplayAttributeData")
+
+    def gas_sets(self):
+        """[(index, set object, its chain, class name, [(prop, offset)])] and how the ASC was found."""
+        asc, asc_chain, how = self.find_asc()
+        spawned = self.prop_named(self.u64(asc + 0x10), "SpawnedAttributes")
+        if spawned is None:
+            raise RuntimeError("the AbilitySystemComponent has no SpawnedAttributes property")
+        data, n = self.u64(asc + spawned.offset), self.u32(asc + spawned.offset + 8)
+        sets = []
+        for i in range(min(n, 64)):
+            obj = self.u64(data + i * 8)
+            if not obj:
+                continue
+            cls = self.u64(obj + 0x10)
+            attrs = [p for p in self.props(cls) if p.kind == "StructProperty" and self.is_attribute_struct(p.target)]
+            sets.append((i, obj, "[[%s]+%X]+%X" % (asc_chain, spawned.offset, i * 8), self.obj_name(cls), attrs))
+        return sets, "%s, SpawnedAttributes +%X" % (how, spawned.offset)
+
+    def view_gas(self, show_all=False):
+        self.fresh()
+        sets, how = self.gas_sets()
+        settings = self.gas_settings()
+        rows, hidden, moved = [], 0, []
+        for i, obj, chain, cname, attrs in sets:
+            head = self.pointer_row("SpawnedAttributes[%d]" % i, 0, chain, "set")
+            head.address, head.target, head.type = 0, obj, cname + "*"
+            head.value, head.what = "%X" % obj, "%s, %d attributes" % (cname, len(attrs))
+            head.gas_set = (i, cname)
+            rows.append(head)
+            want = settings["set"].get(str(i))
+            if want and want != cname:
+                moved.append("[%d] was %s when cheats were made, now %s" % (i, want, cname))
+            names = [p.name for p in attrs]
+            offsets = {p.name: p.offset for p in attrs}
+            raw = self.read(obj, max(p.offset for p in attrs) + 0x10) if attrs else b""
+            gas_rows = []
+            for p in attrs:
+                base, cur = struct.unpack_from("<ff", raw, p.offset + 8)
+                if not show_all and base == 0 and cur == 0:
+                    hidden += 1
+                    continue
+                cap = settings["cap"].get(p.name, None)
+                cap = (cap or None) if cap is not None else cap_of(p.name, names)
+                a = Prop(p.name, GAS_KIND, p.offset, 0x10, 1, cname)
+                a.type, a.bm, a.fmt = "attribute", "f32", None
+                row = Row("    " + p.name, a, obj + p.offset + 0xC, "[%s]+%X" % (chain, p.offset + 0xC), 1, p.offset)
+                row.gas = {"set": i, "set_class": cname, "offset": p.offset, "cap": cap,
+                           "cap_offset": offsets.get(cap) if cap else None, "chain": chain}
+                self.describe(row)
+                gas_rows.append(row)
+            caps = {r.gas["cap"] for r in gas_rows if r.gas["cap"]}
+            for row in gas_rows:
+                row.note = kind_of_attribute(row.prop.name, row.gas, caps)
+            rows += gas_rows
+        if hidden:
+            more = Row("(%d attributes at 0 hidden: double-click to show them)" % hidden, None, 0, "")
+            more.open = ("gas", True)
+            rows.append(more)
+        title = "GAS attributes: %d sets (%s). Edit writes Base and Current; select several, then Make cheats" % (len(sets), how)
+        if moved:
+            title = "SET MOVED: " + "; ".join(moved) + "   " + title
+        return title, rows
+
     def view_class(self, name):
         self.fresh()
         if name == ROUTE:
             return self.view_route()
+        if name == GAS:
+            return self.view_gas()
         entry = self.classes[name]
         chain = [self.obj_name(s) for s in self.supers(entry.ptr)]
         objects = sorted(entry.objects, key=lambda o: self.name_at(o[2]).startswith("Default__"))
@@ -797,6 +985,8 @@ class UeGame:
         p = row.prop
         if p is None:
             raise RuntimeError("this row has no value")
+        if p.kind == GAS_KIND:
+            return struct.pack("<f", float(text))
         if p.kind in OBJECT_KINDS:
             return struct.pack("<Q", int(text, 16))
         if p.fmt is not None:
@@ -809,6 +999,8 @@ class UeGame:
 
     def view_other(self, view):
         self.fresh()
+        if view[0] == "gas":
+            return self.view_gas(view[1])
         if view[0] == "chains":
             return self.view_chains(view[1])
         if view[0] == "struct":

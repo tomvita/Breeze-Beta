@@ -178,6 +178,16 @@ On an emulator **Build map** makes the Unity function map too, which is where th
 - An object shows its properties with its parents', structs in place. A pointer says what it points at, an enum value has its name, a bool is its one bit. Double-click an array or a large struct to open it.
 - A row reached from the engine route has a pointer chain from main, for **Copy chain** and the bookmarks. An object picked from a class's list has only its address.
 
+**GAS attributes (Unreal).** Many Unreal games keep the player's stats in the Gameplay Ability System: health, armor, ammo, XP, cooldowns, gold multipliers. **(attributes, GAS)** at the top of the class list shows them all, as Breeze's Main > Unreal > Attributes does.
+
+- It finds the ability system component on the pawn (or its PlayerState, or the player controller), then every attribute set in its SpawnedAttributes. All of it comes from the game's reflection data, by name and by type.
+- One row per attribute with its Current value, and in **what** its cap and its Base when that differs. Attributes at 0 are hidden; the last row shows them. Double-click a value to change it: Base and Current are both written, or the game puts the old value back.
+- The cap is found by name: `HealthMax`, `MaxHealth`, `CurrentAmmo` to `MaxAmmo`, `HealthPower` to `MaxHealth`. Right-click > **Set the cap of this attribute...** when the name says nothing. That is saved per game in `studio/views/<TID>_gas.txt`.
+- **from** says what a cheat on it should do: **fill from cap**, **set**, **multiplier**, **cap** (of another attribute), or **changed by the game** (Current differs from Base and nothing caps it: something in the game changes it, and a cheat would fight that).
+- Pick several rows (Ctrl / Shift), right-click > **Make cheats (attributes)...**: one line per attribute with a cheat name, what it does (fill from cap, set, leave out), the value and an **off cheat** that writes back the value read now. A multiplier starts at 10. The code of them all shows below. **Add all to the game's cheats (off)**, then **Try them**: each cheat on for a second and its value read back (a fill cheat after its value is halved), PASS or FAIL, all left off. The Cheats tab's **Save** writes the file.
+- The cheats pick a set by its place in SpawnedAttributes. Studio notes the set's class when it adds cheats, and the view's title starts with SET MOVED if another class is there later.
+- On Revenge of the Mage (a PC game, UE 5.8): one set, 114 attributes, 49 not 0. Infinite health, armor and a gold x10 with its off cheat made this way all passed Try.
+
 **Field view of an address.** "Field view" on a Search candidate or a Memory row opens the object that holds the address, with the field at it picked. On Unreal it needs the class list to be read first.
 
 ![Field view of a searched address](./images/studio_field_view.jpg)
