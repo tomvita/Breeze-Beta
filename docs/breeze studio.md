@@ -4,7 +4,7 @@ Breeze Studio is Breeze on your PC: one window, with a tab for each kind of work
 
 ![Breeze Studio showing Breeze's screen in its first tab](./images/studio_01_screen.jpg)
 
-It comes with Breeze from beta129.00, in `pc_app.zip`, beside the [PC app](pc%20connect%20app.md), which is now Studio's first tab.
+It is released on its own, from Studio 0.05, at [tomvita/Breeze-Studio](https://github.com/tomvita/Breeze-Studio/releases): `pc_app.zip` has Studio and the [PC app](pc%20connect%20app.md), which is now Studio's first tab, and `pchost_<version>.zip` is for games on the PC. Each Breeze release note names the Studio release to use with it; before 0.05 Studio came with Breeze (beta129.00 to beta129.04).
 
 ## What you need
 

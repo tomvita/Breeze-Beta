@@ -29,7 +29,6 @@ front of the game (the game is stopped then) and has Show / Hide.
 import json
 import os
 import queue
-import re
 import sys
 import threading
 import tkinter as tk
@@ -42,23 +41,12 @@ from pcconnect import Breeze, PORT, game_caption  # noqa: E402
 import pcconnect_app  # noqa: E402
 
 NAME = "Breeze Studio"
-# The Breeze release this Studio comes with (pc_app.zip). Run from the Breeze repo, the version in
-# source/appversion.cpp is shown instead, so a checkout never shows a stale one.
-VERSION = "beta129.05"
+# Studio's own version, released on tomvita/Breeze-Studio (pc_app.zip and pchost). A Breeze-Beta
+# release note names the Studio release to use with it.
+VERSION = "0.05"
 
 
-def studio_version():
-    try:
-        with open(os.path.join(HERE, "source", "appversion.cpp")) as f:
-            m = re.search(r'"(beta[0-9.]+[a-z]?)"', f.read())
-        if m:
-            return m.group(1)
-    except OSError:
-        pass
-    return VERSION
-
-
-TITLE = "%s %s" % (NAME, studio_version())
+TITLE = "%s %s" % (NAME, VERSION)
 
 
 def style_tabs(root):
@@ -359,6 +347,10 @@ class Studio:
         self.save_cfg()
         self.address_box.config(values=[r["host"] for r in self.cfg.get("recent", [])])
         name = pcconnect_app.connection_name(self.cfg, address)
+        if address.split(":")[0] in ("127.0.0.1", "localhost"):
+            # This PC: the name saved for 127.0.0.1 is whatever ran there when it was typed
+            # (it said Lichii with pchost attached, Nov 23 2026). The banner names the program.
+            name = self.banner.split(" (")[0].strip()
         where = "%s (%s)" % (name, address) if name else address
         self.host_label.config(text="%s  |  %s  |  %s" % (self.banner, game_caption(game), " ".join(sorted(caps))), fg="#222")
         self.root.title("%s - %s - %s" % (TITLE, where, game_caption(game)))
