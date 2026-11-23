@@ -33,6 +33,10 @@ Type the Switch's address and the code at the top and press **Connect**. Both ar
 
 A tab connects the first time you open it. Breeze takes six connections at a time; on a Switch the tabs other than Screen let go of theirs when you open another, so you never run out.
 
+### Changing a value
+
+Changing a value in Memory, Workbench, Objects or Bookmarks, or a cheat line's value in Cheats, opens one pop-up: the value now in four boxes, **Decimal** (signed), **Hex**, **Float 32** and **Float 64**. Type in any of them and the others follow, so you see at once what 1.5 is in hex, or what a hex word is as a float. **OK** writes the bytes the boxes show, as wide as the value. On an 8-byte value Float 32 is the low 4 bytes (typing there keeps the high 4); on a 4-byte value Float 64 is off, and on 1 or 2 bytes both floats are. A Bookmarks field with names (`enum`) still takes a name typed in.
+
 ## Screen
 
 Breeze's own screen, driven from the PC: this is the [PC app](pc%20connect%20app.md), with everything it has (keyboard and mouse, game input, screenshots, save snapshots, the text view, the cheat source editor). Use it for anything the other tabs do not cover.
@@ -51,6 +55,7 @@ Breeze's memory search, with any number of searches side by side. Each search is
 - **Queue** several targets and **Start queued**: one pass over memory finds them all.
 - Each target's row has its own next step (`++`, `--`, `DIFF`, `SAME`, a value...). **Step** steps one; **Step all** steps every row that has a mode set, in one pass.
 - The candidates of the selected target are below, with live values: **Set**, **Inc**, **Revert**, **Hold** / **Unhold**, **Bookmark**, and **Export** to a CSV file.
+- The **label** column names the field a candidate sits on: `TextTween+20 target` is field `target` at +0x20 of a `TextTween`. It is the field Objects' **Field view** would pick (Unity: the IL2CPP map, or the class in memory; Unreal: the profile), or a label you gave the field (`sPlayer+20 coins`, see [Names for a game Studio does not know](#names-for-a-game-studio-does-not-know)), which wins. An array element reads `Entry<int, int>[]+2C [0].value` (element 0 of a dictionary's entries, its value). Empty: no known object holds the address. Labels come in a moment after the rows, on a connection of their own.
 
 - **Right-click a candidate** to take it further: **Watch this address** starts "Who touches an address" on it in the Watch tab, **Add to bookmarks**, **Open in Memory**, **Field view** (the object that holds it, in the Objects tab), Hold, Unhold and Copy address.
 
@@ -68,6 +73,7 @@ The cheat list as on Breeze's Cheats screen, with an editor beside it.
 
 - Double-click or Space turns a cheat on or off. **Turn off all** and **Restore** as on Breeze.
 - Select a cheat to see its code, one opcode per line. Change the name or the code and **Apply edit**; **Add as new**, **Duplicate**, **Delete**, **New folder**.
+- **Double-click the value** of a code line (or right-click the line > **Edit value of this line...**) to change it in the value pop-up (see [Changing a value](#changing-a-value)). The opcode decides which words are the value and how wide it is, as the cheat VM reads them: in `400E0000 00000000 00002710` the last two words are an 8-byte value (10000); in `04000000 00123456 0000270F` the last word is a 4-byte one; `6T..`, `7T..`, `9T..` with a value, `C0T..4..` and a loop's count work the same way. Typing 1.5 in Float 32 on `400E...` gives `400E0000 00000000 3FC00000`. The line is rewritten; **Apply edit** keeps it.
 - **Condition key...** makes a cheat run only while a button is held; **Add freeze game code** adds Breeze's two freeze cheats.
 - **Save to SD** writes the cheat file and **Load from SD** reads it again; **Import .txt** / **Export .txt** read and write a cheat file on the PC. Export adds a "<name> - restore" cheat after each code-patch cheat, for people whose cheat tool cannot put the game's code back.
 - **Make cheat** makes a cheat from one of the game's recipes, as Breeze's Cheats > Make cheat does (`make_cheat.ini` in the game's folder, the format in [make cheat recipes.md](./make%20cheat%20recipes.md)). Pick rows of the recipe's table (items, for example), fill in the values it asks for and the key, and the cheat is added on, replacing one of the same name, and saved to SD. A recipe that holds addresses must name this build; the cheat it `requires` must be in the list already (it is turned on when it is off).
@@ -75,7 +81,7 @@ The cheat list as on Breeze's Cheats screen, with an editor beside it.
 - **Off** and **Turn off all** put a code-patch cheat's original instructions back, in one step (Breeze does it on the second press of a green cheat).
 - **Merge into...** moves the selected cheat's patches into another cheat, as Breeze's Merge into: one cheat that patches many places and keeps the game's instructions. Naming the cheat itself converts an older patch cheat (and its "- restore" cheat) into this kind.
 
-**What it does.** Under the code box the cheat is written out in words: each opcode, the address it reads or writes in the game right now and what that address holds, and for a write into the game's code the instruction itself (`main+958D5C:  nop   (there now: str s0, [x19, #0x1c])`). An ASM cheat gets a line above saying so (`ASM hook at main+5B5BE50, branching to a cave at main+9ADFD40 (107 instructions ...)`), each 8-byte cave line shows its two instructions, and branch targets read `main+X`. Conditions are taken as true and a loop is gone through once, as in Breeze's Trace cheat. A key condition reads as the buttons it waits for, held or once a press (both the old `8` form and Breeze's `C4`). Pick a line, then **Jump to target** opens its address in Memory and **Jump to ASM** opens the patched code in Code; double-click does whichever the line has. **Read again** follows an edit of the code box.
+**What it does.** Under the code box the cheat is written out in words: each opcode, the address it reads or writes in the game right now and what that address holds, and for a write into the game's code the instruction itself (`main+958D5C:  nop   (there now: str s0, [x19, #0x1c])`). An ASM cheat gets a line above saying so (`ASM hook at main+5B5BE50, branching to a cave at main+9ADFD40 (107 instructions ...)`), each 8-byte cave line shows its two instructions, and branch targets read `main+X`. Conditions are taken as true and a loop is gone through once, as in Breeze's Trace cheat. A key condition reads as the buttons it waits for, held or once a press (both the old `8` form and Breeze's `C4`). Pick a line, then **Jump to target** opens its address in Memory and **Jump to ASM** opens the patched code in Code; double-click does whichever the line has. With no line picked, Jump to target takes the cheat's last address (the value it writes). A pointer cheat's chain goes with it (`580F...` loads, `780F` / `9...` adds, `400E` values are followed), so Memory opens on the chain, e.g. `main+44298C0 › +B8 › +0 › +30 › +208 › +20`, and ◀ walks back along it. **Read again** follows an edit of the code box.
 
 ## Bookmarks
 
@@ -91,15 +97,23 @@ A bookmark you add to Breeze's from the PC shows on Breeze's Bookmark screen too
 
 ## Memory
 
-The game's memory around one address, as Breeze's Memory Explorer shows it: each row is a value with its address, where that is (`main+`, `heap+`), and the value read as hex, integer, float, pointer and text. The values are live.
+The game's memory as Breeze's Memory Explorer shows it: a pointer chain, and the memory where it lands, one detected value per row. The values are live.
 
 ![The Memory tab](./images/studio_memory.jpg)
 
-- Type an address and **Go**; **Back** returns to where you were. The value size is 1, 2, 4 or 8 bytes.
-- Double-click a pointer to follow it; double-click any other value to edit it.
-- Right-click a row: **Follow pointer**, **Edit value**, **Hold** / **Unhold**, **Who points here** (a list of the places that hold this address), **Add to bookmarks**, **Field view of what it points at**, and the address menu every tab shares (see [Workbench](#workbench)).
+**The chain.** The line at the top reads like a Breeze bookmark: `main+4468F70 › +B8 › +0 › +10 › +18 › +2C` reads the pointer at main+4468F70, then the one at that + B8, and so on, and lands at the last one + 2C. The step the cursor is on is highlighted; after it, greyed, the steps you came back from. Beside it: the depth (`z=`), the cursor's address and its field.
+- Picking a row moves the highlighted step's offset onto it, as Breeze's cursor does (the greyed steps stay).
+- Double-click (or Enter, or Right) on a pointer to **follow** it: one more step. **◀** or Left goes one step back, the cursor on the pointer this step was read from; **▶** or Right goes forward again along the greyed steps. Click any step to go to it.
+- **▲ Page** / **▼ Page** (Page Up / Page Down) move the cursor a page, as on Breeze, so it stays on screen.
+- **Field view**: when the cursor is in an object Studio knows (Unity, Unreal), the page is that object, from its start to its end, each row a field with its name and type (an array: its elements, `[0].value`); the status line names it. Moving out of it (a page, a step elsewhere) shows plain memory again; **field view** off keeps plain memory.
+- Each read resolves the chain again, so the view follows an object the game moves. A step that no longer points anywhere is shown red.
+- "Open in Memory" from Bookmarks, from an Objects row (Find chain's rows too) and from a pointer scan's chain keeps the chain; from a Search candidate it starts at the address (or main+ inside main). Type a chain in **Address** too: `[[main+4468F70]+B8]+10`, or a pointer scan's `main+4468F70 B8 +10`. **Back** returns to where the view was before the last go-to; **Copy chain** copies the picked row's chain.
 
-Other tabs open this one: "Open in Memory" on a Search candidate and on an Objects row.
+**Smart display.** Each row is one value whose type is detected, shown in the type column: `ptr` (the value says where it points: `main+`, a field, a named object), `f32`, `f64`, `s32`, `text`, `fixed` (32.32, Breeze's Fp), `hex32` when nothing matched. On Unity and Unreal the where column names the field (`Dictionary`2<int, int>+18 _entries`, read in the background by the Objects tab's reader) and the field's own type is used before any guess (an enum: as wide as the field). **smart** off shows plain hex words where no field is known; known fields keep their type.
+- **Detection...**: the detectors in order, top first (the first that matches a value wins); each can be switched off, and has its limits (a float counts from 0.1 to 100000 by default, as on Breeze; a pointer from 10000; an integer up to 100000; text from 4 characters). **Up** / **Down** set the order; **Apply and save** keeps them for every game.
+- Right-click > **Show as**: one value's type by hand (`*` after the type marks it); **auto** gives it back to the detectors. It is kept per game relative to the object it is in, so it holds when the object moves.
+
+**Right-click a row:** **Follow pointer**, **Edit value** (the decimal / hex / float pop-up, as wide as the value), **Show as**, **Hold** / **Unhold**, **Make cheat...** (the chain from main, then a store of the value you set: Copy, or add it to the game's cheats, off), **Add to bookmarks...** (Studio's Bookmarks tab, with the chain), **Add to Breeze's bookmarks...** (Breeze's own file, through Breeze), **Copy chain**, **Who points here** (a list of the places that hold this address), **Find pointer chains to here**, **Field view of what it points at**, and the address menu every tab shares (see [Workbench](#workbench)). Make cheat and Breeze's bookmarks need a chain from main (or a region): on a plain address, find a chain first.
 
 ### Pointer chains to a value
 
@@ -166,7 +180,7 @@ On an emulator **Build map** makes the Unity function map too, which is where th
 - Double-click a pointer to open the object it points at. Arrays and lists show their elements, a string shows its text. **Back** returns.
 - Double-click a number to change it. Right-click: **Hold** / **Unhold**, **Copy chain** (the pointer chain from main), **Add to bookmarks**, **Add to Breeze's bookmarks**.
 - **has field** under the class filter keeps the classes that have a field of that name. Pick one and its matching fields are marked; with **matching only** ticked (the default) the view shows only them. When nothing in the view matches (an object opened from a pointer), every field shows.
-- Right-click a value > **Find chain to this object**: the pointer chains from main to that value, for an object that has none of its own (one opened by Field view of an address). On a pointer, the chains to the object it points at. The search starts at every class's static fields and follows fields, arrays, lists and dictionaries whose type can lead to the object's class, as Breeze's Main > Unity > Find chain does. Right-click the chain it finds > **Make cheat...**. On Void Reaver (a PC game) the money's chain took 1.4 s.
+- Right-click a value > **Find chain to this object**: the pointer chains from main to that value, for an object that has none of its own (one opened by Field view of an address). On a pointer, the chains to the object it points at. The search starts at every class's static fields and follows fields, arrays, lists and dictionaries whose type can lead to the object's class, as Breeze's Main > Unity > Find chain does. Right-click the chain it finds > **Make cheat...**. On Void Reaver (a PC game) the money's chain took 1.4 s. A value inside an array (a dictionary's entry, a list's item) gets the chains to the object holding the array, then its field: on Land of Glarefall the coins are `BagData.instance > basedata > _entries > [0].value`, `[[[[[main+4468F70]+B8]+0]+10]+18]+2C` (finding the holder takes one scan of memory, 3 s there). An entry's place in a dictionary can change when entries are added or removed.
 
 **Unreal.** It reads the profile (the one Breeze's Main > **Unreal** makes), then the game's own reflection data.
 
@@ -188,7 +202,7 @@ On an emulator **Build map** makes the Unity function map too, which is where th
 - The cheats pick a set by its place in SpawnedAttributes. Studio notes the set's class when it adds cheats, and the view's title starts with SET MOVED if another class is there later.
 - On Revenge of the Mage (a PC game, UE 5.8): one set, 114 attributes, 49 not 0. Infinite health, armor and a gold x10 with its off cheat made this way all passed Try.
 
-**Field view of an address.** "Field view" on a Search candidate or a Memory row opens the object that holds the address, with the field at it picked. On Unreal it needs the class list to be read first.
+**Field view of an address.** "Field view" on a Search candidate or a Memory row opens the object that holds the address, with the field at it picked. On Unity an address inside an array opens the array with that element's field picked; an element type the map does not name (a dictionary's `Entry<int, int>`) is read from the array's class in memory. On Unreal it needs the class list to be read first.
 
 ![Field view of a searched address](./images/studio_field_view.jpg)
 
