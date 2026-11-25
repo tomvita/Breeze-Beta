@@ -3,6 +3,7 @@
 ## emuhost 0.6 - 2026-11-25
 
 - emuhost is released with Breeze Studio from now on: `emuhost_0.6.zip` on [Breeze Studio 0.09](https://github.com/tomvita/Breeze-Studio/releases/tag/0.09), always on the [latest Breeze Studio release](https://github.com/tomvita/Breeze-Studio/releases/latest). 0.5 stays in Beta 129.04. 0.6 has the new shared core: pointer scans keep every route, and `chains` reads many pointer chains in one request.
+- The copies of the PC app and Breeze Studio in this repository's root (`pcconnect*.py`, `breeze_unity.py`, `breeze_studio.py`, `studio/`) are gone: they had stopped at Studio 0.06. Take `pc_app.zip` from the [latest Breeze Studio release](https://github.com/tomvita/Breeze-Studio/releases/latest).
 
 ## [Beta 129.06] - 2026-11-23
 

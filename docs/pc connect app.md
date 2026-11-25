@@ -37,7 +37,7 @@ The app answers only while Breeze is running. With the SwitchU HOME daemon, Bree
 - **Python 3** on the PC, with Tk. The Windows installer from python.org includes Tk; on Linux install `python3-tk`.
 - The **Pillow** package. For the disassembler and the debugger, the **capstone** package as well.
 - For the C view only: Ghidra, a Java 21 JDK and the **pyghidra** package. On Windows the app downloads and sets these up itself the first time (see [Decompile](#decompile)).
-- The app's files in one folder: `pcconnect_app.py`, `pcconnect_files.py`, `pcconnect_album.py`, `pcconnect_text.py`, `pcconnect_asm.py`, `pcconnect_decomp.py` and `pcconnect.py`. (`breeze_unity.py`, which comes in the same zip, is for scripts and is not needed by the app; see [PC Connect](pcconnect.md).) They are in the root of this repository, and attached to the Breeze release as `pc_app.zip`. `pcconnect_app.bat`, beside them, is optional: on Windows it starts the app with a double click.
+- The app's files in one folder: `pcconnect_app.py`, `pcconnect_files.py`, `pcconnect_album.py`, `pcconnect_text.py`, `pcconnect_asm.py`, `pcconnect_decomp.py` and `pcconnect.py`. (`breeze_unity.py`, which comes in the same zip, is for scripts and is not needed by the app; see [PC Connect](pcconnect.md).) They come in `pc_app.zip` on the [latest Breeze Studio release](https://github.com/tomvita/Breeze-Studio/releases/latest), with Breeze Studio. `pcconnect_app.bat`, beside them, is optional: on Windows it starts the app with a double click.
 
 ### 1. Install Pillow
 

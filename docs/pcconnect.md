@@ -62,8 +62,8 @@ starts again with it.
 
 ## The client
 
-`pcconnect.py` in the repo root works as a shell, a one-shot command, or a
-Python library:
+`pcconnect.py` (in `pc_app.zip` on the [latest Breeze Studio release](https://github.com/tomvita/Breeze-Studio/releases/latest))
+works as a shell, a one-shot command, or a Python library:
 
 ```
 python pcconnect.py 192.168.1.65 0303            # interactive
@@ -84,7 +84,7 @@ argument that starts with `/config/` into a Windows path.
 ## Protocol
 
 One command per line. Replies start with `+OK` or `-ERR`. Multi-line replies
-(`help`, `watch`, `holds`, `maps`, `refs`, `chain`, `cheats`, `cheats get`) end
+(`help`, `watch`, `holds`, `maps`, `refs`, `irefs`, `chain`, `chains`, `cheats`, `cheats get`) end
 with a line holding a single `.`. `tail` and `capture` send a header with
 `bytes=<n>` and then exactly n raw bytes. Six clients are served at once, each
 on its own thread (a seventh is refused with `-ERR busy`; three up to beta128.12), so the PC app, its
@@ -202,7 +202,11 @@ cheat process` otherwise).
 | `cheats save` | writes Breeze's cheat file for the game (`/switch/breeze/cheats/<tid>/<bid>.txt` and toggles), like Write Cheat to file |
 | `cheats load` | reads that file (and its toggles) again in place of the loaded cheats, like Load Cheats from file without the database fallback. Emulator hosts read the file their `cheats save` writes (`atmosphere/contents/<tid>/cheats/<bid>.txt`) |
 | `refs <addr> [hexrange] [max] [seconds]` | every 8-aligned qword in the game's writable memory whose value is in `[addr - range, addr]`: who points at an object, or into it. Defaults: range 0, 64 hits, 30 s. Prints `where region+off -> value (+distance)` |
+| `refindex build [seconds]` / `status` / `drop` | emulator hosts and pchost: every qword of the writable memory that points into writable memory, read once and sorted by what it points at (pchost reads with 8 threads; Sackboy, 8.4 GB: 27 million pointers in 17 s, ~430 MB until `drop`). Reply `entries= scanned_mb= to_scan_mb= writable_mb= unreadable_kb= ms= threads=` and `timed_out` when cut. One index per server, the last built |
+| `irefs <addr> [hexrange] [max]` | `refs` answered from the index by a binary search (nearest value first), same lines; `-ERR` without an index or after the game restarted. The index is a snapshot: re-read what you rely on |
+| | `ptrscan` uses the index too: the server's when it is of this game (`index=server`), else one made for the scan and freed after (`index_ms=`); every level is then binary searches, not a pass over memory. Values are taken 8-aligned |
 | `chain <base> <hexoff>... [+<hexoff>]` | the cheat VM's walk in one round trip: reads `[base]`, then `[value + off]` for each offset; a final `+off` is only added. Prints every hop and the 8 bytes at the end as hex, u32, f32 and u64 |
+| `chains <chain>; <chain>; ...` | emulator hosts and pchost: many `chain` walks in one round trip, for a list of pointer chains (Studio's Pointers tab). A line per chain, in order: `<end address> <8 bytes hex>`, `-` when a hop or the end cannot be read, `? <why>` for a chain it cannot parse. Lines are at most 64 KB, so send about 1,000 chains at a time. On pchost 5,000 chains read in 0.17 s, against 1.5 s as single `chain` commands |
 | `ptrscan <addr> [depth] [hexmaxoff] [max] [seconds] [hexmaxnodes]` | emulator hosts: the pointer chains from main to an address, shortest first, each a line `chain` takes (`main+71BAD0 0 E8 +20`). One pass over the writable memory per level matches every qword against all of that level's nodes at once (a value up to `maxoff` below a node); a qword in main ends a chain, one in the heap is searched further. Defaults: depth 4, offsets up to 800, 50 chains, 120 s, 40000 nodes a level. Every level is searched to its end and the chains sorted afterwards; the header gives `found=` (all chains), `levels=` (new nodes per level) and `max` (more than `max` found), `capped` or `timed_out` when a limit was hit. Which chain the game keeps after a restart only a second run tells: Studio's Memory tab > Find pointer chains to here keeps the list and drops the ones that stop landing on the value |
 
 Addresses for `refs`, `ptrscan` and `chain` are hex, or `main+X`, `heap+X`, `alias+X`.
@@ -816,6 +820,7 @@ One call of each command was sent to the fork's own server and to emuhost
 | `cheats ...` | yes | the fork, and emuhost (Breeze's cheat VM runs in emuhost itself) |
 | `statreg` | no | the fork and emuhost |
 | `ptrscan` | no | yes |
+| `chains` | no | yes |
 | `peekb` (binary read, up to 16 MB) | no | yes |
 | `search` | yes: the emulator hosts' search compiled into Breeze (pcsearch.cpp); its candidate files are in `sdmc:/switch/breeze/search/<title id>/`, apart from the ones Breeze's Search screens write | yes |
 | `enginescan` `il2cppmap` `uemap` `jobs` | no (`prep` does this work) | yes |
@@ -843,14 +848,15 @@ so asking is safe.
 Whether a reply has more lines (ended by a line holding only `.`) or raw bytes
 (`bytes=<n>` in the first line) depends on the command, not on anything in the
 first line. A client has to know: more lines after `help` `watch` `probe`
-`holds` `maps` `refs` `chain` `xref` `activity` `jobs`, plain `cheats` and
+`holds` `maps` `refs` `irefs` `chain` `chains` `ptrscan` `xref` `activity` `jobs`, plain `cheats` and
 `cheats get`; raw bytes after `tail` `capture` `saveshot` `fsget` `peekb`. An
 `-ERR` reply is always one line.
 
 ### emuhost
 
 `emuhost.exe` needs nothing added to the emulator, so a newer core never needs
-a newer emulator. Releases carry it as `emuhost.zip` (with `core/emuhost/README.md`).
+a newer emulator. From 0.6 it is released with Breeze Studio, as `emuhost_<version>.zip` (with `core/emuhost/README.md`) on the
+[latest Breeze Studio release](https://github.com/tomvita/Breeze-Studio/releases/latest); 0.5 is in Breeze beta129.04.
 
 1. In the emulator's Debug settings: **Enable GDB stub** (port 6543). With
    the stub on, a game waits at its first instruction until a debugger attaches, so a game

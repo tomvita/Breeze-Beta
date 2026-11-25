@@ -28,7 +28,7 @@ This project started as a rewrite of the features implemented in EdiZon SE. Over
 -   **Rebase**: Carry cheats to a new version of the same game.
 -   **Overlay Mode**: Show Breeze on top of the running game and switch with the HOME button.
 -   **PC Connect and PC App**: See and drive Breeze from a PC, take save snapshots, and copy files, while the game runs.
--   **Breeze Studio**: One window on the PC with a tab for each job: memory search, cheats, bookmarks, a Unity game's objects, watches, the disassembler and files.
+-   **Breeze Studio**: One window on the PC with a tab for each job: memory search, cheats, bookmarks, a Unity game's objects, watches, the disassembler and files. Released at [Breeze-Studio](https://github.com/tomvita/Breeze-Studio/releases/latest) with the PC app, emuhost and pchost.
 -   **Auto-Update**: Keep the app and database up to date automatically.
 -   **Consistent UI**: A user-friendly interface designed for seamless navigation. Includes **Radial Selection** (hold ZL and use stick) for quick action activation.
 
