@@ -300,6 +300,7 @@ The PC app's two-panel file manager: the SD card on one side, the PC on the othe
 Studio is not only for a Switch. The same window works with a game running in an emulator on the PC, when something there answers Breeze's PC connect protocol; give `127.0.0.1` (or `127.0.0.1:port`) as the address. Studio asks the other side what it can do and shows only the tabs that apply; there is no Screen tab, because there is no Breeze screen. [PC Connect](pcconnect.md#other-hosts-emulators) describes the two kinds of host: an emulator with Breeze's core built in, and `emuhost`, a small program that runs beside an unmodified emulator of the yuzu family and uses its GDB stub.
 
 - A game's files are in `switch/breeze/cheats/<title id>/` on the emulator's SD card. Breeze running inside the emulator uses that folder too, whatever its setting, so names, labels and maps made in Studio are where Breeze looks.
+- **emuhost** (for an emulator without Breeze's own PC connect) is released with Studio: `emuhost_<version>.zip` on the [latest Breeze Studio release](https://github.com/tomvita/Breeze-Studio/releases/latest).
 - The Files tab names the game's folder on the PC after the game (emuhost reads the name from the emulator's window title).
 - **Save to SD** in the Cheats tab starts the cheat file the way Breeze does: a `[Breeze ... TID: ... BID: ...]` line and your signature from Breeze's settings.
 - **Find pointer chains to here** (Memory tab) works only here, not with a Switch yet.

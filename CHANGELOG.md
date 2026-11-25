@@ -1,5 +1,9 @@
 # Changelog
 
+## emuhost 0.6 - 2026-11-25
+
+- emuhost is released with Breeze Studio from now on: `emuhost_0.6.zip` on [Breeze Studio 0.09](https://github.com/tomvita/Breeze-Studio/releases/tag/0.09), always on the [latest Breeze Studio release](https://github.com/tomvita/Breeze-Studio/releases/latest). 0.5 stays in Beta 129.04. 0.6 has the new shared core: pointer scans keep every route, and `chains` reads many pointer chains in one request.
+
 ## [Beta 129.06] - 2026-11-23
 
 - Same gen2 fork (v0.21), HOME daemon (SwitchU 1.2.0o), sys-ftp and emuhost (0.5) as 129.04. Breeze.nro changed. The PC tools are released on their own now: use [Breeze Studio 0.06](https://github.com/tomvita/Breeze-Studio/releases/tag/0.06) (`pc_app.zip`, `pchost_0.6c.zip`).
