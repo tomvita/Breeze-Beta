@@ -11,7 +11,7 @@ It is released on its own, from Studio 0.05, at [tomvita/Breeze-Studio](https://
 - Breeze **beta129.00** or later on the Switch, with PC connect on (Settings > **PC connect**; the screen shows the Switch's address and the code).
 - The Switch and the PC on the same network.
 - **Python 3** on the PC, with Tk (the Windows installer from python.org includes it; on Linux install `python3-tk`).
-- The **Pillow** and **capstone** packages: `pip install pillow capstone`. For **Hook here** in the Code tab also **keystone-engine** (`pip install keystone-engine`).
+- The **Pillow** and **capstone** packages. The first time Studio starts without them it lists them and installs them if you say Yes (or run `py -m pip install pillow capstone` yourself). For **Hook here** in the Code tab also **keystone-engine** (`py -m pip install keystone-engine`).
 - Everything from `pc_app.zip` in one folder, keeping the `studio` folder beside `breeze_studio.py`.
 
 ## Start
@@ -23,7 +23,20 @@ python breeze_studio.py
 python breeze_studio.py 192.168.1.65 0303
 ```
 
-Type the Switch's address and the code at the top and press **Connect**. Both are remembered, with the Switches you used before in the address list.
+Start what Studio talks to, then type its address and code at the top and press **Connect**. Both are remembered, with the ones you used before in the address list. The Start tab says the same:
+
+| You use Studio with | First | Address | Code |
+|---|---|---|---|
+| a Switch | open Breeze, turn on Settings > **PC connect** (same network as the PC) | the IP Breeze shows | the code Breeze shows |
+| the Lichii fork | Configure > Debug > **Enable PC connect**, start a game | `127.0.0.1` | the code shown there |
+| another yuzu-family emulator | turn on **Enable GDB stub** in its Debug settings, start the game, then `emuhost.exe` ([Emulators](#emulators)) | `127.0.0.1` | `1234` |
+| a game on this PC | start the game, then `pchost.exe` ([PC games](#pc-games-pchost)) | `127.0.0.1` | `1234` |
+
+When Connect fails, the header says why and the Start tab says what to check:
+
+- **nothing answers at ...**: nothing is listening at that address yet. Turn on PC connect in Breeze, start emuhost or pchost, or type `ip:port` if the program uses another port.
+- **no answer from ...**: the IP is wrong (it can change after the router or the Switch restarts), the Switch is asleep or Breeze is closed, or the PC and the Switch are on different networks (a guest network, a VPN or a firewall).
+- **wrong code**: the code is wrong; the message says where the right one is shown.
 
 ## The header
 
