@@ -187,12 +187,21 @@ cheat process` otherwise).
 | `meta` | JSON: title id, pid, build id, main / heap / alias regions; with a master cheat that sets R1, `r1` (main + r1 = that loaded module's code, where `04010000` stores go) and `r1_size` |
 | `maps` | every mapped region: `addr size perm type=<n>` |
 | `peek <hexaddr> <len>` | up to 4096 bytes, as hex |
+| `peekn <len> <hexaddr>...` | `len` bytes (1-64) at each of up to 4096 addresses in one binary reply (`+OK bytes=N`): a byte per address (1 read, 0 not readable, its bytes then 0), then the pieces in order. Studio reads every Unreal object's header with it, 2048 a request instead of a 4 KB page each |
 | `poke <hexaddr> <hexbytes>` | writes them |
 | `watch <hexaddr> <len> <hz> <ms>` | samples on the console, then sends one hex line per sample |
 | `hold <hexaddr> [width]` / `unhold <hexaddr>` / `holds` | dmnt's frozen addresses |
 | `freeze` / `resume` | pauses and resumes the game |
 | `cheats` | every cheat: `id on\|off name`; the header gives the counts and how many are parked |
 | `cheats open` | asks dmnt to open the game's cheat process (ForceOpenCheatProcess) and reports the result code, the pid and main base dmnt then holds, whether it is attached at once and 200 ms later, and pm's application pid. For telling "dmnt has no cheat process" apart from "Breeze did not pick it up" |
+| `aobscan <bytes> [max=N]` | where a byte pattern is in the game's executable memory: hex pairs, spaced or not, `??` any byte; at most N hits (16). `+OK aobscan matches=<n>[+] bytes= scanned_mb= ms=`, then `<address> <region+offset>` per hit, then `.`. The search an x64 AOB cheat makes when it is turned on; Studio's Make AOB hook uses it to check a pattern is unique |
+| `hotkeys` / `hotkeys set <id> <key\|none>` | pchost: every cheat's toggle key, `<id> <key or -> [<name>]` a line then `.`; `set` gives one (F1, Ctrl+F2, Num5, Pad Back+Up; `none` takes it away; a key another cheat had moves). Kept in `hotkeys.txt` beside the cheat file, by name. pchost turns the cheat on or off when the key is pressed with the game in front, with a beep |
+| `monomap [fields\|jit\|all]` | pchost, a Unity Mono game: asks its runtime (through `breeze_mono.dll`, loaded into the game the first time) for every class, field, offset and static block (`mono_field_map.txt`) and every compiled method with its code (`mono_function_map.txt`), in the game's folder. `+OK fields: <n> classes ... -> mono_field_map.txt; jit: <n> compiled methods ...` |
+| `mono ping` / `mono at <addr>` / `mono compile <Ns.Class::Method[/n]>` | pchost, Mono: the runtime's name; the method at an address and the offset into it (`+OK <start> PlayerHealth::set_Health/1+0x33`); a method's code by name, compiled if it was not (`+OK <code> PlayerHealth::set_Health/1`); `mono statics <Ns.Class>`: this run's address of a class's static data (`+OK 214D2BF6C80 Player statics`); `mono methods <Ns.Class>`: every method the class declares, compiled or not, multi-line: `+OK methods=41 PlayerHealth`, then `<S|I><V|-><A|-> <params> PlayerHealth::set_Health/1` (static/instance, virtual, abstract), then `.` |
+| `roots` / `roots set <reg> <spec>` / `roots clear <reg>` | pchost: `roots.txt` beside the cheat file, static registers 00-7F that pchost fills before every cheat pass, in every run, with a place found by name (a cheat reads one with `C3000XXx`). spec: `Player` or `mono:Player` (a Mono class's statics), `mod:UnityPlayer.dll` (a module's base), `fn:PlayerHealth::set_Health/1` (a Mono method's code). The list is multi-line: `+OK roots file=...`, then `40 Player 214D2BF6C80` (or `40 Player - <why not found>`), then `.`. `monoroots` is the same command (its name before roots of other kinds) |
+| `root <spec>` | pchost: a root's address now, not kept: `+OK 7FFC23AE0000 mod:UnityPlayer.dll` |
+| `modules` | pchost: every module of the game, multi-line: `+OK modules=138`, then `<hexbase> <hexsize> game|system|other <name>` (`game`: in the exe's folder, `system`: in Windows', `other`: the rest, such as overlays), then `.` |
+| `cheats aob` | pchost: every block of the x64 AOB cheats that are on, `[name] block n: in at <hook>, cave <address>` or why it is not in (`waiting: the pattern is not in the game's code (yet ...)`). `+OK aob hooks=<n>`, then a line each, then `.` |
 | `cheats off [all\|<id>...]` | turns cheats off (all when no id is given) and remembers which ones it turned off |
 | `cheats on <all\|id...>` | turns cheats on (and forgets them) |
 | `cheats restore` | turns back on everything `cheats off` turned off since the last restore; cheats that were already off stay off |
@@ -207,7 +216,7 @@ cheat process` otherwise).
 | | `ptrscan` uses the index too: the server's when it is of this game (`index=server`), else one made for the scan and freed after (`index_ms=`); every level is then binary searches, not a pass over memory. Values are taken 8-aligned |
 | `chain <base> <hexoff>... [+<hexoff>]` | the cheat VM's walk in one round trip: reads `[base]`, then `[value + off]` for each offset; a final `+off` is only added. Prints every hop and the 8 bytes at the end as hex, u32, f32 and u64 |
 | `chains <chain>; <chain>; ...` | emulator hosts and pchost: many `chain` walks in one round trip, for a list of pointer chains (Studio's Pointers tab). A line per chain, in order: `<end address> <8 bytes hex>`, `-` when a hop or the end cannot be read, `? <why>` for a chain it cannot parse. Lines are at most 64 KB, so send about 1,000 chains at a time. On pchost 5,000 chains read in 0.17 s, against 1.5 s as single `chain` commands |
-| `ptrscan <addr> [depth] [hexmaxoff] [max] [seconds] [hexmaxnodes]` | emulator hosts: the pointer chains from main to an address, shortest first, each a line `chain` takes (`main+71BAD0 0 E8 +20`). One pass over the writable memory per level matches every qword against all of that level's nodes at once (a value up to `maxoff` below a node); a qword in main ends a chain, one in the heap is searched further. Defaults: depth 4, offsets up to 800, 50 chains, 120 s, 40000 nodes a level. Every level is searched to its end and the chains sorted afterwards; the header gives `found=` (all chains), `levels=` (new nodes per level) and `max` (more than `max` found), `capped` or `timed_out` when a limit was hit. Which chain the game keeps after a restart only a second run tells: Studio's Memory tab > Find pointer chains to here keeps the list and drops the ones that stop landing on the value |
+| `ptrscan <addr> [depth] [hexmaxoff] [max] [seconds] [hexmaxnodes] [@<hexstart>+<hexsize>...]` | emulator hosts: the pointer chains from main to an address, shortest first, each a line `chain` takes (`main+71BAD0 0 E8 +20`). One pass over the writable memory per level matches every qword against all of that level's nodes at once (a value up to `maxoff` below a node); a qword in main ends a chain, one in the heap is searched further. Defaults: depth 4, offsets up to 800, 50 chains, 120 s, 40000 nodes a level. Every level is searched to its end and the chains sorted afterwards; the header gives `found=` (all chains), `levels=` (new nodes per level) and `max` (more than `max` found), `capped` or `timed_out` when a limit was hit. Which chain the game keeps after a restart only a second run tells: Studio's Memory tab > Find pointer chains to here keeps the list and drops the ones that stop landing on the value. Each `@start+size` word is one more place a chain may start (a client's roots: Studio passes a Unity Mono class's statics and the game's DLLs); a chain from the n-th, counted from 0 in the order given, prints as `@n+<off> ...`, and the ranges must not overlap |
 
 Addresses for `refs`, `ptrscan` and `chain` are hex, or `main+X`, `heap+X`, `alias+X`.
 `chain main+6DDAF60 B8 0 28 80 10 20 10 20 28 18 0 +58` is the same walk as a
@@ -293,7 +302,7 @@ the same functions as their buttons but have not been run from here.
 | `instances <hex class pointer>` | starts Breeze's scan for the live objects of a Unity class and of its subclasses. The class pointer is the first word of any object of the class |
 | `instances` | the scan: `done`, `progress`, `objects` (addresses). About 9 s on a 4 GB game |
 | `probe <ms> <hz> <hexaddr>:<len>... [press <keys> <at_ms> <hold_ms>]` | samples up to 16 values (1 to 16 bytes each) on one clock for `ms`, and can press game buttons at `at_ms` of the same run. One line per sample: the time in ms, then each value as hex (`?` where a read failed) |
-| `xref call <addr>` | every `b` / `bl` in main's code whose target is `addr`, as `M+<offset> <word>` |
+| `xref call <addr>` | every `b` / `bl` in main's code whose target is `addr`, as `M+<offset> <word>`. On a PC game (pchost, `x64` in caps): every `call rel32` / `jmp rel32` and `mov r11, addr; call r11` (how Mono's compiled code calls) to `addr` in all executable memory (the exe, every DLL, a JIT's code), as `M+<offset> call` in main or `<address> call|jmp` elsewhere; bytes are matched, not decoded (a match inside another instruction is possible, rarely) |
 | `xref insn <hexmask> <hexvalue> [<hexlo> <hexhi>] [max]` | every instruction word `w` in main's code with `(w & mask) == value`; `lo` / `hi` are offsets from main that limit the stretch scanned |
 | `cheats state` | every cheat as `id:on` / `id:off`, on one line |
 | `cheats state <id>:on <id>:off ...` | makes exactly those so. Use it to put a list back as it was found; `cheats restore` turns on whatever `cheats off` turned off, including cheats that were off to begin with |
@@ -831,7 +840,7 @@ One call of each command was sent to the fork's own server and to emuhost
 | `state` | Breeze's screen and the game | the game only: `"emulator":true`, `"menu":null` |
 | `events on` | `*EVENT state` lines | `*EVENT` lines about other clients' commands and the probe |
 | `rows` `action` `press` `keydown` `keyup` `button` `tap` `select` `text` `cancel` `show` `hide` `keys` `focus` `restart` | yes | `-ERR the emulator has no Breeze screens to drive` |
-| `probe` | samples values around a key press | the fork's code/data watch (another command under the same name; every `+OK` reply ends with `.`); emuhost: the `probe data` part with the same replies (`status`, `data add\|list\|regs\|max\|stop\|clear`), on the stub's watchpoints, cap `datawatch`; `probe code` is refused there; `probe regwatch` (cap `regwatch`) is its instruction watch, below |
+| `probe` | samples values around a key press | the fork's code/data watch (another command under the same name; every `+OK` reply ends with `.`); emuhost: the `probe data` part with the same replies (`status`, `data add\|list\|regs\|max\|stop\|clear`), on the stub's watchpoints, cap `datawatch`; `probe code` is refused there; `probe regwatch` (cap `regwatch`) is its instruction watch, below. pchost: `probe data` on the CPU's debug registers, and `probe code` as the fork answers it (`code start [main|<from> <to>] [count N]`, `code add <addr>... [count N]`, `mark`, `list [new|all|hot] [n]`, `stop`, `clear`) on one-time `int3` breaks at main's `.pdata` function starts; `x0=` in a row is `rcx`, the first argument on x64 Windows |
 | `hello <name>` `activity [n]` `breeze state\|stop` | no | yes: name this client, the last commands of every client, Breeze over the game |
 | `dbg` | yes (gen2) | emuhost: the same replies, on the stub's software breakpoints (`bp`, `bp clear`, `runto`, `step`, `over`, `cont`, `stop`, `reg`, `v`; no `threads`); the status also has `break_word`, the word the stub writes. The fork: no |
 | `capture` `gamepad` and the other game input, `gen2` `codewatch` `fieldwatch` `methodwatch` `gmvars` `stats` `ftp` and "Developing Breeze" | yes | no |
@@ -955,9 +964,9 @@ emuhost does for a game in an emulator. Releases carry it as `pchost_<version>.z
    breakpoint is on: they live in the game's threads, and a killed pchost leaves them there, which
    crashes the game at the next hit.
 
-`caps`: `read write codewrite pause maps jobs search holds cheats datawatch x64`. `x64` tells
+`caps`: `read write codewrite pause maps jobs search holds cheats datawatch regwatch x64`. `x64` tells
 Studio the code is x86-64: its Code tab disassembles it as such (functions from the exe's
-`.pdata`), and the ARM64 tools (Patch, Hook, the F8 instruction watch, the C pane) stay off.
+`.pdata`), and the ARM64 tools (Patch, Hook, the C pane) stay off.
 
 - **The game as dmnt would see it:** main is the exe's image (GameAssembly.dll's for
   a Unity IL2CPP game); heap is the whole address space,
@@ -971,8 +980,19 @@ Studio the code is x86-64: its Code tab disassembles it as such (functions from 
   row's pc is the instruction after the access (x86 breaks once it ran). Registers: `rax`..`r15`,
   `sp`, `pc`, `eflags`. `probe status` has `"host":"pc"`. No `dbg`: Studio's Code tab takes the
   probe for its debugger, as on the fork.
+- **`probe regwatch`** (cap `regwatch`, Studio's F8): emuhost's instruction watch on an execute
+  breakpoint of its own (one of the four). Each run works out base + (index << shift) + disp from
+  the registers (`rax`..`r15`, `eax`..`r15d` = the low 32 bits, `rip`, `sp`), counts it and lets the
+  thread run on; the game's code is not written. At a method's first instruction `rcx` is the object
+  it ran on, so `regwatch start <addr> rcx - 0 0` lists the objects. `hold`, `max`, `rows`, `last`
+  (registers by these names) and `stop` as on emuhost; a hold keeps only that thread.
 - **Cheats:** Breeze's cheat VM, 12 passes a second; key cheats read an XInput pad by the
   buttons' names (A = A, LB / RB = L / R, LT / RT = ZL / ZR, Menu / View = Plus / Minus).
+- **x64 AOB code cheats** (0.7): a cheat starting `FC0A0B01` names the game's bytes, a cave and
+  how many bytes the hook replaces; pchost finds the bytes when it is turned on (again every few
+  seconds until the code exists), puts the cave near and writes the jump, and puts the bytes back
+  when it goes off. `cheats aob` lists each such hook that is on, where it went or why not.
+  `studio/aob_cheat.py` makes them from a Cheat Engine table. The form is in pchost's README.
 
 Checked on The Adventures of Elliot (Unreal Engine 5.6, a protected exe): engine scan, `uemap`
 (200,424 objects, 6,575 classes), Studio's Objects, field view, search (26 s for a first u32 over
